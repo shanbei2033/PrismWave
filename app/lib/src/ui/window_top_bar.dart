@@ -59,14 +59,6 @@ class _WindowTopBarState extends State<WindowTopBar> with WindowListener {
                 color: Colors.white.withValues(alpha: 0.94),
               ),
             ),
-            const SizedBox(width: 10),
-            Text(
-              'Desktop Demo',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.white.withValues(alpha: 0.58),
-              ),
-            ),
           ] else
             const SizedBox(width: 4),
           const Expanded(child: DragToMoveArea(child: SizedBox.expand())),

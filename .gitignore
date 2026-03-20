@@ -8,6 +8,8 @@ Thumbs.db
 backups/
 *.log
 *.tmp
+release/
+release_test_install/
 
 # Flutter / Dart
 app/.dart_tool/

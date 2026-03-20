@@ -159,14 +159,6 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            t.localMusicPlayer,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.72),
-              fontSize: 13,
-            ),
-          ),
           const SizedBox(height: 18),
           _navButton(
             section: MainSection.library,

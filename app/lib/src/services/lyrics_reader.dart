@@ -6,12 +6,13 @@ import 'package:dart_tags/dart_tags.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/lyric_line.dart';
+import '../models/lyrics_document.dart';
 
 final RegExp _timeTagPattern = RegExp(
   r'\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]',
 );
 
-Future<List<LyricLine>> readLyricsForTrack(
+Future<LyricsDocument?> readLocalLyricsDocumentForTrack(
   String audioPath, {
   Duration? durationHint,
   String? title,
@@ -19,8 +20,14 @@ Future<List<LyricLine>> readLyricsForTrack(
 }) async {
   final embedded = await _readEmbeddedLyrics(audioPath);
   if (embedded != null && embedded.trim().isNotEmpty) {
-    final parsed = _parseLyrics(embedded, durationHint: durationHint);
-    if (parsed.isNotEmpty) return parsed;
+    final parsed = parseLyricsDocument(embedded, durationHint: durationHint);
+    if (parsed != null && !parsed.isEmpty) {
+      return LyricsDocument(
+        lines: parsed.lines,
+        isSynced: parsed.isSynced,
+        rawText: embedded,
+      );
+    }
   }
 
   final sidecar = await _readSidecarLrc(
@@ -29,11 +36,33 @@ Future<List<LyricLine>> readLyricsForTrack(
     artist: artist,
   );
   if (sidecar != null && sidecar.trim().isNotEmpty) {
-    final parsed = _parseLyrics(sidecar, durationHint: durationHint);
-    if (parsed.isNotEmpty) return parsed;
+    final parsed = parseLyricsDocument(sidecar, durationHint: durationHint);
+    if (parsed != null && !parsed.isEmpty) {
+      return LyricsDocument(
+        lines: parsed.lines,
+        isSynced: parsed.isSynced,
+        rawText: sidecar,
+      );
+    }
   }
 
-  return const <LyricLine>[];
+  return null;
+}
+
+Future<List<LyricLine>> readLyricsForTrack(
+  String audioPath, {
+  Duration? durationHint,
+  String? title,
+  String? artist,
+}) async {
+  return (await readLocalLyricsDocumentForTrack(
+        audioPath,
+        durationHint: durationHint,
+        title: title,
+        artist: artist,
+      ))
+          ?.lines ??
+      const <LyricLine>[];
 }
 
 Future<String?> _readEmbeddedLyrics(String audioPath) async {
@@ -421,7 +450,7 @@ String? _findLyricsInDynamic(dynamic input) {
   return null;
 }
 
-List<LyricLine> _parseLyrics(String raw, {Duration? durationHint}) {
+LyricsDocument? parseLyricsDocument(String raw, {Duration? durationHint}) {
   final normalized = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
   final lines = normalized.split('\n');
   final parsed = <LyricLine>[];
@@ -444,23 +473,31 @@ List<LyricLine> _parseLyrics(String raw, {Duration? durationHint}) {
 
   if (parsed.isNotEmpty) {
     parsed.sort((a, b) => a.time.compareTo(b.time));
-    return parsed;
+    return LyricsDocument(
+      lines: parsed,
+      isSynced: true,
+      rawText: raw,
+    );
   }
 
-  if (plain.isEmpty) return const <LyricLine>[];
+  if (plain.isEmpty) return null;
 
   final totalMs = durationHint != null && durationHint > Duration.zero
       ? durationHint.inMilliseconds
       : plain.length * 3200;
   final stepMs = (totalMs / plain.length).round().clamp(1200, 8000);
 
-  return List<LyricLine>.generate(
-    plain.length,
-    (index) => LyricLine(
-      time: Duration(milliseconds: stepMs * index),
-      text: plain[index],
+  return LyricsDocument(
+    lines: List<LyricLine>.generate(
+      plain.length,
+      (index) => LyricLine(
+        time: Duration(milliseconds: stepMs * index),
+        text: plain[index],
+      ),
+      growable: false,
     ),
-    growable: false,
+    isSynced: false,
+    rawText: raw,
   );
 }
 

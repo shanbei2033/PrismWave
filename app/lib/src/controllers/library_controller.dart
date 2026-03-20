@@ -6,10 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:metadata_god/metadata_god.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/lyric_line.dart';
+import '../models/lyrics_document.dart';
+import '../models/lyrics_source_type.dart';
+import '../models/online_lyrics_search_result.dart';
 import '../models/track.dart';
 import '../services/library_scanner.dart';
 import '../services/lyrics_reader.dart';
+import '../services/online_lyrics_service.dart';
 import '../services/track_duration_resolver.dart';
 import '../state/library_state.dart';
 
@@ -19,6 +22,7 @@ class LibraryController extends StateNotifier<LibraryState> {
   }
 
   int _metadataJobSeed = 0;
+  final OnlineLyricsService _onlineLyricsService = OnlineLyricsService();
 
   static const _prefRootPath = 'library.rootPath';
   static const _prefLibraryFolders = 'library.folders';
@@ -59,10 +63,9 @@ class LibraryController extends StateNotifier<LibraryState> {
       dialogTitle: 'Select Music Folder',
     );
     if (selected == null) return;
-    final nextFolders = <String>{
-      ...state.libraryFolders,
-      selected,
-    }.toList(growable: false);
+    final nextFolders = <String>{...state.libraryFolders, selected}.toList(
+      growable: false,
+    );
     await _scanFolders(nextFolders, persistFolders: true);
   }
 
@@ -77,14 +80,12 @@ class LibraryController extends StateNotifier<LibraryState> {
     await _scanFolders(state.libraryFolders, persistFolders: false);
   }
 
-  // Backward-compatible wrappers for earlier UI calls.
   Future<void> pickAndScanDirectory() => addMusicFolder();
 
   Future<void> scanDirectory(String path, {required bool persistRoot}) async {
-    final nextFolders = <String>{
-      ...state.libraryFolders,
-      path,
-    }.toList(growable: false);
+    final nextFolders = <String>{...state.libraryFolders, path}.toList(
+      growable: false,
+    );
     await _scanFolders(nextFolders, persistFolders: persistRoot);
   }
 
@@ -101,24 +102,44 @@ class LibraryController extends StateNotifier<LibraryState> {
 
     try {
       final scanned = await scanTracksFromRoots(folders);
+      final activePaths = scanned.map((track) => track.path).toSet();
+
       final nextDurations = <String, Duration>{};
       final nextCoverBytes = <String, Uint8List>{};
-      final nextLyrics = <String, List<LyricLine>>{};
-      final previousDurations = state.durationByPath;
-      final previousCoverBytes = state.coverBytesByPath;
-      final previousLyrics = state.lyricsByPath;
+      final nextLocalLyrics = <String, LyricsDocument>{};
+      final nextOnlineLyrics = <String, LyricsDocument>{};
+      final nextPreferredSources = <String, LyricsSourceType>{};
+      final nextLocalResolved = <String>{};
+      final nextOnlineResolved = <String>{};
+
       for (final track in scanned) {
-        final duration = previousDurations[track.path];
-        final coverBytes = previousCoverBytes[track.path];
-        final lyrics = previousLyrics[track.path];
+        final path = track.path;
+        final duration = state.durationByPath[path];
+        final coverBytes = state.coverBytesByPath[path];
+        final localLyrics = state.localLyricsByPath[path];
+        final onlineLyrics = state.onlineLyricsByPath[path];
+        final preferred = state.preferredLyricsSourceByPath[path];
+
         if (duration != null) {
-          nextDurations[track.path] = duration;
+          nextDurations[path] = duration;
         }
         if (coverBytes != null && coverBytes.isNotEmpty) {
-          nextCoverBytes[track.path] = coverBytes;
+          nextCoverBytes[path] = coverBytes;
         }
-        if (lyrics != null && lyrics.isNotEmpty) {
-          nextLyrics[track.path] = lyrics;
+        if (localLyrics != null && !localLyrics.isEmpty) {
+          nextLocalLyrics[path] = localLyrics;
+        }
+        if (onlineLyrics != null && !onlineLyrics.isEmpty) {
+          nextOnlineLyrics[path] = onlineLyrics;
+        }
+        if (preferred != null) {
+          nextPreferredSources[path] = preferred;
+        }
+        if (state.localLyricsResolvedPaths.contains(path)) {
+          nextLocalResolved.add(path);
+        }
+        if (state.onlineLyricsResolvedPaths.contains(path)) {
+          nextOnlineResolved.add(path);
         }
       }
 
@@ -126,7 +147,14 @@ class LibraryController extends StateNotifier<LibraryState> {
         tracks: scanned,
         durationByPath: nextDurations,
         coverBytesByPath: nextCoverBytes,
-        lyricsByPath: nextLyrics,
+        localLyricsByPath: nextLocalLyrics,
+        onlineLyricsByPath: nextOnlineLyrics,
+        preferredLyricsSourceByPath: nextPreferredSources,
+        localLyricsResolvedPaths: nextLocalResolved,
+        onlineLyricsResolvedPaths: nextOnlineResolved,
+        lyricsLoadingPaths: state.lyricsLoadingPaths
+            .where(activePaths.contains)
+            .toSet(),
         isScanning: false,
       );
 
@@ -263,22 +291,218 @@ class LibraryController extends StateNotifier<LibraryState> {
   bool isFavorite(Track track) => state.favoritePaths.contains(track.path);
 
   Future<void> ensureLyricsLoaded(Track track) async {
-    if (state.lyricsByPath.containsKey(track.path)) return;
+    await _ensureLocalLyricsLoaded(track);
 
-    final lyrics = await readLyricsForTrack(
+    final local = state.localLyricsByPath[track.path];
+    if (local != null && !local.isEmpty) return;
+
+    state = state.copyWith(
+      preferredLyricsSourceByPath: <String, LyricsSourceType>{
+        ...state.preferredLyricsSourceByPath,
+        track.path: LyricsSourceType.online,
+      },
+    );
+
+    await _ensureOnlineLyricsLoaded(
+      track,
+      autoSelectOnline: true,
+      forceReload: false,
+    );
+  }
+
+  Future<void> selectLyricsSource(Track track, LyricsSourceType source) async {
+    state = state.copyWith(
+      preferredLyricsSourceByPath: <String, LyricsSourceType>{
+        ...state.preferredLyricsSourceByPath,
+        track.path: source,
+      },
+    );
+
+    if (source == LyricsSourceType.local) {
+      await _ensureLocalLyricsLoaded(track);
+      final local = state.localLyricsByPath[track.path];
+      if (local == null || local.isEmpty) {
+        state = state.copyWith(
+          preferredLyricsSourceByPath: <String, LyricsSourceType>{
+            ...state.preferredLyricsSourceByPath,
+            track.path: LyricsSourceType.online,
+          },
+        );
+        await _ensureOnlineLyricsLoaded(
+          track,
+          autoSelectOnline: true,
+          forceReload: false,
+        );
+      }
+      return;
+    }
+
+    await _ensureOnlineLyricsLoaded(
+      track,
+      autoSelectOnline: true,
+      forceReload: true,
+    );
+  }
+
+  Future<List<OnlineLyricsSearchResult>> searchOnlineLyrics(
+    Track track,
+    String query,
+  ) async {
+    final normalized = query.trim().isEmpty ? track.title : query.trim();
+    return _onlineLyricsService.searchLyricsForTrack(
+      track,
+      query: normalized,
+      durationHint: state.durationByPath[track.path],
+    );
+  }
+
+  Future<void> applyManualOnlineLyricsSelection(
+    Track track,
+    OnlineLyricsSearchResult result,
+  ) async {
+    final raw = result.preferredRawLyrics;
+    if (raw == null || raw.trim().isEmpty) {
+      state = state.copyWith(error: 'Selected lyric item is empty.');
+      return;
+    }
+
+    final parsed = parseLyricsDocument(
+      raw,
+      durationHint: state.durationByPath[track.path],
+    );
+    if (parsed == null || parsed.isEmpty) {
+      state = state.copyWith(error: 'Selected lyric item cannot be parsed.');
+      return;
+    }
+
+    final document = LyricsDocument(
+      lines: parsed.lines,
+      isSynced: parsed.isSynced,
+      rawText: raw,
+      provider: result.provider,
+      remoteId: result.id,
+      title: result.title,
+      artist: result.artist,
+      album: result.album,
+      byteSize: result.byteSize,
+    );
+
+    await _onlineLyricsService.saveCachedLyricsForTrack(track, document);
+    _storeOnlineLyricsDocument(track, document, selectOnline: true);
+  }
+
+  Future<void> _ensureLocalLyricsLoaded(Track track) async {
+    if (state.localLyricsResolvedPaths.contains(track.path)) return;
+
+    final document = await readLocalLyricsDocumentForTrack(
       track.path,
       durationHint: state.durationByPath[track.path],
       title: track.title,
       artist: track.artist,
     );
-    if (lyrics.isEmpty) return;
+
+    final nextResolved = <String>{...state.localLyricsResolvedPaths, track.path};
+    final nextLocal = <String, LyricsDocument>{...state.localLyricsByPath};
+    if (document != null && !document.isEmpty) {
+      nextLocal[track.path] = document;
+    } else {
+      nextLocal.remove(track.path);
+    }
 
     state = state.copyWith(
-      lyricsByPath: <String, List<LyricLine>>{
-        ...state.lyricsByPath,
-        track.path: lyrics,
+      localLyricsByPath: nextLocal,
+      localLyricsResolvedPaths: nextResolved,
+    );
+  }
+
+  Future<void> _ensureOnlineLyricsLoaded(
+    Track track, {
+    required bool autoSelectOnline,
+    required bool forceReload,
+  }) async {
+    if (state.lyricsLoadingPaths.contains(track.path)) return;
+
+    if (!forceReload && state.onlineLyricsResolvedPaths.contains(track.path)) {
+      if (autoSelectOnline &&
+          state.onlineLyricsByPath[track.path] != null &&
+          !state.onlineLyricsByPath[track.path]!.isEmpty) {
+        state = state.copyWith(
+          preferredLyricsSourceByPath: <String, LyricsSourceType>{
+            ...state.preferredLyricsSourceByPath,
+            track.path: LyricsSourceType.online,
+          },
+        );
+      }
+      return;
+    }
+
+    _setLyricsLoading(track.path, true);
+    try {
+      final durationHint = state.durationByPath[track.path];
+      final cached = await _onlineLyricsService.loadCachedLyricsForTrack(
+        track,
+        durationHint: durationHint,
+      );
+      if (cached != null && !cached.isEmpty) {
+        _storeOnlineLyricsDocument(track, cached, selectOnline: autoSelectOnline);
+        return;
+      }
+
+      final fetched = await _onlineLyricsService.fetchBestLyricsForTrack(
+        track,
+        durationHint: durationHint,
+      );
+      if (fetched != null && !fetched.isEmpty) {
+        await _onlineLyricsService.saveCachedLyricsForTrack(track, fetched);
+        _storeOnlineLyricsDocument(
+          track,
+          fetched,
+          selectOnline: autoSelectOnline,
+        );
+        return;
+      }
+
+      state = state.copyWith(
+        onlineLyricsResolvedPaths: <String>{
+          ...state.onlineLyricsResolvedPaths,
+          track.path,
+        },
+      );
+    } finally {
+      _setLyricsLoading(track.path, false);
+    }
+  }
+
+  void _storeOnlineLyricsDocument(
+    Track track,
+    LyricsDocument document, {
+    required bool selectOnline,
+  }) {
+    if (document.isEmpty) return;
+    state = state.copyWith(
+      onlineLyricsByPath: <String, LyricsDocument>{
+        ...state.onlineLyricsByPath,
+        track.path: document,
+      },
+      onlineLyricsResolvedPaths: <String>{
+        ...state.onlineLyricsResolvedPaths,
+        track.path,
+      },
+      preferredLyricsSourceByPath: <String, LyricsSourceType>{
+        ...state.preferredLyricsSourceByPath,
+        if (selectOnline) track.path: LyricsSourceType.online,
       },
     );
+  }
+
+  void _setLyricsLoading(String path, bool loading) {
+    final next = <String>{...state.lyricsLoadingPaths};
+    if (loading) {
+      next.add(path);
+    } else {
+      next.remove(path);
+    }
+    state = state.copyWith(lyricsLoadingPaths: next);
   }
 
   Future<void> toggleFavorite(Track track) async {

@@ -26,8 +26,7 @@ class AppStrings {
   String get searchArtist => _zh ? '搜索艺术家' : 'Search artist';
 
   String get noAlbumMatch => _zh ? '没有找到匹配的专辑' : 'No matching albums';
-  String get noArtistMatch =>
-      _zh ? '没有找到匹配的艺术家' : 'No matching artists';
+  String get noArtistMatch => _zh ? '没有找到匹配的艺术家' : 'No matching artists';
   String get noTrackMatch =>
       _zh ? '当前筛选条件下没有匹配的歌曲' : 'No matching tracks';
   String get addFolderFirst =>
@@ -63,7 +62,8 @@ class AppStrings {
     AppLanguage.enUs => 'English',
   };
 
-  String get audioOutputMode => _zh ? '音频输出模式' : 'Audio Output Mode';
+  String get audioOutputMode =>
+      _zh ? '音频输出模式' : 'Audio Output Mode';
   String outputModeLabel(AudioOutputMode mode) => switch (mode) {
     AudioOutputMode.compatibility =>
       _zh ? '兼容模式 (MPV)' : 'Compatibility (MPV)',
@@ -86,7 +86,7 @@ class AppStrings {
 
   String get developerMode => _zh ? '开发者模式' : 'Developer Mode';
   String get developerModeHint => _zh
-      ? '开启后弹出独立终端实时看日志，并同步写入本地日志文件'
+      ? '开启后弹出独立终端实时查看日志，并同步写入本地日志文件。'
       : 'Open a dedicated terminal and mirror logs to a local file in real time.';
   String get playbackLogs => _zh ? '播放日志' : 'Playback Logs';
   String get copy => _zh ? '复制' : 'Copy';
@@ -100,10 +100,23 @@ class AppStrings {
   String get singleLoop => _zh ? '单曲循环' : 'Single Loop';
   String get shuffle => _zh ? '随机播放' : 'Shuffle';
   String get back => _zh ? '返回' : 'Back';
-  String get noTrackPlaying =>
-      _zh ? '当前没有正在播放的歌曲' : 'No track is currently playing';
-  String get noLyricsFound =>
-      _zh ? '当前歌曲未找到可用歌词' : 'No lyrics found for this track';
+  String get noTrackPlaying => _zh
+      ? '当前没有正在播放的歌曲'
+      : 'No track is currently playing';
+  String get noLyricsFound => _zh
+      ? '当前歌曲未找到可用歌词'
+      : 'No lyrics found for this track';
+
+  String get loadingLyrics => _zh ? '正在加载歌词...' : 'Loading lyrics...';
+  String get lyricsSource => _zh ? '歌词来源' : 'Lyrics Source';
+  String get localLyricsSource => _zh ? '本地' : 'Local';
+  String get onlineLyricsSource => _zh ? '在线' : 'Online';
+  String get onlineLyricsSearch => _zh ? '在线搜索' : 'Online Search';
+  String get onlineLyricsSearchHint =>
+      _zh ? '按歌曲名搜索歌词' : 'Search lyrics by song name';
+  String get searchAction => _zh ? '搜索' : 'Search';
+  String get noOnlineLyricsResults =>
+      _zh ? '没有找到在线歌词结果' : 'No online lyrics found';
 
   String trackCountText(int count) => '$count $trackUnit';
   String albumTrackCountText(int count) =>

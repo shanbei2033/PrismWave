@@ -10,6 +10,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../i18n/app_strings.dart';
 import '../models/lyric_line.dart';
+import '../models/lyrics_document.dart';
+import '../models/lyrics_source_type.dart';
+import '../models/online_lyrics_search_result.dart';
 import '../models/playback_mode.dart';
 import '../models/track.dart';
 import '../providers.dart';
@@ -125,7 +128,10 @@ class _FullPlayBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final playbackCtrl = ref.read(playbackProvider.notifier);
     final coverBytes = library.coverBytesOf(track);
+    final lyricDocument = library.lyricsDocumentOf(track);
     final lyrics = library.lyricsOf(track);
+    final effectiveLyricsSource = library.effectiveLyricsSourceOf(track);
+    final lyricsLoading = library.isLyricsLoading(track);
     final currentLyricIndex = _resolveCurrentLyricIndex(
       lyrics,
       playback.currentTime,
@@ -340,6 +346,13 @@ class _FullPlayBody extends ConsumerWidget {
                         const SizedBox(width: 52),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    _LyricsSourceSelector(
+                      track: track,
+                      selectedSource: effectiveLyricsSource,
+                      isLoading: lyricsLoading,
+                      t: t,
+                    ),
                   ],
                 ),
               ),
@@ -348,7 +361,14 @@ class _FullPlayBody extends ConsumerWidget {
                 child: _SlotLyricsPanel(
                   lyrics: lyrics,
                   currentIndex: currentLyricIndex,
-                  noLyricsText: t.noLyricsFound,
+                  noLyricsText: lyricsLoading
+                      ? t.loadingLyrics
+                      : t.noLyricsFound,
+                  sourceText: _buildLyricsSourceText(
+                    lyricDocument: lyricDocument,
+                    source: effectiveLyricsSource,
+                    t: t,
+                  ),
                 ),
               ),
             ],
@@ -356,6 +376,22 @@ class _FullPlayBody extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  String _buildLyricsSourceText({
+    required LyricsSourceType source,
+    required AppStrings t,
+    required LyricsDocument? lyricDocument,
+  }) {
+    final sourceLabel = switch (source) {
+      LyricsSourceType.local => t.localLyricsSource,
+      LyricsSourceType.online => t.onlineLyricsSource,
+    };
+    final provider = lyricDocument?.provider?.toString();
+    if (provider == null || provider.trim().isEmpty) {
+      return sourceLabel;
+    }
+    return '$sourceLabel | ${provider.toUpperCase()}';
   }
 
   int _resolveCurrentLyricIndex(List<LyricLine> lyrics, Duration position) {
@@ -383,11 +419,13 @@ class _SlotLyricsPanel extends StatefulWidget {
     required this.lyrics,
     required this.currentIndex,
     required this.noLyricsText,
+    required this.sourceText,
   });
 
   final List<LyricLine> lyrics;
   final int currentIndex;
   final String noLyricsText;
+  final String sourceText;
 
   @override
   State<_SlotLyricsPanel> createState() => _SlotLyricsPanelState();
@@ -492,27 +530,50 @@ class _SlotLyricsPanelState extends State<_SlotLyricsPanel> {
           (constraints.maxHeight / 2) - (_itemExtent / 2),
         );
 
-        return ScrollConfiguration(
-          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-          child: ListView.builder(
-            controller: _controller,
-            itemExtent: _itemExtent,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.symmetric(vertical: topPadding),
-            itemCount: widget.lyrics.length,
-            itemBuilder: (_, index) {
-              final active = index == safeCurrent;
-              final distance = (index - safeCurrent).abs();
-              return Center(
-                child: _SlotLyricText(
-                  key: ValueKey('slot-line-$index-$safeCurrent'),
-                  text: widget.lyrics[index].text,
-                  active: active,
-                  distance: distance,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 10, bottom: 8),
+                child: Text(
+                  widget.sourceText,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.46),
+                    fontSize: 12,
+                    letterSpacing: 0.2,
+                  ),
                 ),
-              );
-            },
-          ),
+              ),
+            ),
+            Expanded(
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(context).copyWith(
+                  scrollbars: false,
+                ),
+                child: ListView.builder(
+                  controller: _controller,
+                  itemExtent: _itemExtent,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.symmetric(vertical: topPadding),
+                  itemCount: widget.lyrics.length,
+                  itemBuilder: (_, index) {
+                    final active = index == safeCurrent;
+                    final distance = (index - safeCurrent).abs();
+                    return Center(
+                      child: _SlotLyricText(
+                        key: ValueKey('slot-line-$index-$safeCurrent'),
+                        text: widget.lyrics[index].text,
+                        active: active,
+                        distance: distance,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -607,6 +668,377 @@ class _SlotLyricText extends StatelessWidget {
               child: inactiveWidget,
             ),
     );
+  }
+}
+
+class _LyricsSourceSelector extends ConsumerWidget {
+  const _LyricsSourceSelector({
+    required this.track,
+    required this.selectedSource,
+    required this.isLoading,
+    required this.t,
+  });
+
+  final Track track;
+  final LyricsSourceType selectedSource;
+  final bool isLoading;
+  final AppStrings t;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(libraryProvider.notifier);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Row(
+            children: [
+              Text(
+                t.lyricsSource,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.68),
+                  fontSize: 13,
+                ),
+              ),
+              const Spacer(),
+              if (isLoading)
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white.withValues(alpha: 0.88),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _LyricsSourceButton(
+                label: t.localLyricsSource,
+                selected: selectedSource == LyricsSourceType.local,
+                onPressed: () => controller.selectLyricsSource(
+                  track,
+                  LyricsSourceType.local,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _LyricsSourceButton(
+                label: t.onlineLyricsSource,
+                selected: selectedSource == LyricsSourceType.online,
+                onPressed: () => controller.selectLyricsSource(
+                  track,
+                  LyricsSourceType.online,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _LyricsSourceButton(
+                label: t.onlineLyricsSearch,
+                selected: false,
+                onPressed: () async {
+                  await showDialog<void>(
+                    context: context,
+                    builder: (_) =>
+                        _OnlineLyricsSearchDialog(track: track, t: t),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _LyricsSourceButton extends StatelessWidget {
+  const _LyricsSourceButton({
+    required this.label,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool selected;
+  final FutureOr<void> Function() onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = selected
+        ? Colors.white
+        : Colors.white.withValues(alpha: 0.82);
+    final background = selected
+        ? Colors.white.withValues(alpha: 0.18)
+        : Colors.white.withValues(alpha: 0.06);
+
+    return SizedBox(
+      height: 38,
+      child: TextButton(
+        onPressed: () {
+          onPressed();
+        },
+        style: TextButton.styleFrom(
+          foregroundColor: foreground,
+          backgroundColor: background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: Colors.white.withValues(alpha: selected ? 0.20 : 0.10),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          textStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
+class _OnlineLyricsSearchDialog extends ConsumerStatefulWidget {
+  const _OnlineLyricsSearchDialog({
+    required this.track,
+    required this.t,
+  });
+
+  final Track track;
+  final AppStrings t;
+
+  @override
+  ConsumerState<_OnlineLyricsSearchDialog> createState() =>
+      _OnlineLyricsSearchDialogState();
+}
+
+class _OnlineLyricsSearchDialogState
+    extends ConsumerState<_OnlineLyricsSearchDialog> {
+  late final TextEditingController _queryController;
+  bool _loading = false;
+  bool _hasSearched = false;
+  String? _error;
+  List<OnlineLyricsSearchResult> _results = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _queryController = TextEditingController(text: widget.track.title);
+  }
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search() async {
+    final query = _queryController.text.trim();
+    if (query.isEmpty) return;
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final results = await ref
+          .read(libraryProvider.notifier)
+          .searchOnlineLyrics(widget.track, query);
+      if (!mounted) return;
+      setState(() {
+        _hasSearched = true;
+        _results = results;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _hasSearched = true;
+        _loading = false;
+        _error = '$error';
+      });
+    }
+  }
+
+  Future<void> _selectResult(OnlineLyricsSearchResult result) async {
+    await ref
+        .read(libraryProvider.notifier)
+        .applyManualOnlineLyricsSelection(widget.track, result);
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+
+    return Dialog(
+      backgroundColor: const Color(0xFF0D1629),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: SizedBox(
+        width: 720,
+        height: 560,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    t.onlineLyricsSearch,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _queryController,
+                      decoration: InputDecoration(
+                        hintText: t.onlineLyricsSearchHint,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: const Icon(Icons.search_rounded),
+                      ),
+                      onSubmitted: (_) => _search(),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  FilledButton(
+                    onPressed: _loading ? null : _search,
+                    child: Text(t.searchAction),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              if (_loading)
+                const Expanded(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_error != null)
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      _error!,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.72),
+                      ),
+                    ),
+                  ),
+                )
+              else if (!_hasSearched)
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      t.onlineLyricsSearchHint,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.68),
+                      ),
+                    ),
+                  ),
+                )
+              else if (_results.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      t.noOnlineLyricsResults,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.68),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: _results.length,
+                    separatorBuilder: (_, _) => Divider(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      height: 1,
+                    ),
+                    itemBuilder: (_, index) {
+                      final result = _results[index];
+                      return ListTile(
+                        onTap: () => _selectResult(result),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        title: Text(
+                          '${result.title} - ${result.artist}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          _formatLyricsSize(result.byteSize),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.62),
+                          ),
+                        ),
+                        trailing: result.isSynced
+                            ? Text(
+                                'LRC',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.78),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              )
+                            : Text(
+                                'TXT',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.52),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatLyricsSize(int size) {
+    if (size >= 1024 * 1024) {
+      return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    if (size >= 1024) {
+      return '${(size / 1024).toStringAsFixed(1)} KB';
+    }
+    return '$size B';
   }
 }
 

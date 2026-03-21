@@ -1,5 +1,6 @@
 import '../models/app_language.dart';
 import '../models/audio_output_mode.dart';
+import '../models/top_bar_idle_mode.dart';
 
 class AppStrings {
   const AppStrings(this.appLanguage);
@@ -41,6 +42,13 @@ class AppStrings {
   String get duration => _zh ? '时长' : 'Duration';
   String get collect => _zh ? '收藏' : 'Favorite';
   String get uncollect => _zh ? '取消收藏' : 'Unfavorite';
+  String get details => _zh ? '详细信息' : 'Details';
+  String get revealInExplorer => _zh ? '定位到文件资源管理器' : 'Reveal in Explorer';
+  String get detailsTitle => _zh ? '歌曲详细信息' : 'Track Details';
+  String get audioTrack => _zh ? '音轨' : 'Track';
+  String get bitrate => _zh ? '码率' : 'Bitrate';
+  String get sampleRate => _zh ? '采样率' : 'Sample Rate';
+  String get pathLabel => _zh ? '路径' : 'Path';
   String get playAll => _zh ? '播放全部' : 'Play All';
   String get noTracks => _zh ? '暂无歌曲' : 'No tracks';
   String get noTrackSelected => _zh ? '未选择歌曲' : 'No track selected';
@@ -62,8 +70,7 @@ class AppStrings {
     AppLanguage.enUs => 'English',
   };
 
-  String get audioOutputMode =>
-      _zh ? '音频输出模式' : 'Audio Output Mode';
+  String get audioOutputMode => _zh ? '音频输出模式' : 'Audio Output Mode';
   String outputModeLabel(AudioOutputMode mode) => switch (mode) {
     AudioOutputMode.compatibility =>
       _zh ? '兼容模式 (MPV)' : 'Compatibility (MPV)',
@@ -100,14 +107,13 @@ class AppStrings {
   String get singleLoop => _zh ? '单曲循环' : 'Single Loop';
   String get shuffle => _zh ? '随机播放' : 'Shuffle';
   String get back => _zh ? '返回' : 'Back';
-  String get noTrackPlaying => _zh
-      ? '当前没有正在播放的歌曲'
-      : 'No track is currently playing';
-  String get noLyricsFound => _zh
-      ? '当前歌曲未找到可用歌词'
-      : 'No lyrics found for this track';
+  String get noTrackPlaying =>
+      _zh ? '当前没有正在播放的歌曲' : 'No track is currently playing';
+  String get noLyricsFound =>
+      _zh ? '当前歌曲未找到可用歌词' : 'No lyrics found for this track';
 
   String get loadingLyrics => _zh ? '正在加载歌词...' : 'Loading lyrics...';
+  String get loading => _zh ? '加载中...' : 'Loading...';
   String get lyricsSource => _zh ? '歌词来源' : 'Lyrics Source';
   String get localLyricsSource => _zh ? '本地' : 'Local';
   String get onlineLyricsSource => _zh ? '在线' : 'Online';
@@ -117,6 +123,20 @@ class AppStrings {
   String get searchAction => _zh ? '搜索' : 'Search';
   String get noOnlineLyricsResults =>
       _zh ? '没有找到在线歌词结果' : 'No online lyrics found';
+
+  String get topBarDisplayTitle => _zh ? '顶部栏显示' : 'Top Bar Display';
+  String get topBarIdleModeTitle =>
+      _zh ? '空闲时显示内容' : 'Idle Content';
+  String topBarIdleModeLabel(TopBarIdleMode mode) => switch (mode) {
+    TopBarIdleMode.empty => _zh ? '留空' : 'Empty',
+    TopBarIdleMode.custom => _zh ? '自定义文字' : 'Custom Text',
+    TopBarIdleMode.quote => _zh ? '一言' : 'Quote',
+  };
+  String get topBarCustomTextTitle =>
+      _zh ? '自定义显示文字' : 'Custom Display Text';
+  String get topBarCustomTextHint => _zh
+      ? '没有播放时显示在顶部栏里的文字'
+      : 'Text shown in the top bar when nothing is playing';
 
   String trackCountText(int count) => '$count $trackUnit';
   String albumTrackCountText(int count) =>

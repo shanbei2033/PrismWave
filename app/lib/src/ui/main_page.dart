@@ -7,11 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../i18n/app_strings.dart';
+import '../models/audio_file_details.dart';
 import '../models/app_language.dart';
 import '../models/audio_output_mode.dart';
 import '../models/playback_mode.dart';
+import '../models/top_bar_idle_mode.dart';
 import '../models/track.dart';
 import '../providers.dart';
+import '../services/audio_file_details_service.dart';
 import '../state/library_state.dart';
 import '../state/playback_state.dart';
 import 'fullplay_page.dart';
@@ -19,6 +22,12 @@ import 'glass_panel.dart';
 import 'window_top_bar.dart';
 
 enum MainSection { library, albums, artists, favorites }
+
+enum _TrackContextAction {
+  favorite,
+  reveal,
+  details,
+}
 
 class PrismWaveHomePage extends ConsumerStatefulWidget {
   const PrismWaveHomePage({super.key});
@@ -45,6 +54,68 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _showTrackContextMenu({
+    required BuildContext context,
+    required Offset position,
+    required Track track,
+    required Duration? duration,
+    required Uint8List? coverBytes,
+    required AppStrings t,
+  }) async {
+    final isFavorite = ref.read(libraryProvider.notifier).isFavorite(track);
+    final navigator = Navigator.of(context);
+    final result = await showMenu<_TrackContextAction>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: [
+        PopupMenuItem<_TrackContextAction>(
+          value: _TrackContextAction.favorite,
+          child: Text(isFavorite ? t.uncollect : t.collect),
+        ),
+        PopupMenuItem<_TrackContextAction>(
+          value: _TrackContextAction.reveal,
+          child: Text(t.revealInExplorer),
+        ),
+        PopupMenuItem<_TrackContextAction>(
+          value: _TrackContextAction.details,
+          child: Text(t.details),
+        ),
+      ],
+    );
+
+    if (!mounted || result == null) return;
+    switch (result) {
+      case _TrackContextAction.favorite:
+        await ref.read(libraryProvider.notifier).toggleFavorite(track);
+        return;
+      case _TrackContextAction.reveal:
+        await _revealTrackInExplorer(track.path);
+        return;
+      case _TrackContextAction.details:
+        await navigator.push(
+          MaterialPageRoute<void>(
+            builder: (_) => _TrackDetailsPage(
+              track: track,
+              duration: duration,
+              coverBytes: coverBytes,
+              onReveal: () => _revealTrackInExplorer(track.path),
+            ),
+          ),
+        );
+        return;
+    }
+  }
+
+  Future<void> _revealTrackInExplorer(String path) async {
+    final normalized = path.replaceAll('/', '\\');
+    await Process.start('explorer.exe', ['/select,$normalized']);
   }
 
   @override
@@ -96,7 +167,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                 ),
               ),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 58, 16, 14),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 child: Column(
                   children: [
                     Expanded(
@@ -108,10 +179,13 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                           ),
                           const SizedBox(width: 14),
                           Expanded(
-                            child: _buildSectionPanel(
-                              library: library,
-                              playback: playback,
-                              t: t,
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 32),
+                              child: _buildSectionPanel(
+                                library: library,
+                                playback: playback,
+                                t: t,
+                              ),
                             ),
                           ),
                         ],
@@ -367,98 +441,109 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                       final track = tracks[index];
                       final active = playback.currentTrack?.id == track.id;
                       final isFavorite = libraryCtrl.isFavorite(track);
+                      final duration = library.durationOf(track);
+                      final coverBytes = library.coverBytesOf(track);
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Material(
-                          color: active
-                              ? const Color(0xFF39C0FF).withValues(alpha: 0.16)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(10),
-                          child: InkWell(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onSecondaryTapDown: (details) => _showTrackContextMenu(
+                            context: context,
+                            position: details.globalPosition,
+                            track: track,
+                            duration: duration,
+                            coverBytes: coverBytes,
+                            t: t,
+                          ),
+                          child: Material(
+                            color: active
+                                ? const Color(0xFF39C0FF).withValues(alpha: 0.16)
+                                : Colors.transparent,
                             borderRadius: BorderRadius.circular(10),
-                            onTap: () => useLibraryContext
-                                ? playbackCtrl.playFromLibrary(
-                                    track,
-                                    playbackContext,
-                                  )
-                                : playbackCtrl.playFromPlaylist(
-                                    track,
-                                    playbackContext,
-                                  ),
-                            child: SizedBox(
-                              height: 56,
-                              child: Row(
-                                children: [
-                                  const SizedBox(width: 10),
-                                  SizedBox(
-                                    width: 52,
-                                    child: _TrackCover(
-                                      track: track,
-                                      isActive: active,
-                                      coverBytes: library.coverBytesOf(track),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () => useLibraryContext
+                                  ? playbackCtrl.playFromLibrary(
+                                      track,
+                                      playbackContext,
+                                    )
+                                  : playbackCtrl.playFromPlaylist(
+                                      track,
+                                      playbackContext,
                                     ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    flex: 5,
-                                    child: Text(
-                                      track.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
+                              child: SizedBox(
+                                height: 56,
+                                child: Row(
+                                  children: [
+                                    const SizedBox(width: 10),
+                                    SizedBox(
+                                      width: 52,
+                                      child: _TrackCover(
+                                        track: track,
+                                        isActive: active,
+                                        coverBytes: coverBytes,
                                       ),
                                     ),
-                                  ),
-                                  Expanded(
-                                    flex: 3,
-                                    child: Text(
-                                      track.artist,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.75,
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      flex: 5,
+                                      child: Text(
+                                        track.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  SizedBox(
-                                    width: 84,
-                                    child: Text(
-                                      _formatDuration(
-                                        library.durationOf(track),
-                                      ),
-                                      textAlign: TextAlign.right,
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.82,
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        track.artist,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.75,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  IconButton(
-                                    tooltip: isFavorite
-                                        ? t.uncollect
-                                        : t.collect,
-                                    onPressed: () =>
-                                        libraryCtrl.toggleFavorite(track),
-                                    icon: Icon(
-                                      isFavorite
-                                          ? Icons.favorite_rounded
-                                          : Icons.favorite_border_rounded,
-                                      color: isFavorite
-                                          ? const Color(0xFF39C0FF)
-                                          : Colors.white.withValues(
-                                              alpha: 0.78,
-                                            ),
-                                      size: 18,
+                                    SizedBox(
+                                      width: 84,
+                                      child: Text(
+                                        _formatDuration(duration),
+                                        textAlign: TextAlign.right,
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.82,
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                ],
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      tooltip: isFavorite
+                                          ? t.uncollect
+                                          : t.collect,
+                                      onPressed: () =>
+                                          libraryCtrl.toggleFavorite(track),
+                                      icon: Icon(
+                                        isFavorite
+                                            ? Icons.favorite_rounded
+                                            : Icons.favorite_border_rounded,
+                                        color: isFavorite
+                                            ? const Color(0xFF39C0FF)
+                                            : Colors.white.withValues(
+                                                alpha: 0.78,
+                                              ),
+                                        size: 18,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -852,91 +937,102 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                       final track = tracks[index];
                       final active = playback.currentTrack?.id == track.id;
                       final isFavorite = libraryCtrl.isFavorite(track);
+                      final duration = library.durationOf(track);
+                      final coverBytes = library.coverBytesOf(track);
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Material(
-                          color: active
-                              ? const Color(0xFF39C0FF).withValues(alpha: 0.16)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(10),
-                          child: InkWell(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onSecondaryTapDown: (details) => _showTrackContextMenu(
+                            context: context,
+                            position: details.globalPosition,
+                            track: track,
+                            duration: duration,
+                            coverBytes: coverBytes,
+                            t: t,
+                          ),
+                          child: Material(
+                            color: active
+                                ? const Color(0xFF39C0FF).withValues(alpha: 0.16)
+                                : Colors.transparent,
                             borderRadius: BorderRadius.circular(10),
-                            onTap: () =>
-                                playbackCtrl.playFromPlaylist(track, tracks),
-                            child: SizedBox(
-                              height: 56,
-                              child: Row(
-                                children: [
-                                  const SizedBox(width: 10),
-                                  SizedBox(
-                                    width: 52,
-                                    child: _TrackCover(
-                                      track: track,
-                                      isActive: active,
-                                      coverBytes: library.coverBytesOf(track),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    flex: 5,
-                                    child: Text(
-                                      track.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () =>
+                                  playbackCtrl.playFromPlaylist(track, tracks),
+                              child: SizedBox(
+                                height: 56,
+                                child: Row(
+                                  children: [
+                                    const SizedBox(width: 10),
+                                    SizedBox(
+                                      width: 52,
+                                      child: _TrackCover(
+                                        track: track,
+                                        isActive: active,
+                                        coverBytes: coverBytes,
                                       ),
                                     ),
-                                  ),
-                                  Expanded(
-                                    flex: 3,
-                                    child: Text(
-                                      track.artist,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.75,
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      flex: 5,
+                                      child: Text(
+                                        track.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  SizedBox(
-                                    width: 84,
-                                    child: Text(
-                                      _formatDuration(
-                                        library.durationOf(track),
-                                      ),
-                                      textAlign: TextAlign.right,
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.82,
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        track.artist,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.75,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  IconButton(
-                                    tooltip: isFavorite
-                                        ? t.uncollect
-                                        : t.collect,
-                                    onPressed: () =>
-                                        libraryCtrl.toggleFavorite(track),
-                                    icon: Icon(
-                                      isFavorite
-                                          ? Icons.favorite_rounded
-                                          : Icons.favorite_border_rounded,
-                                      color: isFavorite
-                                          ? const Color(0xFF39C0FF)
-                                          : Colors.white.withValues(
-                                              alpha: 0.78,
-                                            ),
-                                      size: 18,
+                                    SizedBox(
+                                      width: 84,
+                                      child: Text(
+                                        _formatDuration(duration),
+                                        textAlign: TextAlign.right,
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.82,
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                ],
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      tooltip: isFavorite
+                                          ? t.uncollect
+                                          : t.collect,
+                                      onPressed: () =>
+                                          libraryCtrl.toggleFavorite(track),
+                                      icon: Icon(
+                                        isFavorite
+                                            ? Icons.favorite_rounded
+                                            : Icons.favorite_border_rounded,
+                                        color: isFavorite
+                                            ? const Color(0xFF39C0FF)
+                                            : Colors.white.withValues(
+                                                alpha: 0.78,
+                                              ),
+                                        size: 18,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -1282,6 +1378,48 @@ class _SettingsDialog extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
+                t.topBarDisplayTitle,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.92),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<TopBarIdleMode>(
+                initialValue: appSettings.topBarIdleMode,
+                isExpanded: true,
+                onChanged: (value) {
+                  if (value == null) return;
+                  appSettingsController.setTopBarIdleMode(value);
+                },
+                items: TopBarIdleMode.values
+                    .map(
+                      (mode) => DropdownMenuItem<TopBarIdleMode>(
+                        value: mode,
+                        child: Text(t.topBarIdleModeLabel(mode)),
+                      ),
+                    )
+                    .toList(growable: false),
+                decoration: InputDecoration(
+                  labelText: t.topBarIdleModeTitle,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _IdleTopBarTextField(
+                initialValue: appSettings.topBarIdleText,
+                label: t.topBarCustomTextTitle,
+                hint: t.topBarCustomTextHint,
+                onSubmitted: appSettingsController.setTopBarIdleText,
+              ),
+              const SizedBox(height: 8),
+              Text(
                 t.audioOutputMode,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.92),
@@ -1420,6 +1558,72 @@ class _SettingsDialog extends ConsumerWidget {
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _IdleTopBarTextField extends StatefulWidget {
+  const _IdleTopBarTextField({
+    required this.initialValue,
+    required this.label,
+    required this.hint,
+    required this.onSubmitted,
+  });
+
+  final String initialValue;
+  final String label;
+  final String hint;
+  final Future<void> Function(String value) onSubmitted;
+
+  @override
+  State<_IdleTopBarTextField> createState() => _IdleTopBarTextFieldState();
+}
+
+class _IdleTopBarTextFieldState extends State<_IdleTopBarTextField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void didUpdateWidget(covariant _IdleTopBarTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialValue != oldWidget.initialValue &&
+        widget.initialValue != _controller.text) {
+      _controller.text = widget.initialValue;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    await widget.onSubmitted(_controller.text.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      onSubmitted: (_) => _submit(),
+      onTapOutside: (_) => _submit(),
+      decoration: InputDecoration(
+        labelText: widget.label,
+        hintText: widget.hint,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
         ),
       ),
     );
@@ -1585,6 +1789,306 @@ class _CoverImage extends StatelessWidget {
     );
   }
 }
+
+class _TrackDetailsPage extends ConsumerWidget {
+  const _TrackDetailsPage({
+    required this.track,
+    required this.duration,
+    required this.coverBytes,
+    required this.onReveal,
+  });
+
+  final Track track;
+  final Duration? duration;
+  final Uint8List? coverBytes;
+  final Future<void> Function() onReveal;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(appSettingsProvider);
+    final library = ref.watch(libraryProvider);
+    final t = AppStrings(settings.language);
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0x24090F1D),
+                    Color(0x240C1323),
+                    Color(0x240E1526),
+                  ],
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 58, 20, 20),
+                child: GlassPanel(
+                  lowEffects: library.lowEffects,
+                  padding: const EdgeInsets.all(24),
+                  child: FutureBuilder<AudioFileDetails>(
+                    future: readAudioFileDetails(
+                      track,
+                      fallbackDuration: duration,
+                    ),
+                    builder: (context, snapshot) {
+                      final details =
+                          snapshot.data ??
+                          AudioFileDetails(
+                            durationLabel: _formatDuration(duration),
+                            trackNumberLabel: '--',
+                            bitrateLabel: '--',
+                            sampleRateLabel: '--',
+                            path: track.path,
+                          );
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              IconButton(
+                                tooltip: t.back,
+                                onPressed: () => Navigator.of(context).maybePop(),
+                                icon: const Icon(Icons.arrow_back_rounded),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                t.detailsTitle,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      SizedBox(
+                                        width: 156,
+                                        height: 156,
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(16),
+                                          child: _CoverImage(
+                                            coverPath: track.coverPath,
+                                            coverBytes: coverBytes,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 20),
+                                      Expanded(
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(top: 6),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                track.title,
+                                                style: const TextStyle(
+                                                  fontSize: 28,
+                                                  fontWeight: FontWeight.w700,
+                                                  height: 1.1,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 10),
+                                              Text(
+                                                track.artist,
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  color: Colors.white.withValues(
+                                                    alpha: 0.76,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 26),
+                                  _TrackDetailsItem(
+                                    label: t.duration,
+                                    value: details.durationLabel,
+                                  ),
+                                  _TrackDetailsItem(
+                                    label: t.audioTrack,
+                                    value: details.trackNumberLabel,
+                                  ),
+                                  _TrackDetailsItem(
+                                    label: t.bitrate,
+                                    value: details.bitrateLabel,
+                                  ),
+                                  _TrackDetailsItem(
+                                    label: t.sampleRate,
+                                    value: details.sampleRateLabel,
+                                  ),
+                                  _TrackDetailsItem(
+                                    label: t.pathLabel,
+                                    value: details.path,
+                                    action: Tooltip(
+                                      message: t.revealInExplorer,
+                                      child: IconButton(
+                                        onPressed: onReveal,
+                                        icon: SvgPicture.string(
+                                          _folderRevealSvg,
+                                          width: 19,
+                                          height: 19,
+                                          colorFilter: const ColorFilter.mode(
+                                            Colors.white,
+                                            BlendMode.srcIn,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    selectable: true,
+                                  ),
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) ...[
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white.withValues(
+                                              alpha: 0.82,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Text(
+                                          t.loading,
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.72,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const Positioned(
+            left: 0,
+            top: 0,
+            right: 0,
+            child: WindowTopBar(showBrand: false, showLyricBox: false),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDuration(Duration? value) {
+    if (value == null || value <= Duration.zero) {
+      return '--';
+    }
+
+    final minutes = value.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final hours = value.inHours;
+    if (hours > 0) {
+      return '${hours.toString().padLeft(2, '0')}:$minutes:$seconds';
+    }
+    return '$minutes:$seconds';
+  }
+}
+
+class _TrackDetailsItem extends StatelessWidget {
+  const _TrackDetailsItem({
+    required this.label,
+    required this.value,
+    this.action,
+    this.selectable = false,
+  });
+
+  final String label;
+  final String value;
+  final Widget? action;
+  final bool selectable;
+
+  @override
+  Widget build(BuildContext context) {
+    final valueWidget = selectable
+        ? SelectableText(
+            value,
+            style: const TextStyle(fontSize: 14, height: 1.45),
+          )
+        : Text(
+            value,
+            style: const TextStyle(fontSize: 14, height: 1.45),
+          );
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: Colors.white.withValues(alpha: 0.04),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white.withValues(alpha: 0.72),
+                ),
+              ),
+              if (action != null) ...[
+                const SizedBox(width: 8),
+                action!,
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          valueWidget,
+        ],
+      ),
+    );
+  }
+}
+
+const String _folderRevealSvg = '''
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M3.75 7.25C3.75 6.14543 4.64543 5.25 5.75 5.25H9.20711C9.73754 5.25 10.2463 5.46071 10.6213 5.83579L11.1642 6.37868C11.5393 6.75376 12.048 6.96447 12.5784 6.96447H18.25C19.3546 6.96447 20.25 7.8599 20.25 8.96447V9.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M5.75 9.75H18.25C19.3546 9.75 20.25 10.6454 20.25 11.75V16.25C20.25 17.3546 19.3546 18.25 18.25 18.25H5.75C4.64543 18.25 3.75 17.3546 3.75 16.25V11.75C3.75 10.6454 4.64543 9.75 5.75 9.75Z" stroke="currentColor" stroke-width="1.5"/>
+  <path d="M13.25 12.25H17.75V16.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12.75 17.25L17.75 12.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+</svg>
+''';
 
 class _PlaybackModeButton extends StatelessWidget {
   const _PlaybackModeButton({

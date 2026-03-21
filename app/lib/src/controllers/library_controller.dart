@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -28,6 +29,7 @@ class LibraryController extends StateNotifier<LibraryState> {
   static const _prefLibraryFolders = 'library.folders';
   static const _prefFavorites = 'library.favorites';
   static const _prefLowEffects = 'ui.lowEffects';
+  static const _prefPreferredLyricsSources = 'lyrics.preferredSources';
 
   Future<void> _loadInitialState() async {
     final prefs = await SharedPreferences.getInstance();
@@ -35,6 +37,9 @@ class LibraryController extends StateNotifier<LibraryState> {
     final folders = prefs.getStringList(_prefLibraryFolders) ?? const [];
     final favorites = prefs.getStringList(_prefFavorites) ?? const [];
     final lowEffects = prefs.getBool(_prefLowEffects) ?? false;
+    final preferredLyricsSourceByPath = _decodePreferredLyricsSources(
+      prefs.getString(_prefPreferredLyricsSources),
+    );
 
     final resolvedFolders = folders.isNotEmpty
         ? folders
@@ -46,6 +51,7 @@ class LibraryController extends StateNotifier<LibraryState> {
       libraryFolders: resolvedFolders,
       favoritePaths: favorites.toSet(),
       lowEffects: lowEffects,
+      preferredLyricsSourceByPath: preferredLyricsSourceByPath,
       clearError: true,
     );
 
@@ -108,7 +114,9 @@ class LibraryController extends StateNotifier<LibraryState> {
       final nextCoverBytes = <String, Uint8List>{};
       final nextLocalLyrics = <String, LyricsDocument>{};
       final nextOnlineLyrics = <String, LyricsDocument>{};
-      final nextPreferredSources = <String, LyricsSourceType>{};
+      final nextPreferredSources = <String, LyricsSourceType>{
+        ...state.preferredLyricsSourceByPath,
+      };
       final nextLocalResolved = <String>{};
       final nextOnlineResolved = <String>{};
 
@@ -293,15 +301,20 @@ class LibraryController extends StateNotifier<LibraryState> {
   Future<void> ensureLyricsLoaded(Track track) async {
     await _ensureLocalLyricsLoaded(track);
 
+    final preferred = state.preferredLyricsSourceOf(track);
     final local = state.localLyricsByPath[track.path];
+    if (preferred == LyricsSourceType.online) {
+      await _ensureOnlineLyricsLoaded(
+        track,
+        autoSelectOnline: true,
+        forceReload: false,
+      );
+      return;
+    }
+
     if (local != null && !local.isEmpty) return;
 
-    state = state.copyWith(
-      preferredLyricsSourceByPath: <String, LyricsSourceType>{
-        ...state.preferredLyricsSourceByPath,
-        track.path: LyricsSourceType.online,
-      },
-    );
+    await _setPreferredLyricsSource(track.path, LyricsSourceType.online);
 
     await _ensureOnlineLyricsLoaded(
       track,
@@ -311,23 +324,13 @@ class LibraryController extends StateNotifier<LibraryState> {
   }
 
   Future<void> selectLyricsSource(Track track, LyricsSourceType source) async {
-    state = state.copyWith(
-      preferredLyricsSourceByPath: <String, LyricsSourceType>{
-        ...state.preferredLyricsSourceByPath,
-        track.path: source,
-      },
-    );
+    await _setPreferredLyricsSource(track.path, source);
 
     if (source == LyricsSourceType.local) {
       await _ensureLocalLyricsLoaded(track);
       final local = state.localLyricsByPath[track.path];
       if (local == null || local.isEmpty) {
-        state = state.copyWith(
-          preferredLyricsSourceByPath: <String, LyricsSourceType>{
-            ...state.preferredLyricsSourceByPath,
-            track.path: LyricsSourceType.online,
-          },
-        );
+        await _setPreferredLyricsSource(track.path, LyricsSourceType.online);
         await _ensureOnlineLyricsLoaded(
           track,
           autoSelectOnline: true,
@@ -426,12 +429,7 @@ class LibraryController extends StateNotifier<LibraryState> {
       if (autoSelectOnline &&
           state.onlineLyricsByPath[track.path] != null &&
           !state.onlineLyricsByPath[track.path]!.isEmpty) {
-        state = state.copyWith(
-          preferredLyricsSourceByPath: <String, LyricsSourceType>{
-            ...state.preferredLyricsSourceByPath,
-            track.path: LyricsSourceType.online,
-          },
-        );
+        await _setPreferredLyricsSource(track.path, LyricsSourceType.online);
       }
       return;
     }
@@ -479,6 +477,10 @@ class LibraryController extends StateNotifier<LibraryState> {
     required bool selectOnline,
   }) {
     if (document.isEmpty) return;
+    if (selectOnline) {
+      _setPreferredLyricsSourceInState(track.path, LyricsSourceType.online);
+      unawaited(_persistPreferredLyricsSources());
+    }
     state = state.copyWith(
       onlineLyricsByPath: <String, LyricsDocument>{
         ...state.onlineLyricsByPath,
@@ -487,10 +489,6 @@ class LibraryController extends StateNotifier<LibraryState> {
       onlineLyricsResolvedPaths: <String>{
         ...state.onlineLyricsResolvedPaths,
         track.path,
-      },
-      preferredLyricsSourceByPath: <String, LyricsSourceType>{
-        ...state.preferredLyricsSourceByPath,
-        if (selectOnline) track.path: LyricsSourceType.online,
       },
     );
   }
@@ -523,5 +521,50 @@ class LibraryController extends StateNotifier<LibraryState> {
     state = state.copyWith(lowEffects: value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefLowEffects, value);
+  }
+
+  void _setPreferredLyricsSourceInState(String path, LyricsSourceType source) {
+    state = state.copyWith(
+      preferredLyricsSourceByPath: <String, LyricsSourceType>{
+        ...state.preferredLyricsSourceByPath,
+        path: source,
+      },
+    );
+  }
+
+  Future<void> _setPreferredLyricsSource(
+    String path,
+    LyricsSourceType source,
+  ) async {
+    _setPreferredLyricsSourceInState(path, source);
+    await _persistPreferredLyricsSources();
+  }
+
+  Future<void> _persistPreferredLyricsSources() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = <String, String>{
+      for (final entry in state.preferredLyricsSourceByPath.entries)
+        if (entry.key.isNotEmpty) entry.key: entry.value.id,
+    };
+    await prefs.setString(_prefPreferredLyricsSources, jsonEncode(encoded));
+  }
+
+  Map<String, LyricsSourceType> _decodePreferredLyricsSources(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return const {};
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const {};
+
+      final result = <String, LyricsSourceType>{};
+      for (final entry in decoded.entries) {
+        final path = entry.key?.toString() ?? '';
+        if (path.isEmpty) continue;
+        result[path] = LyricsSourceType.fromId(entry.value?.toString());
+      }
+      return result;
+    } catch (_) {
+      return const {};
+    }
   }
 }

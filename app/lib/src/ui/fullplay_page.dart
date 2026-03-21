@@ -10,7 +10,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../i18n/app_strings.dart';
 import '../models/lyric_line.dart';
-import '../models/lyrics_document.dart';
 import '../models/lyrics_source_type.dart';
 import '../models/online_lyrics_search_result.dart';
 import '../models/playback_mode.dart';
@@ -57,7 +56,7 @@ class _FullPlayPageState extends ConsumerState<FullPlayPage> {
             left: 0,
             top: 0,
             right: 0,
-            child: WindowTopBar(showBrand: false),
+            child: WindowTopBar(showBrand: false, showLyricBox: false),
           ),
         ],
       ),
@@ -128,7 +127,6 @@ class _FullPlayBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final playbackCtrl = ref.read(playbackProvider.notifier);
     final coverBytes = library.coverBytesOf(track);
-    final lyricDocument = library.lyricsDocumentOf(track);
     final lyrics = library.lyricsOf(track);
     final effectiveLyricsSource = library.effectiveLyricsSourceOf(track);
     final lyricsLoading = library.isLyricsLoading(track);
@@ -175,200 +173,182 @@ class _FullPlayBody extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(26, 56, 26, 18),
           child: Row(
             children: [
-              SizedBox(
-                width: 360,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    IconButton(
-                      tooltip: t.back,
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                    ),
-                    const SizedBox(height: 8),
-                    Center(
+              Flexible(
+                flex: 2,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final panelWidth = math.max(320.0, constraints.maxWidth - 12);
+                    final coverSide = (panelWidth * 0.72).clamp(240.0, 420.0);
+
+                    return Align(
+                      alignment: Alignment.topCenter,
                       child: SizedBox(
-                        width: 236,
-                        height: 236,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(14),
-                          child: _CoverImage(
-                            coverPath: track.coverPath,
-                            coverBytes: coverBytes,
-                            fit: BoxFit.cover,
-                          ),
+                        width: panelWidth,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Center(
+                              child: IconButton(
+                                tooltip: t.back,
+                                onPressed: () => Navigator.of(context).maybePop(),
+                                icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Center(
+                              child: SizedBox(
+                                width: coverSide,
+                                height: coverSide,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: _CoverImage(
+                                    coverPath: track.coverPath,
+                                    coverBytes: coverBytes,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Center(
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: panelWidth * 0.86,
+                                ),
+                                child: Text(
+                                  track.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Center(
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: panelWidth * 0.86,
+                                ),
+                                child: Text(
+                                  track.artist,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: Colors.white.withValues(alpha: 0.78),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                IconButton(
+                                  onPressed: playback.hasTrack
+                                      ? playbackCtrl.previous
+                                      : null,
+                                  iconSize: 28,
+                                  icon: const Icon(Icons.skip_previous_rounded),
+                                ),
+                                const SizedBox(width: 8),
+                                _PlaybackToggleButton(
+                                  onPressed: playback.hasTrack
+                                      ? playbackCtrl.togglePlayPause
+                                      : null,
+                                  isPlaying: playback.isPlaying,
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  onPressed: playback.hasTrack
+                                      ? playbackCtrl.next
+                                      : null,
+                                  iconSize: 28,
+                                  icon: const Icon(Icons.skip_next_rounded),
+                                ),
+                                const SizedBox(width: 10),
+                                _PlaybackModeButton(
+                                  t: t,
+                                  mode: playback.playbackMode,
+                                  onPressed: playbackCtrl.cycleMode,
+                                ),
+                                const SizedBox(width: 4),
+                                _ExpandableVolumeControl(
+                                  volume: playback.volume,
+                                  onChanged: playbackCtrl.setVolume,
+                                ),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                SizedBox(
+                                  width: 52,
+                                  child: Text(
+                                    _formatDuration(playback.currentTime),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: SliderTheme(
+                                    data: SliderTheme.of(context).copyWith(
+                                      activeTrackColor: Colors.white,
+                                      inactiveTrackColor: Colors.white.withValues(
+                                        alpha: 0.24,
+                                      ),
+                                      thumbColor: Colors.white,
+                                      overlayColor: Colors.white.withValues(
+                                        alpha: 0.14,
+                                      ),
+                                      trackHeight: 2.6,
+                                    ),
+                                    child: Slider(
+                                      value: safePosition,
+                                      min: 0,
+                                      max: safeDuration,
+                                      onChanged: playback.hasTrack
+                                          ? (value) => playbackCtrl.seekTo(
+                                              Duration(milliseconds: value.round()),
+                                            )
+                                          : null,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 52,
+                                  child: Text(_formatDuration(duration)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            _LyricsSourceSelector(
+                              track: track,
+                              selectedSource: effectiveLyricsSource,
+                              isLoading: lyricsLoading,
+                              t: t,
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 300),
-                        child: Text(
-                          track.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 300),
-                        child: Text(
-                          track.artist,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Colors.white.withValues(alpha: 0.78),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          onPressed: playback.hasTrack
-                              ? playbackCtrl.previous
-                              : null,
-                          iconSize: 28,
-                          icon: const Icon(Icons.skip_previous_rounded),
-                        ),
-                        const SizedBox(width: 8),
-                        _PlaybackToggleButton(
-                          onPressed: playback.hasTrack
-                              ? playbackCtrl.togglePlayPause
-                              : null,
-                          isPlaying: playback.isPlaying,
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          onPressed: playback.hasTrack
-                              ? playbackCtrl.next
-                              : null,
-                          iconSize: 28,
-                          icon: const Icon(Icons.skip_next_rounded),
-                        ),
-                        const SizedBox(width: 10),
-                        _PlaybackModeButton(
-                          t: t,
-                          mode: playback.playbackMode,
-                          onPressed: playbackCtrl.cycleMode,
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 52,
-                          child: Text(
-                            _formatDuration(playback.currentTime),
-                            textAlign: TextAlign.right,
-                          ),
-                        ),
-                        Expanded(
-                          child: SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              activeTrackColor: Colors.white,
-                              inactiveTrackColor: Colors.white.withValues(
-                                alpha: 0.24,
-                              ),
-                              thumbColor: Colors.white,
-                              overlayColor: Colors.white.withValues(
-                                alpha: 0.14,
-                              ),
-                              trackHeight: 2.6,
-                            ),
-                            child: Slider(
-                              value: safePosition,
-                              min: 0,
-                              max: safeDuration,
-                              onChanged: playback.hasTrack
-                                  ? (value) => playbackCtrl.seekTo(
-                                      Duration(milliseconds: value.round()),
-                                    )
-                                  : null,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 52,
-                          child: Text(_formatDuration(duration)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 52,
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: Icon(
-                              Icons.volume_up_rounded,
-                              size: 17,
-                              color: Colors.white.withValues(alpha: 0.86),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 220,
-                          child: SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              activeTrackColor: Colors.white,
-                              inactiveTrackColor: Colors.white.withValues(
-                                alpha: 0.24,
-                              ),
-                              thumbColor: Colors.white,
-                              overlayColor: Colors.white.withValues(
-                                alpha: 0.14,
-                              ),
-                              trackHeight: 2.6,
-                            ),
-                            child: Slider(
-                              value: playback.volume,
-                              min: 0,
-                              max: 1,
-                              onChanged: playbackCtrl.setVolume,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 52),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    _LyricsSourceSelector(
-                      track: track,
-                      selectedSource: effectiveLyricsSource,
-                      isLoading: lyricsLoading,
-                      t: t,
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
-              const SizedBox(width: 22),
-              Expanded(
+              const SizedBox(width: 25),
+              const SizedBox(width: 0),
+              Flexible(
+                flex: 3,
                 child: _SlotLyricsPanel(
                   lyrics: lyrics,
                   currentIndex: currentLyricIndex,
+                  currentPosition: playback.currentTime,
                   noLyricsText: lyricsLoading
                       ? t.loadingLyrics
                       : t.noLyricsFound,
-                  sourceText: _buildLyricsSourceText(
-                    lyricDocument: lyricDocument,
-                    source: effectiveLyricsSource,
-                    t: t,
-                  ),
                 ),
               ),
             ],
@@ -376,22 +356,6 @@ class _FullPlayBody extends ConsumerWidget {
         ),
       ],
     );
-  }
-
-  String _buildLyricsSourceText({
-    required LyricsSourceType source,
-    required AppStrings t,
-    required LyricsDocument? lyricDocument,
-  }) {
-    final sourceLabel = switch (source) {
-      LyricsSourceType.local => t.localLyricsSource,
-      LyricsSourceType.online => t.onlineLyricsSource,
-    };
-    final provider = lyricDocument?.provider?.toString();
-    if (provider == null || provider.trim().isEmpty) {
-      return sourceLabel;
-    }
-    return '$sourceLabel | ${provider.toUpperCase()}';
   }
 
   int _resolveCurrentLyricIndex(List<LyricLine> lyrics, Duration position) {
@@ -418,14 +382,14 @@ class _SlotLyricsPanel extends StatefulWidget {
   const _SlotLyricsPanel({
     required this.lyrics,
     required this.currentIndex,
+    required this.currentPosition,
     required this.noLyricsText,
-    required this.sourceText,
   });
 
   final List<LyricLine> lyrics;
   final int currentIndex;
+  final Duration currentPosition;
   final String noLyricsText;
-  final String sourceText;
 
   @override
   State<_SlotLyricsPanel> createState() => _SlotLyricsPanelState();
@@ -479,6 +443,23 @@ class _SlotLyricsPanelState extends State<_SlotLyricsPanel> {
     return _safeIndex(index) * _itemExtent;
   }
 
+  double _lineProgress(int index) {
+    if (widget.lyrics.isEmpty) return 0;
+    if (index < 0 || index >= widget.lyrics.length) return 0;
+
+    final current = widget.lyrics[index];
+    final nextTime = index + 1 < widget.lyrics.length
+        ? widget.lyrics[index + 1].time
+        : current.time + const Duration(seconds: 3);
+    final spanMs = (nextTime - current.time).inMilliseconds;
+    if (spanMs <= 0) return index < widget.currentIndex ? 1 : 0;
+
+    final elapsedMs =
+        (widget.currentPosition - current.time).inMilliseconds.toDouble();
+    final raw = (elapsedMs / spanMs).clamp(0.0, 1.0);
+    return Curves.easeInOut.transform(raw);
+  }
+
   void _jumpToCurrent() {
     if (!mounted || !_controller.hasClients) return;
     final maxScroll = _controller.position.maxScrollExtent;
@@ -530,50 +511,30 @@ class _SlotLyricsPanelState extends State<_SlotLyricsPanel> {
           (constraints.maxHeight / 2) - (_itemExtent / 2),
         );
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 10, bottom: 8),
-                child: Text(
-                  widget.sourceText,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.46),
-                    fontSize: 12,
-                    letterSpacing: 0.2,
-                  ),
+        return ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(
+            scrollbars: false,
+          ),
+          child: ListView.builder(
+            controller: _controller,
+            itemExtent: _itemExtent,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.symmetric(vertical: topPadding),
+            itemCount: widget.lyrics.length,
+            itemBuilder: (_, index) {
+              final active = index == safeCurrent;
+              final distance = (index - safeCurrent).abs();
+              return Center(
+                child: _SlotLyricText(
+                  key: ValueKey('slot-line-$index-$safeCurrent'),
+                  text: widget.lyrics[index].text,
+                  active: active,
+                  distance: distance,
+                  progress: active ? _lineProgress(index) : 0,
                 ),
-              ),
-            ),
-            Expanded(
-              child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(context).copyWith(
-                  scrollbars: false,
-                ),
-                child: ListView.builder(
-                  controller: _controller,
-                  itemExtent: _itemExtent,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: EdgeInsets.symmetric(vertical: topPadding),
-                  itemCount: widget.lyrics.length,
-                  itemBuilder: (_, index) {
-                    final active = index == safeCurrent;
-                    final distance = (index - safeCurrent).abs();
-                    return Center(
-                      child: _SlotLyricText(
-                        key: ValueKey('slot-line-$index-$safeCurrent'),
-                        text: widget.lyrics[index].text,
-                        active: active,
-                        distance: distance,
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
+              );
+            },
+          ),
         );
       },
     );
@@ -586,42 +547,19 @@ class _SlotLyricText extends StatelessWidget {
     required this.text,
     required this.active,
     required this.distance,
+    required this.progress,
   });
 
   final String text;
   final bool active;
   final int distance;
+  final double progress;
 
   @override
   Widget build(BuildContext context) {
     final inactiveBlur = distance <= 1 ? 2.8 : 5.2;
     final inactiveSize = distance <= 1 ? 24.0 : 20.0;
     final inactiveOpacity = distance <= 1 ? 0.66 : 0.44;
-
-    final activeWidget = TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 10, end: 0),
-      duration: const Duration(milliseconds: 420),
-      curve: Curves.easeInOutCubic,
-      builder: (context, sigma, child) {
-        return ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-          child: child,
-        );
-      },
-      child: Text(
-        text,
-        maxLines: 3,
-        overflow: TextOverflow.ellipsis,
-        softWrap: true,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 30,
-          fontWeight: FontWeight.w700,
-          color: Colors.white.withValues(alpha: 0.98),
-          height: 1.24,
-        ),
-      ),
-    );
 
     final inactiveWidget = TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: inactiveBlur),
@@ -648,6 +586,30 @@ class _SlotLyricText extends StatelessWidget {
       ),
     );
 
+    final activeKaraokeWidget = TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: progress),
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.linearToEaseOut,
+      builder: (context, animatedProgress, _) {
+        return _KaraokeLyricText(
+          text: text,
+          progress: animatedProgress,
+          style: TextStyle(
+            fontSize: 30,
+            fontWeight: FontWeight.w700,
+            color: Colors.white.withValues(alpha: 0.34),
+            height: 1.24,
+          ),
+          highlightStyle: TextStyle(
+            fontSize: 30,
+            fontWeight: FontWeight.w700,
+            color: Colors.white.withValues(alpha: 0.98),
+            height: 1.24,
+          ),
+        );
+      },
+    );
+
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 380),
       switchInCurve: Curves.easeInOutCubic,
@@ -662,7 +624,10 @@ class _SlotLyricText extends StatelessWidget {
         );
       },
       child: active
-          ? KeyedSubtree(key: ValueKey('active-$text'), child: activeWidget)
+          ? KeyedSubtree(
+              key: ValueKey('active-$text'),
+              child: activeKaraokeWidget,
+            )
           : KeyedSubtree(
               key: ValueKey('inactive-$text-$distance'),
               child: inactiveWidget,
@@ -670,6 +635,90 @@ class _SlotLyricText extends StatelessWidget {
     );
   }
 }
+
+class _KaraokeLyricText extends StatelessWidget {
+  const _KaraokeLyricText({
+    required this.text,
+    required this.progress,
+    required this.style,
+    required this.highlightStyle,
+  });
+
+  final String text;
+  final double progress;
+  final TextStyle style;
+  final TextStyle highlightStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final segments = text.runes.map(String.fromCharCode).toList(growable: false);
+    final paintableIndexes = <int>[];
+    for (var i = 0; i < segments.length; i++) {
+      if (segments[i].trim().isNotEmpty) {
+        paintableIndexes.add(i);
+      }
+    }
+
+    final exactProgress =
+        (paintableIndexes.length * progress).clamp(0.0, paintableIndexes.length.toDouble());
+    final highlightedCount = exactProgress.floor();
+    final partialHighlight = exactProgress - highlightedCount;
+    final highlightedIndexes = paintableIndexes.take(highlightedCount).toSet();
+    final partialIndex = highlightedCount < paintableIndexes.length
+        ? paintableIndexes[highlightedCount]
+        : null;
+    final baseColor = style.color ?? Colors.white.withValues(alpha: 0.34);
+    final highlightColor =
+        highlightStyle.color ?? Colors.white.withValues(alpha: 0.98);
+    final partialColor = Color.lerp(
+      baseColor,
+      highlightColor,
+      Curves.easeOut.transform(partialHighlight),
+    );
+
+    return RichText(
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+      softWrap: true,
+      textAlign: TextAlign.center,
+      text: TextSpan(
+        children: [
+          for (var i = 0; i < segments.length; i++)
+            TextSpan(
+              text: segments[i],
+              style: highlightedIndexes.contains(i)
+                  ? highlightStyle
+                  : (partialIndex == i
+                        ? highlightStyle.copyWith(color: partialColor)
+                        : style),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+const String _localLyricsSvg = '''
+<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <path d="M4 7.2C4 5.99 4.99 5 6.2 5H10.2L12.1 6.9H17.8C19.01 6.9 20 7.89 20 9.1V16.8C20 18.01 19.01 19 17.8 19H6.2C4.99 19 4 18.01 4 16.8V7.2Z" fill="currentColor"/>
+  <path d="M14.8 10.1V14.35C14.53 14.17 14.19 14.06 13.82 14.06C12.9 14.06 12.15 14.71 12.15 15.5C12.15 16.29 12.9 16.94 13.82 16.94C14.74 16.94 15.49 16.29 15.49 15.5V11.08L17.3 10.68V13.62C17.03 13.44 16.69 13.33 16.32 13.33C15.4 13.33 14.65 13.98 14.65 14.77C14.65 15.56 15.4 16.21 16.32 16.21C17.24 16.21 17.99 15.56 17.99 14.77V8.96L14.8 10.1Z" fill="#0D1629"/>
+</svg>
+''';
+
+const String _onlineLyricsSvg = '''
+<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <path d="M7.5 18.25H17.2C18.75 18.25 20 17 20 15.45C20 14.06 18.99 12.9 17.66 12.68C17.48 9.95 15.21 7.8 12.43 7.8C10.12 7.8 8.14 9.25 7.35 11.31C5.49 11.4 4 12.95 4 14.83C4 16.76 5.57 18.25 7.5 18.25Z" fill="currentColor"/>
+  <path d="M11.18 12.45V15.45C10.99 15.31 10.74 15.22 10.48 15.22C9.82 15.22 9.29 15.68 9.29 16.25C9.29 16.82 9.82 17.28 10.48 17.28C11.14 17.28 11.67 16.82 11.67 16.25V13.14L13.85 12.67V14.93C13.66 14.79 13.41 14.7 13.15 14.7C12.49 14.7 11.96 15.16 11.96 15.73C11.96 16.29 12.49 16.76 13.15 16.76C13.8 16.76 14.34 16.29 14.34 15.73V11.1L11.18 12.45Z" fill="#0D1629"/>
+</svg>
+''';
+
+const String _searchLyricsSvg = '''
+<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="10.5" cy="10.5" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/>
+  <path d="M15 15L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  <path d="M10.4 8.2V10.95L12.45 12.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+''';
 
 class _LyricsSourceSelector extends ConsumerWidget {
   const _LyricsSourceSelector({
@@ -687,124 +736,128 @@ class _LyricsSourceSelector extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(libraryProvider.notifier);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2),
-          child: Row(
-            children: [
-              Text(
-                t.lyricsSource,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.68),
-                  fontSize: 13,
-                ),
-              ),
-              const Spacer(),
-              if (isLoading)
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white.withValues(alpha: 0.88),
-                  ),
-                ),
-            ],
+        _LyricsSourceIconButton(
+          tooltip: t.localLyricsSource,
+          svg: _localLyricsSvg,
+          selected: selectedSource == LyricsSourceType.local,
+          onPressed: () => controller.selectLyricsSource(
+            track,
+            LyricsSourceType.local,
           ),
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _LyricsSourceButton(
-                label: t.localLyricsSource,
-                selected: selectedSource == LyricsSourceType.local,
-                onPressed: () => controller.selectLyricsSource(
-                  track,
-                  LyricsSourceType.local,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _LyricsSourceButton(
-                label: t.onlineLyricsSource,
-                selected: selectedSource == LyricsSourceType.online,
-                onPressed: () => controller.selectLyricsSource(
-                  track,
-                  LyricsSourceType.online,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _LyricsSourceButton(
-                label: t.onlineLyricsSearch,
-                selected: false,
-                onPressed: () async {
-                  await showDialog<void>(
-                    context: context,
-                    builder: (_) =>
-                        _OnlineLyricsSearchDialog(track: track, t: t),
-                  );
-                },
-              ),
-            ),
-          ],
+        const SizedBox(width: 12),
+        _LyricsSourceIconButton(
+          tooltip: t.onlineLyricsSource,
+          svg: _onlineLyricsSvg,
+          selected: selectedSource == LyricsSourceType.online,
+          loading: isLoading,
+          onPressed: () => controller.selectLyricsSource(
+            track,
+            LyricsSourceType.online,
+          ),
+        ),
+        const SizedBox(width: 12),
+        _LyricsSourceIconButton(
+          tooltip: t.onlineLyricsSearch,
+          svg: _searchLyricsSvg,
+          onPressed: () async {
+            await showDialog<void>(
+              context: context,
+              builder: (_) => _OnlineLyricsSearchDialog(track: track, t: t),
+            );
+          },
         ),
       ],
     );
   }
 }
 
-class _LyricsSourceButton extends StatelessWidget {
-  const _LyricsSourceButton({
-    required this.label,
-    required this.selected,
+class _LyricsSourceIconButton extends StatefulWidget {
+  const _LyricsSourceIconButton({
+    required this.tooltip,
+    required this.svg,
     required this.onPressed,
+    this.selected = false,
+    this.loading = false,
   });
 
-  final String label;
-  final bool selected;
+  final String tooltip;
+  final String svg;
   final FutureOr<void> Function() onPressed;
+  final bool selected;
+  final bool loading;
+
+  @override
+  State<_LyricsSourceIconButton> createState() =>
+      _LyricsSourceIconButtonState();
+}
+
+class _LyricsSourceIconButtonState extends State<_LyricsSourceIconButton> {
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
-    final foreground = selected
+    final iconColor = widget.selected
         ? Colors.white
-        : Colors.white.withValues(alpha: 0.82);
-    final background = selected
-        ? Colors.white.withValues(alpha: 0.18)
-        : Colors.white.withValues(alpha: 0.06);
+        : Colors.white.withValues(alpha: 0.78);
 
-    return SizedBox(
-      height: 38,
-      child: TextButton(
-        onPressed: () {
-          onPressed();
-        },
-        style: TextButton.styleFrom(
-          foregroundColor: foreground,
-          backgroundColor: background,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: Colors.white.withValues(alpha: selected ? 0.20 : 0.10),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: Tooltip(
+        message: widget.tooltip,
+        child: GestureDetector(
+          onTap: () {
+            widget.onPressed();
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: widget.selected
+                  ? Colors.white.withValues(alpha: 0.14)
+                  : (_hovered
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.transparent),
+              border: _hovered
+                  ? Border.all(
+                      color: Colors.white.withValues(alpha: 0.26),
+                      width: 1,
+                    )
+                  : null,
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SvgPicture.string(
+                  widget.svg,
+                  width: 18,
+                  height: 18,
+                  colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+                ),
+                if (widget.loading)
+                  Positioned(
+                    right: 4,
+                    bottom: 4,
+                    child: SizedBox(
+                      width: 10,
+                      height: 10,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.6,
+                        color: Colors.white.withValues(alpha: 0.92),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          textStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
         ),
       ),
     );
@@ -1122,6 +1175,77 @@ class _PlaybackModeButton extends StatelessWidget {
           colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
         ),
       ),
+    );
+  }
+}
+
+class _ExpandableVolumeControl extends StatefulWidget {
+  const _ExpandableVolumeControl({
+    required this.volume,
+    required this.onChanged,
+  });
+
+  final double volume;
+  final ValueChanged<double> onChanged;
+
+  @override
+  State<_ExpandableVolumeControl> createState() =>
+      _ExpandableVolumeControlState();
+}
+
+class _ExpandableVolumeControlState extends State<_ExpandableVolumeControl> {
+  bool _expanded = false;
+
+  void _toggleExpanded() {
+    setState(() {
+      _expanded = !_expanded;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: 'Volume',
+          onPressed: _toggleExpanded,
+          icon: Icon(
+            Icons.volume_up_rounded,
+            color: Colors.white.withValues(alpha: 0.9),
+            size: 20,
+          ),
+        ),
+        ClipRect(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            width: _expanded ? 170 : 0,
+            child: Row(
+              children: [
+                const SizedBox(width: 4),
+                Expanded(
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: Colors.white,
+                      inactiveTrackColor: Colors.white.withValues(alpha: 0.24),
+                      thumbColor: Colors.white,
+                      overlayColor: Colors.white.withValues(alpha: 0.14),
+                      trackHeight: 2.6,
+                    ),
+                    child: Slider(
+                      value: widget.volume,
+                      min: 0,
+                      max: 1,
+                      onChanged: widget.onChanged,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

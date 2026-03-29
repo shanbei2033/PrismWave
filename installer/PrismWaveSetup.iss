@@ -1,5 +1,5 @@
 #define MyAppName "PrismWave"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "R010_fix1"
 #define MyAppPublisher "shanbei2033"
 #define MyAppURL "https://github.com/shanbei2033/PrismWave"
 #define MyAppExeName "PrismWave.exe"
@@ -15,7 +15,7 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-DefaultDirName={autopf}\{#MyAppName}
+DefaultDirName={code:GetDefaultInstallDir}
 DefaultGroupName={#MyAppName}
 LicenseFile={#MyLicenseFile}
 SetupIconFile={#MyIconFile}
@@ -46,3 +46,12 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+function GetDefaultInstallDir(Param: string): string;
+begin
+  if DirExists('D:\') then
+    Result := 'D:\{#MyAppName}'
+  else
+    Result := ExpandConstant('{autopf}\{#MyAppName}');
+end;

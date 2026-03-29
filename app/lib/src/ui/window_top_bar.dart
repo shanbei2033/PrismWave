@@ -137,18 +137,23 @@ class _WindowTopBarState extends ConsumerState<WindowTopBar> with WindowListener
                     ? LayoutBuilder(
                         key: const ValueKey('topbar-box-visible'),
                         builder: (context, constraints) {
-                          const previousCenteredWidth = 520.0;
-                          final startInset = math.max(
-                            0.0,
-                            ((constraints.maxWidth - previousCenteredWidth) / 2) - 18,
-                          );
+                          // Align the lyric/quote box with the main content area.
+                          // Main page content starts after:
+                          // window padding 16 + sidebar 260 + gutter 14,
+                          // while the drag area itself already starts after
+                          // top bar left padding 14 + placeholder 10.
+                          const contentStartInset = 266.0;
+                          const trailingGap = 8.0;
                           final boxWidth = math.max(
-                            220.0,
-                            constraints.maxWidth - startInset - 4,
+                            0.0,
+                            constraints.maxWidth - contentStartInset - trailingGap,
                           );
 
                           return Padding(
-                            padding: EdgeInsets.only(left: startInset, right: 4),
+                            padding: const EdgeInsets.only(
+                              left: contentStartInset,
+                              right: trailingGap,
+                            ),
                             child: Align(
                               alignment: Alignment.centerLeft,
                               child: SizedBox(

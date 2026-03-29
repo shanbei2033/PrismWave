@@ -65,6 +65,13 @@ class MediaKitPlayer extends AudioPlayerPlatform {
       ),
     );
 
+    unawaited(() async {
+      await ready();
+      await _configureNativeOutput();
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      _publishAudioDeviceSnapshot();
+    }());
+
     _streamSubscriptions = [
       _player.stream.duration.listen((duration) {
         if (_currentMedia?.extras?['overrideDuration'] != null) return;
@@ -127,6 +134,12 @@ class MediaKitPlayer extends AudioPlayerPlatform {
       _player.stream.volume.listen((volume) {
         _dataController.add(PlayerDataMessage(volume: volume / 100.0));
       }),
+      _player.stream.audioDevices.listen((devices) {
+        _publishAudioDevices(devices);
+      }),
+      _player.stream.audioDevice.listen((device) {
+        JustAudioMediaKit.updateSelectedNativeAudioDevice(device.name);
+      }),
       _player.stream.completed.listen((completed) {
         _bufferedPosition = _position = Duration.zero;
         if (completed &&
@@ -142,6 +155,12 @@ class MediaKitPlayer extends AudioPlayerPlatform {
         _updatePlaybackEvent();
       }),
       _player.stream.error.listen((error) {
+        if (_looksLikeBenignExternalLyricsError(error)) {
+          _emitNativeAudioRouteLog(
+            'ignored external lyrics load error -> $error',
+          );
+          return;
+        }
         if (_usingWasapiExclusive &&
             JustAudioMediaKit.fallbackToWasapiShared &&
             _looksLikeExclusiveModeError(error)) {
@@ -189,9 +208,38 @@ class MediaKitPlayer extends AudioPlayerPlatform {
         normalized.contains('wasapi');
   }
 
+  bool _looksLikeBenignExternalLyricsError(String message) {
+    final normalized = message.toLowerCase();
+    return normalized.contains('can not open external file') &&
+        normalized.contains('.lrc');
+  }
+
   void _emitNativeAudioRouteLog(String message) {
     JustAudioMediaKit.nativeAudioRouteLogger?.call(message);
     _logger.info(message);
+  }
+
+  void _publishAudioDeviceSnapshot() {
+    _publishAudioDevices(_player.state.audioDevices);
+    JustAudioMediaKit.updateSelectedNativeAudioDevice(
+      _player.state.audioDevice.name,
+    );
+    _emitNativeAudioRouteLog(
+      'audio devices snapshot -> count=${_player.state.audioDevices.length}, '
+      'selected=${_player.state.audioDevice.name}',
+    );
+  }
+
+  void _publishAudioDevices(List<AudioDevice> devices) {
+    final snapshot = devices
+        .map(
+          (device) => NativeAudioDeviceInfo(
+            id: device.name,
+            label: device.description.isEmpty ? device.name : device.description,
+          ),
+        )
+        .toList(growable: false);
+    JustAudioMediaKit.updateNativeAudioDevices(snapshot);
   }
 
   Future<void> _logNativeAudioState(String stage) async {
@@ -241,6 +289,8 @@ class MediaKitPlayer extends AudioPlayerPlatform {
     if (!JustAudioMediaKit.preferWasapi) {
       await setProperty(_player, 'audio-exclusive', 'no');
       _usingWasapiExclusive = false;
+      await _applyPreferredAudioDevice();
+      _publishAudioDeviceSnapshot();
       _emitNativeAudioRouteLog(
           'configured output -> compatibility (MPV default backend)');
       await _logNativeAudioState('post-configure');
@@ -270,7 +320,29 @@ class MediaKitPlayer extends AudioPlayerPlatform {
       _emitNativeAudioRouteLog('configured output -> requested WASAPI shared');
     }
 
+    await _applyPreferredAudioDevice();
+    _publishAudioDeviceSnapshot();
     await _logNativeAudioState('post-configure');
+  }
+
+  Future<void> _applyPreferredAudioDevice() async {
+    final preferred = JustAudioMediaKit.preferredAudioDevice.trim().isEmpty
+        ? NativeAudioDeviceInfo.auto.id
+        : JustAudioMediaKit.preferredAudioDevice.trim();
+    try {
+      await setProperty(_player, 'audio-device', preferred);
+      _emitNativeAudioRouteLog('configured device -> $preferred');
+    } catch (error) {
+      _emitNativeAudioRouteLog(
+        'configured device failed -> $preferred ($error)',
+      );
+      if (preferred != NativeAudioDeviceInfo.auto.id) {
+        await setProperty(_player, 'audio-device', NativeAudioDeviceInfo.auto.id);
+        _emitNativeAudioRouteLog(
+          'configured device fallback -> ${NativeAudioDeviceInfo.auto.id}',
+        );
+      }
+    }
   }
 
   Future<void> _fallbackToWasapiShared({required String reason}) async {

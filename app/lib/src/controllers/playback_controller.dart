@@ -1,14 +1,16 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+import 'package:media_kit/media_kit.dart' as media_kit;
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/playback_strategy.dart';
+import '../models/audio_output_device.dart';
 import '../models/audio_output_mode.dart';
 import '../models/playback_mode.dart';
 import '../models/track.dart';
@@ -19,13 +21,19 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     JustAudioMediaKit.nativeAudioRouteLogger = (message) {
       _debug('native.output => $message', force: true);
     };
+    JustAudioMediaKit.nativeAudioDevicesListener = _handleNativeAudioDevices;
+    JustAudioMediaKit.nativeSelectedAudioDeviceListener =
+        _handleNativeSelectedAudioDevice;
+    JustAudioMediaKit.preferredAudioDevice = state.audioOutputDeviceId;
     _applyAudioOutputModeToBackend(state.audioOutputMode);
+    _initializeAudioDeviceProbe();
     _initializePlayer();
     unawaited(_loadDeveloperMode());
-    unawaited(_loadAudioOutputMode());
+    unawaited(_loadAudioRoutePreferences());
   }
 
   late AudioPlayer _player;
+  late final media_kit.Player _audioDeviceProbe;
   final Random _random = Random();
 
   static const Set<String> _demoPlayableExtensions = {
@@ -39,6 +47,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
   };
 
   static const String _prefDeveloperMode = 'debug.playbackDeveloperMode';
+  static const String _prefAudioOutputDevice = 'audio.outputDevice';
   static const int _maxDebugLogs = 500;
   static const String _devLogDirName = 'PrismWave';
   static const String _devLogSubDir = 'logs';
@@ -48,14 +57,21 @@ class PlaybackController extends StateNotifier<PlaybackState> {
   StreamSubscription<Duration?>? _durationSub;
   StreamSubscription<int?>? _currentIndexSub;
   StreamSubscription<PlayerException>? _errorSub;
+  StreamSubscription<List<media_kit.AudioDevice>>? _probeAudioDevicesSub;
+  StreamSubscription<media_kit.AudioDevice>? _probeAudioDeviceSub;
   String? _developerLogFilePath;
+  String? _developerConsoleControlFilePath;
   bool _developerConsoleSpawned = false;
 
   int _sessionToken = 0;
   bool _autoAdvancing = false;
   bool _recoveringDecoderError = false;
+  bool _recoveringAudioDeviceError = false;
+  bool _currentTrackStartedByAutoAdvance = false;
   int _decoderRecoveryCount = 0;
   DateTime _decoderRecoveryWindowStart = DateTime.fromMillisecondsSinceEpoch(0);
+  int _decodeSkipCount = 0;
+  DateTime _decodeSkipWindowStart = DateTime.fromMillisecondsSinceEpoch(0);
   ProcessingState? _lastProcessingState;
   bool? _lastPlayingState;
 
@@ -63,16 +79,51 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     _player = AudioPlayer();
     _bindPlayerEvents();
     _player.setVolume(state.volume);
+    _syncKnownAudioDevicesFromBackend();
     unawaited(_syncNativeLoopMode());
   }
 
-  Future<void> _loadAudioOutputMode() async {
+  void _initializeAudioDeviceProbe() {
+    _audioDeviceProbe = media_kit.Player(
+      configuration: const media_kit.PlayerConfiguration(
+        title: 'PrismWave Device Probe',
+      ),
+    );
+    _probeAudioDevicesSub = _audioDeviceProbe.stream.audioDevices.listen(
+      _handleProbeAudioDevices,
+    );
+    _probeAudioDeviceSub = _audioDeviceProbe.stream.audioDevice.listen(
+      _handleProbeAudioDevice,
+    );
+    unawaited(
+      _refreshAudioDeviceProbe(
+        mode: state.audioOutputMode,
+        deviceId: state.audioOutputDeviceId,
+      ),
+    );
+  }
+
+  Future<void> _loadAudioRoutePreferences() async {
     final prefs = await SharedPreferences.getInstance();
     final restored = AudioOutputMode.fromId(
       prefs.getString(kPrefAudioOutputMode),
     );
-    if (restored == state.audioOutputMode) return;
-    await _setAudioOutputModeInternal(restored, persist: false);
+    final restoredDevice = _normalizeAudioDeviceId(
+      prefs.getString(_prefAudioOutputDevice),
+    );
+    JustAudioMediaKit.preferredAudioDevice = restoredDevice;
+    _syncKnownAudioDevicesFromBackend();
+    await _refreshAudioDeviceProbe(mode: restored, deviceId: restoredDevice);
+
+    if (restored == state.audioOutputMode &&
+        restoredDevice == state.audioOutputDeviceId) {
+      return;
+    }
+
+    await _rebuildPlayerForAudioConfiguration(
+      mode: restored,
+      deviceId: restoredDevice,
+    );
   }
 
   Future<void> _loadDeveloperMode() async {
@@ -110,6 +161,26 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     await _setAudioOutputModeInternal(mode, persist: true);
   }
 
+  Future<void> setAudioOutputDevice(String deviceId) async {
+    final normalized = _normalizeAudioDeviceId(deviceId);
+    if (normalized == state.audioOutputDeviceId) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefAudioOutputDevice, normalized);
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefAudioOutputDevice, normalized);
+    await _refreshAudioDeviceProbe(
+      mode: state.audioOutputMode,
+      deviceId: normalized,
+    );
+    await _rebuildPlayerForAudioConfiguration(
+      mode: state.audioOutputMode,
+      deviceId: normalized,
+    );
+  }
+
   Future<void> _setAudioOutputModeInternal(
     AudioOutputMode mode, {
     required bool persist,
@@ -126,7 +197,14 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(kPrefAudioOutputMode, mode.id);
     }
-    await _rebuildPlayerForOutputMode(mode);
+    await _refreshAudioDeviceProbe(
+      mode: mode,
+      deviceId: state.audioOutputDeviceId,
+    );
+    await _rebuildPlayerForAudioConfiguration(
+      mode: mode,
+      deviceId: state.audioOutputDeviceId,
+    );
   }
 
   void clearDebugLogs() {
@@ -153,7 +231,11 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     }
   }
 
-  Future<void> _rebuildPlayerForOutputMode(AudioOutputMode mode) async {
+  Future<void> _rebuildPlayerForAudioConfiguration({
+    required AudioOutputMode mode,
+    required String deviceId,
+    bool forcePlay = false,
+  }) async {
     final previous = state;
     final hadPlaylist = previous.currentPlaylist.isNotEmpty;
     final wasPlaying = previous.isPlaying;
@@ -166,8 +248,15 @@ class PlaybackController extends StateNotifier<PlaybackState> {
         : 0;
 
     _newSession();
+    final normalizedDeviceId = _normalizeAudioDeviceId(deviceId);
+    JustAudioMediaKit.preferredAudioDevice = normalizedDeviceId;
+    final effectiveMode = _resolveEffectiveAudioOutputMode(
+      mode,
+      normalizedDeviceId,
+    );
     state = state.copyWith(
       audioOutputMode: mode,
+      audioOutputDeviceId: normalizedDeviceId,
       isLoading: hadPlaylist,
       isPlaying: false,
       clearError: true,
@@ -176,14 +265,19 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     _player = oldPlayer;
     await _disposeCurrentPlayerInstance();
 
-    _applyAudioOutputModeToBackend(mode);
+    _applyAudioOutputModeToBackend(effectiveMode);
     _initializePlayer();
 
-    _debug('audio.outputMode switched -> ${mode.name}', force: true);
+    _debug(
+      'audio.route switched -> requested=${mode.name}, '
+      'effective=${effectiveMode.name}, device=$normalizedDeviceId',
+      force: true,
+    );
 
     if (!hadPlaylist) {
       state = state.copyWith(
         audioOutputMode: mode,
+        audioOutputDeviceId: normalizedDeviceId,
         isLoading: false,
         isPlaying: false,
         clearError: true,
@@ -197,6 +291,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
     state = state.copyWith(
       audioOutputMode: mode,
+      audioOutputDeviceId: normalizedDeviceId,
       currentPlaylist: playlist,
       currentTrack: track,
       currentIndex: restoreIndex,
@@ -216,7 +311,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       await _syncNativeLoopMode();
       if (!_isSessionActive(token)) return;
 
-      if (wasPlaying) {
+      if (forcePlay || wasPlaying) {
         await _player.play();
       } else {
         await _player.pause();
@@ -225,6 +320,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
       state = state.copyWith(
         audioOutputMode: mode,
+        audioOutputDeviceId: normalizedDeviceId,
         isLoading: false,
         currentTime: restorePosition,
         clearError: true,
@@ -233,10 +329,11 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       if (!_isSessionActive(token)) return;
       state = state.copyWith(
         audioOutputMode: mode,
+        audioOutputDeviceId: normalizedDeviceId,
         isLoading: false,
-        error: 'Switch output mode failed: $error',
+        error: 'Switch audio route failed: $error',
       );
-      _debug('audio.outputMode reload failed -> $error', force: true);
+      _debug('audio.route reload failed -> $error', force: true);
     }
   }
 
@@ -337,6 +434,14 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     _currentIndexSub = _player.currentIndexStream.listen((_) {});
 
     _errorSub = _player.errorStream.listen((error) {
+      if (_recoveringAudioDeviceError) {
+        _debug(
+          'player.error suppressed during audio-device recovery: '
+          '[${error.code}] ${error.message}',
+        );
+        return;
+      }
+
       if (_recoveringDecoderError) {
         _debug(
           'player.error suppressed during recovery: [${error.code}] ${error.message}',
@@ -351,8 +456,23 @@ class PlaybackController extends StateNotifier<PlaybackState> {
         force: true,
       );
 
+      if (_shouldSkipTrackAfterDecodeError(error)) {
+        unawaited(_skipTrackAfterDecodeError(trigger: message));
+        return;
+      }
+
+      if (_shouldTreatDecodeErrorAsTrackCompletion(error)) {
+        unawaited(_handleDecodeErrorAsTrackCompletion(trigger: message));
+        return;
+      }
+
       if (_shouldRecoverFromDecodeError(error)) {
         unawaited(_attemptDecodeRecovery(trigger: message));
+        return;
+      }
+
+      if (_shouldRecoverFromAudioDeviceError(error)) {
+        unawaited(_recoverToAutoAudioDevice(trigger: message));
         return;
       }
 
@@ -427,6 +547,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       index: index,
       expectedToken: token,
       errorPrefix: 'Play failed',
+      markAutoAdvancedTrack: false,
     );
   }
 
@@ -459,6 +580,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
         index: state.currentIndex < 0 ? 0 : state.currentIndex,
         expectedToken: token,
         errorPrefix: 'Play failed',
+        markAutoAdvancedTrack: false,
       );
       return;
     }
@@ -521,14 +643,18 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       'next(fromAutoEnded=$fromAutoEnded) -> targetIndex=$nextIndex',
       force: true,
     );
-    await _playIndex(nextIndex);
+    await _playIndex(nextIndex, causedByAutoAdvance: fromAutoEnded);
   }
 
-  Future<void> _playIndex(int index) async {
+  Future<void> _playIndex(
+    int index, {
+    bool causedByAutoAdvance = false,
+  }) async {
     if (index < 0 || index >= state.currentPlaylist.length) return;
 
     if (index == state.currentIndex) {
       _debug('playIndex -> same index($index), restart current.', force: true);
+      _currentTrackStartedByAutoAdvance = causedByAutoAdvance;
       await _restartCurrentTrack();
       return;
     }
@@ -555,6 +681,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
         index: index,
         expectedToken: token,
         errorPrefix: 'Switch track failed',
+        markAutoAdvancedTrack: causedByAutoAdvance,
       );
     } catch (error) {
       if (!_isSessionActive(token)) return;
@@ -592,6 +719,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
           index: index,
           expectedToken: token,
           errorPrefix: 'Failed to restart track',
+          markAutoAdvancedTrack: _currentTrackStartedByAutoAdvance,
         );
         return;
       }
@@ -625,8 +753,36 @@ class PlaybackController extends StateNotifier<PlaybackState> {
         index: index,
         expectedToken: token,
         errorPrefix: 'Failed to restart track',
+        markAutoAdvancedTrack: _currentTrackStartedByAutoAdvance,
       );
     }
+  }
+
+  bool _shouldSkipTrackAfterDecodeError(PlayerException error) {
+    final message = (error.message ?? '').toLowerCase();
+    final looksLikeDecodeError =
+        message.contains('decode') || message.contains('decoding');
+    if (!looksLikeDecodeError) return false;
+    if (_recoveringDecoderError) return false;
+    if (state.playbackMode == PlaybackMode.single) return false;
+    if (state.currentPlaylist.length <= 1) return false;
+
+    final now = DateTime.now();
+    if (now.difference(_decodeSkipWindowStart) >
+        const Duration(seconds: 30)) {
+      _decodeSkipWindowStart = now;
+      _decodeSkipCount = 0;
+    }
+
+    _debug(
+      'decode skip decision -> mode=${state.playbackMode.name}, '
+      'playlistLength=${state.currentPlaylist.length}, '
+      'autoAdvanced=$_currentTrackStartedByAutoAdvance, '
+      'positionMs=${_player.position.inMilliseconds}',
+      force: true,
+    );
+
+    return _decodeSkipCount < min(state.currentPlaylist.length, 8);
   }
 
   bool _shouldRecoverFromDecodeError(PlayerException error) {
@@ -656,6 +812,248 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     }
 
     return true;
+  }
+
+  bool _shouldTreatDecodeErrorAsTrackCompletion(PlayerException error) {
+    final message = (error.message ?? '').toLowerCase();
+    final looksLikeDecodeError =
+        message.contains('decode') || message.contains('decoding');
+    if (!looksLikeDecodeError) return false;
+    if (_recoveringDecoderError || _autoAdvancing) return false;
+    if (!state.hasTrack || state.currentPlaylist.isEmpty) return false;
+
+    final duration = _currentKnownTrackDuration();
+    if (duration <= Duration.zero) return false;
+
+    final position = _currentKnownTrackPosition();
+    if (position <= Duration.zero) return false;
+
+    final remaining = duration - position;
+    final nearEndByTime = remaining <= const Duration(milliseconds: 1800);
+    final nearEndByProgress =
+        duration.inMilliseconds > 0 &&
+        position.inMilliseconds >=
+            (duration.inMilliseconds * 0.96).round();
+
+    final shouldTreatAsCompleted = nearEndByTime || nearEndByProgress;
+    if (shouldTreatAsCompleted) {
+      _debug(
+        'decode completion decision -> mode=${state.playbackMode.name}, '
+        'positionMs=${position.inMilliseconds}, durationMs=${duration.inMilliseconds}, '
+        'remainingMs=${remaining.inMilliseconds}',
+        force: true,
+      );
+    }
+    return shouldTreatAsCompleted;
+  }
+
+  Duration _currentKnownTrackDuration() {
+    final playerDuration = _player.duration ?? Duration.zero;
+    if (playerDuration > Duration.zero) return playerDuration;
+    return state.duration;
+  }
+
+  Duration _currentKnownTrackPosition() {
+    final playerPosition = _player.position;
+    if (playerPosition > state.currentTime) return playerPosition;
+    return state.currentTime;
+  }
+
+  Future<void> _handleDecodeErrorAsTrackCompletion({
+    required String trigger,
+  }) async {
+    if (_autoAdvancing) return;
+
+    _autoAdvancing = true;
+    final position = _currentKnownTrackPosition();
+    final duration = _currentKnownTrackDuration();
+    _debug(
+      'decode completion -> treating as auto next. '
+      'mode=${state.playbackMode.name}, positionMs=${position.inMilliseconds}, '
+      'durationMs=${duration.inMilliseconds}, trigger="$trigger"',
+      force: true,
+    );
+
+    try {
+      await next(fromAutoEnded: true);
+    } finally {
+      _autoAdvancing = false;
+    }
+  }
+
+  bool _shouldRecoverFromAudioDeviceError(PlayerException error) {
+    if (_recoveringAudioDeviceError) return false;
+    if (_resolveNextAudioRouteFallbackStep() == null) return false;
+    return _looksLikeAudioDeviceInitializationFailure(
+      error.message ?? '$error',
+    );
+  }
+
+  bool _looksLikeAudioDeviceInitializationFailure(String message) {
+    final normalized = message.toLowerCase();
+    if (normalized.contains('could not open/initialize audio device')) {
+      return true;
+    }
+    if (normalized.contains('could not open or initialize audio device')) {
+      return true;
+    }
+    if (normalized.contains('failed to initialize audio device')) {
+      return true;
+    }
+    if (normalized.contains('audio device') && normalized.contains('no sound')) {
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _persistAudioRoutePreferences({
+    required AudioOutputMode mode,
+    required String deviceId,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(kPrefAudioOutputMode, mode.id);
+    await prefs.setString(_prefAudioOutputDevice, deviceId);
+  }
+
+  ({AudioOutputMode mode, String deviceId, String description})?
+  _resolveNextAudioRouteFallbackStep() {
+    if (state.audioOutputDeviceId != AudioOutputDevice.auto.id) {
+      return (
+        mode: state.audioOutputMode,
+        deviceId: AudioOutputDevice.auto.id,
+        description: 'selected device -> auto',
+      );
+    }
+
+    if (state.audioOutputMode == AudioOutputMode.wasapiExclusive) {
+      return (
+        mode: AudioOutputMode.wasapiShared,
+        deviceId: AudioOutputDevice.auto.id,
+        description: 'WASAPI exclusive -> WASAPI shared',
+      );
+    }
+
+    if (state.audioOutputMode == AudioOutputMode.wasapiShared) {
+      return (
+        mode: AudioOutputMode.compatibility,
+        deviceId: AudioOutputDevice.auto.id,
+        description: 'WASAPI shared -> compatibility',
+      );
+    }
+
+    return null;
+  }
+
+  bool _didAudioRouteRecoveryStepFail() {
+    return _player.processingState == ProcessingState.idle;
+  }
+
+  Future<void> _recoverToAutoAudioDevice({required String trigger}) async {
+    if (_recoveringAudioDeviceError) return;
+
+    _recoveringAudioDeviceError = true;
+
+    try {
+      for (var attempt = 0; attempt < 3; attempt += 1) {
+        final step = _resolveNextAudioRouteFallbackStep();
+        if (step == null) {
+          state = state.copyWith(
+            isLoading: false,
+            error: trigger,
+          );
+          _debug(
+            'audio.route recovery exhausted -> no further fallback. '
+            'mode=${state.audioOutputMode.name}, device=${state.audioOutputDeviceId}',
+            force: true,
+          );
+          return;
+        }
+
+        _debug(
+          'audio.route recovery -> ${step.description}. '
+          'from mode=${state.audioOutputMode.name}, device=${state.audioOutputDeviceId}, '
+          'to mode=${step.mode.name}, device=${step.deviceId}, trigger="$trigger"',
+          force: true,
+        );
+
+        state = state.copyWith(isLoading: true, clearError: true);
+        await _persistAudioRoutePreferences(
+          mode: step.mode,
+          deviceId: step.deviceId,
+        );
+        await _refreshAudioDeviceProbe(
+          mode: step.mode,
+          deviceId: step.deviceId,
+        );
+        await _rebuildPlayerForAudioConfiguration(
+          mode: step.mode,
+          deviceId: step.deviceId,
+          forcePlay: true,
+        );
+
+        await Future<void>.delayed(const Duration(milliseconds: 260));
+
+        if (!_didAudioRouteRecoveryStepFail()) {
+          _debug(
+            'audio.route recovery -> ${step.description} succeeded. '
+            'mode=${state.audioOutputMode.name}, device=${state.audioOutputDeviceId}, '
+            'processing=${_player.processingState.name}',
+            force: true,
+          );
+          return;
+        }
+
+        _debug(
+          'audio.route recovery -> ${step.description} still failed. '
+          'processing=${_player.processingState.name}, playing=${_player.playing}',
+          force: true,
+        );
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        error: trigger,
+      );
+      _debug(
+        'audio.route recovery exhausted -> maximum fallback attempts reached.',
+        force: true,
+      );
+    } catch (error) {
+      _debug('audio.device recovery failed -> $error', force: true);
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Audio device recovery failed: $error',
+      );
+    } finally {
+      _recoveringAudioDeviceError = false;
+    }
+  }
+
+  Future<void> _skipTrackAfterDecodeError({required String trigger}) async {
+    _recoveringDecoderError = true;
+    _decodeSkipCount += 1;
+    final failedIndex = state.currentIndex < 0 ? 0 : state.currentIndex;
+    final failedTrackTitle = state.currentTrack?.title ?? 'Unknown Track';
+
+    _debug(
+      'decode skip #$_decodeSkipCount triggered by "$trigger" at index=$failedIndex, '
+      'title="$failedTrackTitle"',
+      force: true,
+    );
+
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      await _player.stop();
+      await next(fromAutoEnded: true);
+    } catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Decode skip failed: $error',
+      );
+    } finally {
+      _recoveringDecoderError = false;
+    }
   }
 
   Future<void> _attemptDecodeRecovery({required String trigger}) async {
@@ -708,6 +1106,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
         index: index,
         expectedToken: token,
         errorPrefix: 'Decoder recovery failed',
+        markAutoAdvancedTrack: _currentTrackStartedByAutoAdvance,
       );
     } catch (error) {
       if (!_isSessionActive(token)) return;
@@ -725,6 +1124,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     required int index,
     required int expectedToken,
     required String errorPrefix,
+    required bool markAutoAdvancedTrack,
   }) async {
     _debug(
       'native.output.requested => mode=${state.audioOutputMode.name}, '
@@ -770,10 +1170,12 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       if (!_isSessionActive(expectedToken)) return;
       _debug('loadPlaylistAndPlay -> play completed');
 
+      _currentTrackStartedByAutoAdvance = markAutoAdvancedTrack;
       state = state.copyWith(isLoading: false, clearError: true);
       _debug('loadPlaylistAndPlay success.');
     } on PlayerInterruptedException {
       if (!_isSessionActive(expectedToken)) return;
+      _currentTrackStartedByAutoAdvance = false;
       state = state.copyWith(
         isLoading: false,
         error:
@@ -784,9 +1186,18 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       final track = (index >= 0 && index < playlist.length)
           ? playlist[index]
           : state.currentTrack;
+      final detailedMessage =
+          '$errorPrefix: ${track?.title ?? 'Unknown Track'} ($error)';
+      if (!_recoveringAudioDeviceError &&
+          _resolveNextAudioRouteFallbackStep() != null &&
+          _looksLikeAudioDeviceInitializationFailure('$error')) {
+        await _recoverToAutoAudioDevice(trigger: detailedMessage);
+        return;
+      }
+      _currentTrackStartedByAutoAdvance = false;
       state = state.copyWith(
         isLoading: false,
-        error: '$errorPrefix: ${track?.title ?? 'Unknown Track'} ($error)',
+        error: detailedMessage,
       );
       _debug(
         '$errorPrefix -> ${track?.title ?? 'Unknown Track'} | $error',
@@ -862,6 +1273,12 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       }
 
       if (openConsole && Platform.isWindows && !_developerConsoleSpawned) {
+        final controlPath = p.join(
+          File(_developerLogFilePath!).parent.path,
+          'console_${DateTime.now().millisecondsSinceEpoch}.flag',
+        );
+        File(controlPath).writeAsStringSync('active', flush: true);
+        _developerConsoleControlFilePath = controlPath;
         await _spawnDeveloperConsole();
         _developerConsoleSpawned = true;
       }
@@ -874,6 +1291,14 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
   Future<void> _disableDeveloperOutputs() async {
     try {
+      final controlPath = _developerConsoleControlFilePath;
+      _developerConsoleControlFilePath = null;
+      if (controlPath != null && controlPath.isNotEmpty) {
+        final file = File(controlPath);
+        if (file.existsSync()) {
+          file.deleteSync();
+        }
+      }
       _developerLogFilePath = null;
       _developerConsoleSpawned = false;
     } catch (_) {}
@@ -921,9 +1346,13 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
   Future<void> _spawnDeveloperConsole() async {
     final logPath = _developerLogFilePath;
+    final controlPath = _developerConsoleControlFilePath;
     if (logPath == null || logPath.isEmpty) return;
+    if (controlPath == null || controlPath.isEmpty) return;
 
-    final escaped = logPath.replaceAll("'", "''");
+    final escapedLogPath = logPath.replaceAll("'", "''");
+    final escapedControlPath = controlPath.replaceAll("'", "''");
+    final parentProcessId = pid;
     final scriptPath = p.join(
       File(logPath).parent.path,
       'tail_${DateTime.now().millisecondsSinceEpoch}.ps1',
@@ -931,10 +1360,24 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     final scriptFile = File(scriptPath);
     scriptFile.writeAsStringSync('''
 \$Host.UI.RawUI.WindowTitle = 'PrismWave Developer Log'
-\$logPath = '$escaped'
+\$logPath = '$escapedLogPath'
+\$controlPath = '$escapedControlPath'
+\$parentPid = $parentProcessId
 Write-Host 'PrismWave Dev Mode Active'
 Write-Host ('Log File: ' + \$logPath)
 if (!(Test-Path \$logPath)) { New-Item -ItemType File -Force -Path \$logPath | Out-Null }
+\$watcher = Start-Job -ScriptBlock {
+  param(\$parentPid, \$controlPath, \$selfPid)
+  while (\$true) {
+    \$parentAlive = \$null -ne (Get-Process -Id \$parentPid -ErrorAction SilentlyContinue)
+    \$controlAlive = Test-Path \$controlPath
+    if (-not \$parentAlive -or -not \$controlAlive) {
+      Stop-Process -Id \$selfPid -Force
+      break
+    }
+    Start-Sleep -Milliseconds 350
+  }
+} -ArgumentList \$parentPid, \$controlPath, \$PID
 Get-Content -Path \$logPath -Wait
 ''');
 
@@ -951,7 +1394,6 @@ Get-Content -Path \$logPath -Wait
       scriptPath,
     ], mode: ProcessStartMode.detached);
   }
-
   void _writeDebugLineToFile(String line) {
     final path = _developerLogFilePath;
     if (path == null || path.isEmpty) return;
@@ -969,8 +1411,190 @@ Get-Content -Path \$logPath -Wait
   @override
   void dispose() {
     JustAudioMediaKit.nativeAudioRouteLogger = null;
+    JustAudioMediaKit.nativeAudioDevicesListener = null;
+    JustAudioMediaKit.nativeSelectedAudioDeviceListener = null;
+    unawaited(_probeAudioDevicesSub?.cancel() ?? Future<void>.value());
+    unawaited(_probeAudioDeviceSub?.cancel() ?? Future<void>.value());
+    unawaited(_audioDeviceProbe.dispose());
     unawaited(_disposeCurrentPlayerInstance());
     unawaited(_disableDeveloperOutputs());
     super.dispose();
   }
+
+  static String _normalizeAudioDeviceId(String? value) {
+    final trimmed = value?.trim() ?? '';
+    return trimmed.isEmpty ? AudioOutputDevice.auto.id : trimmed;
+  }
+
+  void _syncKnownAudioDevicesFromBackend() {
+    _handleNativeAudioDevices(JustAudioMediaKit.latestAudioDevices);
+    _handleNativeSelectedAudioDevice(JustAudioMediaKit.latestSelectedAudioDevice);
+  }
+
+  void _handleNativeAudioDevices(List<NativeAudioDeviceInfo> devices) {
+    final normalized = <AudioOutputDevice>[
+      AudioOutputDevice.auto,
+      ...devices
+          .where((device) => device.id != AudioOutputDevice.auto.id)
+          .map(
+            (device) => AudioOutputDevice(
+              id: _normalizeAudioDeviceId(device.id),
+              label: device.label.trim().isEmpty ? device.id : device.label,
+            ),
+          ),
+    ];
+    _mergeAvailableAudioDevices(normalized);
+  }
+
+  void _handleNativeSelectedAudioDevice(String deviceId) {
+    final normalized = _normalizeAudioDeviceId(deviceId);
+    if (normalized == AudioOutputDevice.auto.id ||
+        normalized == state.audioOutputDeviceId) {
+      return;
+    }
+
+    final exists = state.availableAudioOutputDevices.any(
+      (device) => device.id == normalized,
+    );
+    if (exists) return;
+
+    state = state.copyWith(
+      availableAudioOutputDevices: <AudioOutputDevice>[
+        ...state.availableAudioOutputDevices,
+        AudioOutputDevice(id: normalized, label: normalized),
+      ],
+    );
+  }
+
+  Future<void> _refreshAudioDeviceProbe({
+    required AudioOutputMode mode,
+    required String deviceId,
+  }) async {
+    final normalizedDeviceId = _normalizeAudioDeviceId(deviceId);
+    final effectiveMode = _resolveEffectiveAudioOutputMode(
+      mode,
+      normalizedDeviceId,
+    );
+    try {
+      await _audioDeviceProbe.setAudioDevice(
+        media_kit.AudioDevice(normalizedDeviceId, ''),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      _handleProbeAudioDevices(_audioDeviceProbe.state.audioDevices);
+      _handleProbeAudioDevice(_audioDeviceProbe.state.audioDevice);
+      _debug(
+        'audio.deviceProbe => requested=${mode.name}, '
+        'effective=${effectiveMode.name}, '
+        'count=${_audioDeviceProbe.state.audioDevices.length}, '
+        'selected=${_audioDeviceProbe.state.audioDevice.name}',
+        force: true,
+      );
+    } catch (error) {
+      _debug('audio.deviceProbe failed => $error', force: true);
+    }
+  }
+
+  void _handleProbeAudioDevices(List<media_kit.AudioDevice> devices) {
+    final mapped = devices
+        .map(
+          (device) => AudioOutputDevice(
+            id: _normalizeAudioDeviceId(device.name),
+            label: device.description.trim().isEmpty
+                ? device.name
+                : device.description,
+            ),
+        )
+        .toList(growable: false);
+
+    final filtered = _filterDevicesForCurrentMode(mapped);
+    final next = <AudioOutputDevice>[
+      AudioOutputDevice.auto,
+      ...filtered.where((device) => device.id != AudioOutputDevice.auto.id),
+    ];
+    _mergeAvailableAudioDevices(next);
+  }
+
+  void _handleProbeAudioDevice(media_kit.AudioDevice device) {
+    _handleNativeSelectedAudioDevice(device.name);
+  }
+
+  void _mergeAvailableAudioDevices(List<AudioOutputDevice> devices) {
+    final deduped = <String, AudioOutputDevice>{};
+    for (final device in devices) {
+      deduped[device.id] = device;
+    }
+    final selectedId = state.audioOutputDeviceId;
+    if (!deduped.containsKey(AudioOutputDevice.auto.id)) {
+      deduped[AudioOutputDevice.auto.id] = AudioOutputDevice.auto;
+    }
+    if (selectedId != AudioOutputDevice.auto.id &&
+        !deduped.containsKey(selectedId)) {
+      deduped[selectedId] = AudioOutputDevice(
+        id: selectedId,
+        label: selectedId,
+      );
+    }
+    state = state.copyWith(
+      availableAudioOutputDevices: deduped.values.toList(growable: false),
+    );
+  }
+
+  List<AudioOutputDevice> _filterDevicesForCurrentMode(
+    List<AudioOutputDevice> devices,
+  ) {
+    final mode = state.audioOutputMode;
+    if (mode == AudioOutputMode.compatibility) {
+      return devices;
+    }
+    return devices
+        .where(
+          (device) =>
+              device.id == AudioOutputDevice.auto.id ||
+              device.id.toLowerCase().startsWith('wasapi/'),
+        )
+        .toList(growable: false);
+  }
+
+  AudioOutputMode _resolveEffectiveAudioOutputMode(
+    AudioOutputMode requestedMode,
+    String deviceId,
+  ) {
+    if (requestedMode != AudioOutputMode.wasapiExclusive) {
+      return requestedMode;
+    }
+    if (deviceId == AudioOutputDevice.auto.id) {
+      return requestedMode;
+    }
+
+    final label = _labelForAudioDeviceId(deviceId).toLowerCase();
+    const headsetHints = <String>[
+      'headphone',
+      'headphones',
+      'headset',
+      'earphone',
+      'earphones',
+      'earbud',
+      'earbuds',
+      'inzone',
+      '耳机',
+      '耳麦',
+      '耳麥',
+    ];
+    final looksLikeHeadset = headsetHints.any(label.contains);
+    return looksLikeHeadset
+        ? AudioOutputMode.wasapiShared
+        : requestedMode;
+  }
+
+  String _labelForAudioDeviceId(String deviceId) {
+    for (final device in state.availableAudioOutputDevices) {
+      if (device.id == deviceId) {
+        return device.label;
+      }
+    }
+    return deviceId;
+  }
 }
+
+
+

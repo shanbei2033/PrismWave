@@ -1,3 +1,4 @@
+import '../models/audio_output_device.dart';
 import '../models/audio_output_mode.dart';
 import '../models/playback_mode.dart';
 import '../models/track.dart';
@@ -16,6 +17,8 @@ class PlaybackState {
     this.error,
     this.developerMode = false,
     this.audioOutputMode = AudioOutputMode.wasapiExclusive,
+    this.audioOutputDeviceId = 'auto',
+    this.availableAudioOutputDevices = const [AudioOutputDevice.auto],
     this.debugLogs = const [],
   });
 
@@ -31,6 +34,8 @@ class PlaybackState {
   final String? error;
   final bool developerMode;
   final AudioOutputMode audioOutputMode;
+  final String audioOutputDeviceId;
+  final List<AudioOutputDevice> availableAudioOutputDevices;
   final List<String> debugLogs;
 
   bool get hasTrack => currentTrack != null;
@@ -48,6 +53,8 @@ class PlaybackState {
     String? error,
     bool? developerMode,
     AudioOutputMode? audioOutputMode,
+    String? audioOutputDeviceId,
+    List<AudioOutputDevice>? availableAudioOutputDevices,
     List<String>? debugLogs,
     bool clearError = false,
   }) {
@@ -64,6 +71,9 @@ class PlaybackState {
       error: clearError ? null : (error ?? this.error),
       developerMode: developerMode ?? this.developerMode,
       audioOutputMode: audioOutputMode ?? this.audioOutputMode,
+      audioOutputDeviceId: audioOutputDeviceId ?? this.audioOutputDeviceId,
+      availableAudioOutputDevices:
+          availableAudioOutputDevices ?? this.availableAudioOutputDevices,
       debugLogs: debugLogs ?? this.debugLogs,
     );
   }

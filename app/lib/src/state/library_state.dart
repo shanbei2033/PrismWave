@@ -11,6 +11,8 @@ class LibraryState {
     this.tracks = const [],
     this.durationByPath = const {},
     this.coverBytesByPath = const {},
+    this.customCoverPathByTrackPath = const {},
+    this.lyricsOffsetSecondsByPath = const {},
     this.localLyricsByPath = const {},
     this.onlineLyricsByPath = const {},
     this.preferredLyricsSourceByPath = const {},
@@ -28,6 +30,8 @@ class LibraryState {
   final List<Track> tracks;
   final Map<String, Duration> durationByPath;
   final Map<String, Uint8List> coverBytesByPath;
+  final Map<String, String> customCoverPathByTrackPath;
+  final Map<String, double> lyricsOffsetSecondsByPath;
   final Map<String, LyricsDocument> localLyricsByPath;
   final Map<String, LyricsDocument> onlineLyricsByPath;
   final Map<String, LyricsSourceType> preferredLyricsSourceByPath;
@@ -64,6 +68,8 @@ class LibraryState {
 
   Uint8List? coverBytesOf(Track track) => coverBytesByPath[track.path];
 
+  double lyricsOffsetOf(Track track) => lyricsOffsetSecondsByPath[track.path] ?? 0;
+
   LyricsSourceType preferredLyricsSourceOf(Track track) =>
       preferredLyricsSourceByPath[track.path] ?? LyricsSourceType.local;
 
@@ -91,8 +97,25 @@ class LibraryState {
     };
   }
 
-  List<LyricLine> lyricsOf(Track track) =>
-      lyricsDocumentOf(track)?.lines ?? const <LyricLine>[];
+  List<LyricLine> lyricsOf(Track track) {
+    final lines = lyricsDocumentOf(track)?.lines ?? const <LyricLine>[];
+    final offsetSeconds = lyricsOffsetOf(track);
+    if (lines.isEmpty || offsetSeconds == 0) return lines;
+    final offsetMs = (offsetSeconds * 1000).round();
+    return lines
+        .map(
+          (line) => LyricLine(
+            time: Duration(
+              milliseconds: (line.time.inMilliseconds + offsetMs).clamp(
+                0,
+                1 << 31,
+              ),
+            ),
+            text: line.text,
+          ),
+        )
+        .toList(growable: false);
+  }
 
   bool isLyricsLoading(Track track) => lyricsLoadingPaths.contains(track.path);
 
@@ -104,6 +127,8 @@ class LibraryState {
     List<Track>? tracks,
     Map<String, Duration>? durationByPath,
     Map<String, Uint8List>? coverBytesByPath,
+    Map<String, String>? customCoverPathByTrackPath,
+    Map<String, double>? lyricsOffsetSecondsByPath,
     Map<String, LyricsDocument>? localLyricsByPath,
     Map<String, LyricsDocument>? onlineLyricsByPath,
     Map<String, LyricsSourceType>? preferredLyricsSourceByPath,
@@ -122,6 +147,10 @@ class LibraryState {
       tracks: tracks ?? this.tracks,
       durationByPath: durationByPath ?? this.durationByPath,
       coverBytesByPath: coverBytesByPath ?? this.coverBytesByPath,
+      customCoverPathByTrackPath:
+          customCoverPathByTrackPath ?? this.customCoverPathByTrackPath,
+      lyricsOffsetSecondsByPath:
+          lyricsOffsetSecondsByPath ?? this.lyricsOffsetSecondsByPath,
       localLyricsByPath: localLyricsByPath ?? this.localLyricsByPath,
       onlineLyricsByPath: onlineLyricsByPath ?? this.onlineLyricsByPath,
       preferredLyricsSourceByPath:

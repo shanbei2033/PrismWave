@@ -63,13 +63,15 @@ class _WindowTopBarState extends ConsumerState<WindowTopBar> with WindowListener
     final settings = ref.watch(appSettingsProvider);
     final track = playback.currentTrack;
     final showCurrentLyric = track != null && playback.isPlaying;
+    final topBarFeatureEnabled = settings.topBarIdleMode != TopBarIdleMode.empty;
 
     String topBarText = '';
     if (widget.showLyricBox) {
-      if (track != null) {
+      if (topBarFeatureEnabled && track != null) {
         unawaited(ref.read(libraryProvider.notifier).ensureLyricsLoaded(track));
       }
-      if (settings.topBarIdleMode == TopBarIdleMode.quote &&
+      if (topBarFeatureEnabled &&
+          settings.topBarIdleMode == TopBarIdleMode.quote &&
           settings.topBarQuoteText.trim().isEmpty) {
         unawaited(
           ref.read(appSettingsProvider.notifier).ensureTopBarQuote(
@@ -78,18 +80,23 @@ class _WindowTopBarState extends ConsumerState<WindowTopBar> with WindowListener
         );
       }
 
-      topBarText = !showCurrentLyric
-          ? _resolveIdleText(settings)
-          : _resolveCurrentLyric(
-                library.lyricsOf(track),
-                playback.currentTime,
-              ) ??
-              '';
+      if (topBarFeatureEnabled) {
+        topBarText = !showCurrentLyric
+            ? _resolveIdleText(settings)
+            : _resolveCurrentLyric(
+                  library.lyricsOf(track),
+                  playback.currentTime,
+                ) ??
+                '';
+      }
     }
 
     final shouldRotateQuote = widget.showLyricBox &&
+        topBarFeatureEnabled &&
         !showCurrentLyric &&
         settings.topBarIdleMode == TopBarIdleMode.quote;
+    final shouldShowBox =
+        widget.showLyricBox && topBarFeatureEnabled && topBarText.trim().isNotEmpty;
     _syncQuoteTimer(shouldRotateQuote);
 
     return Container(
@@ -111,32 +118,55 @@ class _WindowTopBarState extends ConsumerState<WindowTopBar> with WindowListener
             const SizedBox(width: 10),
           Expanded(
             child: DragToMoveArea(
-              child: widget.showLyricBox
-                  ? LayoutBuilder(
-                      builder: (context, constraints) {
-                        const previousCenteredWidth = 520.0;
-                        final startInset = math.max(
-                          0.0,
-                          ((constraints.maxWidth - previousCenteredWidth) / 2) - 18,
-                        );
-                        final boxWidth = math.max(
-                          220.0,
-                          constraints.maxWidth - startInset - 4,
-                        );
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 260),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SizeTransition(
+                      sizeFactor: animation,
+                      axis: Axis.horizontal,
+                      axisAlignment: -1,
+                      child: child,
+                    ),
+                  );
+                },
+                child: shouldShowBox
+                    ? LayoutBuilder(
+                        key: const ValueKey('topbar-box-visible'),
+                        builder: (context, constraints) {
+                          const previousCenteredWidth = 520.0;
+                          final startInset = math.max(
+                            0.0,
+                            ((constraints.maxWidth - previousCenteredWidth) / 2) - 18,
+                          );
+                          final boxWidth = math.max(
+                            220.0,
+                            constraints.maxWidth - startInset - 4,
+                          );
 
-                        return Padding(
-                          padding: EdgeInsets.only(left: startInset, right: 4),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: SizedBox(
-                              width: boxWidth,
-                              child: _TopBarLyricBox(text: topBarText),
+                          return Padding(
+                            padding: EdgeInsets.only(left: startInset, right: 4),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: SizedBox(
+                                width: boxWidth,
+                                child: _TopBarLyricBox(
+                                  text: topBarText,
+                                  useQuoteTypography: shouldRotateQuote,
+                                ),
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                    )
-                  : const SizedBox.expand(),
+                          );
+                        },
+                      )
+                    : const SizedBox(
+                        key: ValueKey('topbar-box-hidden'),
+                        height: double.infinity,
+                      ),
+              ),
             ),
           ),
           _WindowButton(
@@ -204,12 +234,32 @@ class _WindowTopBarState extends ConsumerState<WindowTopBar> with WindowListener
 }
 
 class _TopBarLyricBox extends StatelessWidget {
-  const _TopBarLyricBox({required this.text});
+  const _TopBarLyricBox({
+    required this.text,
+    required this.useQuoteTypography,
+  });
 
   final String text;
+  final bool useQuoteTypography;
 
   @override
   Widget build(BuildContext context) {
+    final baseStyle = TextStyle(
+      color: Colors.white.withValues(alpha: text.isEmpty ? 0 : 0.88),
+      fontSize: 13,
+      fontWeight: useQuoteTypography ? FontWeight.w400 : FontWeight.w500,
+      height: 1.08,
+      leadingDistribution: TextLeadingDistribution.even,
+      fontFamilyFallback: const [
+        'Microsoft YaHei UI',
+        'Microsoft YaHei',
+        'PingFang SC',
+        'Noto Sans CJK SC',
+        'Segoe UI Variable Text',
+        'Segoe UI',
+      ],
+    );
+
     return IgnorePointer(
       child: Container(
         height: 30,
@@ -235,6 +285,17 @@ class _TopBarLyricBox extends StatelessWidget {
               );
             },
             transitionBuilder: (child, animation) {
+              if (useQuoteTypography) {
+                final slide = Tween<Offset>(
+                  begin: const Offset(0, 0.08),
+                  end: Offset.zero,
+                ).animate(animation);
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(position: slide, child: child),
+                );
+              }
+
               final rotate = Tween<double>(
                 begin: math.pi / 2.8,
                 end: 0,
@@ -268,11 +329,11 @@ class _TopBarLyricBox extends StatelessWidget {
                 text,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: text.isEmpty ? 0 : 0.88),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                strutStyle: StrutStyle.fromTextStyle(
+                  baseStyle,
+                  forceStrutHeight: true,
                 ),
+                style: baseStyle,
               ),
             ),
           ),

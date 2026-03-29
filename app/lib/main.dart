@@ -31,6 +31,11 @@ Future<void> _configureAudioBackendFromSettings() async {
   final mode = AudioOutputMode.fromId(prefs.getString(kPrefAudioOutputMode));
 
   JustAudioMediaKit.title = 'PrismWave';
+  JustAudioMediaKit.nativeMpvProperties = const <String, String>{
+    // PrismWave handles local/online lyrics itself. Letting mpv auto-load
+    // sidecar .lrc files can surface a false fatal playback error on Windows.
+    'sub-auto': 'no',
+  };
   switch (mode) {
     case AudioOutputMode.compatibility:
       JustAudioMediaKit.preferWasapi = false;

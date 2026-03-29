@@ -15,8 +15,8 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
 
   static const String _prefTopBarIdleMode = 'ui.topBarIdleMode';
   static const String _prefTopBarIdleText = 'ui.topBarIdleText';
-  static const String _prefTopBarQuoteText = 'ui.topBarQuoteText';
-  static const String _prefTopBarQuoteDate = 'ui.topBarQuoteDate';
+  static const String _legacyPrefTopBarQuoteText = 'ui.topBarQuoteText';
+  static const String _legacyPrefTopBarQuoteDate = 'ui.topBarQuoteDate';
 
   final QuoteService _quoteService = QuoteService();
 
@@ -27,7 +27,7 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
       prefs.getString(_prefTopBarIdleMode),
     );
     final idleText = prefs.getString(_prefTopBarIdleText) ?? '';
-    final quoteText = prefs.getString(_prefTopBarQuoteText) ?? '';
+    final quoteText = _readCachedQuoteText(prefs, restored);
     state = state.copyWith(
       language: restored,
       topBarIdleMode: idleMode,
@@ -40,9 +40,16 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
 
   Future<void> setLanguage(AppLanguage language) async {
     if (language == state.language) return;
-    state = state.copyWith(language: language);
     final prefs = await SharedPreferences.getInstance();
+    final cachedQuote = _readCachedQuoteText(prefs, language);
+    state = state.copyWith(
+      language: language,
+      topBarQuoteText: cachedQuote,
+    );
     await prefs.setString(kPrefAppLanguage, language.id);
+    if (state.topBarIdleMode == TopBarIdleMode.quote) {
+      await ensureTopBarQuote(forceRefresh: false);
+    }
   }
 
   Future<void> setTopBarIdleMode(TopBarIdleMode mode) async {
@@ -64,9 +71,10 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
 
   Future<void> ensureTopBarQuote({required bool forceRefresh}) async {
     final prefs = await SharedPreferences.getInstance();
+    final language = state.language;
     final today = _todayKey();
-    final cachedDate = prefs.getString(_prefTopBarQuoteDate) ?? '';
-    final cachedText = prefs.getString(_prefTopBarQuoteText) ?? '';
+    final cachedDate = _readCachedQuoteDate(prefs, language);
+    final cachedText = _readCachedQuoteText(prefs, language);
 
     if (!forceRefresh && cachedDate == today && cachedText.trim().isNotEmpty) {
       if (cachedText != state.topBarQuoteText) {
@@ -75,17 +83,46 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
       return;
     }
 
-    final onlineQuote = await _quoteService.fetchQuote();
+    final onlineQuote = await _quoteService.fetchQuote(language: language);
     if (onlineQuote == null || onlineQuote.trim().isEmpty) {
       if (cachedText.trim().isNotEmpty && cachedText != state.topBarQuoteText) {
         state = state.copyWith(topBarQuoteText: cachedText);
+        return;
       }
+      final fallbackQuote = _quoteService.fallbackQuote(language: language);
+      state = state.copyWith(topBarQuoteText: fallbackQuote);
+      await prefs.setString(_quoteTextKey(language), fallbackQuote);
+      await prefs.setString(_quoteDateKey(language), today);
       return;
     }
 
     state = state.copyWith(topBarQuoteText: onlineQuote);
-    await prefs.setString(_prefTopBarQuoteText, onlineQuote);
-    await prefs.setString(_prefTopBarQuoteDate, today);
+    await prefs.setString(_quoteTextKey(language), onlineQuote);
+    await prefs.setString(_quoteDateKey(language), today);
+  }
+
+  String _quoteTextKey(AppLanguage language) => 'ui.topBarQuoteText.${language.id}';
+
+  String _quoteDateKey(AppLanguage language) => 'ui.topBarQuoteDate.${language.id}';
+
+  String _readCachedQuoteText(SharedPreferences prefs, AppLanguage language) {
+    final scoped = prefs.getString(_quoteTextKey(language)) ?? '';
+    if (scoped.trim().isNotEmpty) return scoped;
+    return switch (language) {
+      AppLanguage.zhCn || AppLanguage.zhTw =>
+        prefs.getString(_legacyPrefTopBarQuoteText) ?? '',
+      AppLanguage.enUs => '',
+    };
+  }
+
+  String _readCachedQuoteDate(SharedPreferences prefs, AppLanguage language) {
+    final scoped = prefs.getString(_quoteDateKey(language)) ?? '';
+    if (scoped.trim().isNotEmpty) return scoped;
+    return switch (language) {
+      AppLanguage.zhCn || AppLanguage.zhTw =>
+        prefs.getString(_legacyPrefTopBarQuoteDate) ?? '',
+      AppLanguage.enUs => '',
+    };
   }
 
   String _todayKey() {

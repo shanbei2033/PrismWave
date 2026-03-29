@@ -1,10 +1,13 @@
 ﻿import 'dart:async';
+import 'dart:ffi';
 import 'dart:io';
 
+import 'package:ffi/ffi.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:win32/win32.dart';
 
 import '../i18n/app_strings.dart';
 import '../models/audio_file_details.dart';
@@ -21,13 +24,7 @@ import 'fullplay_page.dart';
 import 'glass_panel.dart';
 import 'window_top_bar.dart';
 
-enum MainSection { library, albums, artists, favorites }
-
-enum _TrackContextAction {
-  favorite,
-  reveal,
-  details,
-}
+enum MainSection { library, albums, artists, favorites, settings }
 
 class PrismWaveHomePage extends ConsumerStatefulWidget {
   const PrismWaveHomePage({super.key});
@@ -56,66 +53,95 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     super.dispose();
   }
 
-  Future<void> _showTrackContextMenu({
+  Future<void> _openTrackDetails({
     required BuildContext context,
-    required Offset position,
     required Track track,
     required Duration? duration,
     required Uint8List? coverBytes,
-    required AppStrings t,
   }) async {
-    final isFavorite = ref.read(libraryProvider.notifier).isFavorite(track);
     final navigator = Navigator.of(context);
-    final result = await showMenu<_TrackContextAction>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
+    await navigator.push(
+      MaterialPageRoute<void>(
+        builder: (_) => _TrackDetailsPage(
+          track: track,
+          duration: duration,
+          coverBytes: coverBytes,
+          onReveal: () => _revealTrackInExplorer(track.path),
+        ),
       ),
-      items: [
-        PopupMenuItem<_TrackContextAction>(
-          value: _TrackContextAction.favorite,
-          child: Text(isFavorite ? t.uncollect : t.collect),
-        ),
-        PopupMenuItem<_TrackContextAction>(
-          value: _TrackContextAction.reveal,
-          child: Text(t.revealInExplorer),
-        ),
-        PopupMenuItem<_TrackContextAction>(
-          value: _TrackContextAction.details,
-          child: Text(t.details),
-        ),
-      ],
     );
-
-    if (!mounted || result == null) return;
-    switch (result) {
-      case _TrackContextAction.favorite:
-        await ref.read(libraryProvider.notifier).toggleFavorite(track);
-        return;
-      case _TrackContextAction.reveal:
-        await _revealTrackInExplorer(track.path);
-        return;
-      case _TrackContextAction.details:
-        await navigator.push(
-          MaterialPageRoute<void>(
-            builder: (_) => _TrackDetailsPage(
-              track: track,
-              duration: duration,
-              coverBytes: coverBytes,
-              onReveal: () => _revealTrackInExplorer(track.path),
-            ),
-          ),
-        );
-        return;
-    }
   }
 
   Future<void> _revealTrackInExplorer(String path) async {
-    final normalized = path.replaceAll('/', '\\');
-    await Process.start('explorer.exe', ['/select,$normalized']);
+    final resolvedPath = File(path).absolute.path;
+    final normalized = resolvedPath.replaceAll('/', '\\');
+    final file = File(normalized);
+
+    if (Platform.isWindows) {
+      if (file.existsSync()) {
+        final launched = _shellSelectFileInExplorer(normalized);
+        if (launched) return;
+      }
+
+      final parentDirectory = file.parent;
+      final fallbackPath = parentDirectory.path.replaceAll('/', '\\');
+      if (parentDirectory.existsSync()) {
+        final openedDirectory = _shellOpenPath(fallbackPath);
+        if (openedDirectory) return;
+      }
+    }
+
+    await _tryLaunchExplorer([], runInShell: true);
+  }
+
+  Future<bool> _tryLaunchExplorer(
+    List<String> arguments, {
+    bool runInShell = false,
+  }) async {
+    try {
+      await Process.start(
+        'explorer.exe',
+        arguments,
+        runInShell: runInShell,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool _shellSelectFileInExplorer(String normalizedPath) {
+    return using((arena) {
+      final operation = 'open'.toNativeUtf16(allocator: arena);
+      final executable = 'explorer.exe'.toNativeUtf16(allocator: arena);
+      final parameters =
+          '/select,"$normalizedPath"'.toNativeUtf16(allocator: arena);
+      final result = ShellExecute(
+        0,
+        operation,
+        executable,
+        parameters,
+        nullptr,
+        SW_SHOWNORMAL,
+      );
+      return result > 32;
+    });
+  }
+
+  bool _shellOpenPath(String normalizedPath) {
+    return using((arena) {
+      final operation = 'open'.toNativeUtf16(allocator: arena);
+      final target = normalizedPath.toNativeUtf16(allocator: arena);
+      final result = ShellExecute(
+        0,
+        operation,
+        target,
+        nullptr,
+        nullptr,
+        SW_SHOWNORMAL,
+      );
+      return result > 32;
+    });
   }
 
   @override
@@ -181,10 +207,30 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                           Expanded(
                             child: Padding(
                               padding: const EdgeInsets.only(top: 32),
-                              child: _buildSectionPanel(
-                                library: library,
-                                playback: playback,
-                                t: t,
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 280),
+                                switchInCurve: Curves.easeOutCubic,
+                                switchOutCurve: Curves.easeInCubic,
+                                transitionBuilder: (child, animation) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: SlideTransition(
+                                      position: Tween<Offset>(
+                                        begin: const Offset(0.08, 0),
+                                        end: Offset.zero,
+                                      ).animate(animation),
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: KeyedSubtree(
+                                  key: ValueKey(_section),
+                                  child: _buildSectionPanel(
+                                    library: library,
+                                    playback: playback,
+                                    t: t,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -229,6 +275,11 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                     Color(0xFFB9DEFF),
                     BlendMode.srcIn,
                   ),
+                ),
+                style: IconButton.styleFrom(
+                  backgroundColor: _section == MainSection.settings
+                      ? Colors.white.withValues(alpha: 0.10)
+                      : Colors.transparent,
                 ),
               ),
             ],
@@ -336,6 +387,15 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
           playback: playback,
           title: t.favorites,
           tracks: library.favoriteTracks,
+          showPlayAllButton: true,
+          onPlayAll: library.favoriteTracks.isEmpty
+              ? null
+              : () => ref
+                  .read(playbackProvider.notifier)
+                  .playFromPlaylist(
+                    library.favoriteTracks.first,
+                    library.favoriteTracks,
+                  ),
           emptyMessage: t.noFavoriteTracks,
           t: t,
         );
@@ -359,6 +419,14 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
           );
         }
         return _buildArtistsPanel(library: library, t: t);
+      case MainSection.settings:
+        return _SettingsPanel(
+          onClose: () {
+            setState(() {
+              _section = MainSection.library;
+            });
+          },
+        );
     }
   }
 
@@ -370,6 +438,8 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     required List<Track> tracks,
     List<Track>? playbackContextTracks,
     bool forceLibraryContext = false,
+    bool showPlayAllButton = false,
+    VoidCallback? onPlayAll,
     required String emptyMessage,
   }) {
     final libraryCtrl = ref.read(libraryProvider.notifier);
@@ -397,6 +467,14 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
               ),
               const Spacer(),
+              if (showPlayAllButton) ...[
+                _GlassPlayAllButton(
+                  label: t.playAll,
+                  enabled: tracks.isNotEmpty,
+                  onPressed: tracks.isEmpty ? null : onPlayAll,
+                ),
+                if (library.isScanning) const SizedBox(width: 12),
+              ],
               if (library.isScanning)
                 const SizedBox(
                   width: 20,
@@ -448,13 +526,11 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                         padding: const EdgeInsets.symmetric(vertical: 2),
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onSecondaryTapDown: (details) => _showTrackContextMenu(
+                          onSecondaryTapDown: (_) => _openTrackDetails(
                             context: context,
-                            position: details.globalPosition,
                             track: track,
                             duration: duration,
                             coverBytes: coverBytes,
-                            t: t,
                           ),
                           child: Material(
                             color: active
@@ -909,12 +985,12 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                   ],
                 ),
               ),
-              FilledButton.tonalIcon(
+              _GlassPlayAllButton(
+                label: t.playAll,
+                enabled: tracks.isNotEmpty,
                 onPressed: tracks.isEmpty
                     ? null
                     : () => playbackCtrl.playFromPlaylist(tracks.first, tracks),
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: Text(t.playAll),
               ),
             ],
           ),
@@ -944,13 +1020,11 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                         padding: const EdgeInsets.symmetric(vertical: 2),
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onSecondaryTapDown: (details) => _showTrackContextMenu(
+                          onSecondaryTapDown: (_) => _openTrackDetails(
                             context: context,
-                            position: details.globalPosition,
                             track: track,
                             duration: duration,
                             coverBytes: coverBytes,
-                            t: t,
                           ),
                           child: Material(
                             color: active
@@ -1211,11 +1285,10 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     );
   }
 
-  Future<void> _openSettings() async {
-    await showDialog<void>(
-      context: context,
-      builder: (_) => const _SettingsDialog(),
-    );
+  void _openSettings() {
+    setState(() {
+      _section = MainSection.settings;
+    });
   }
 
   String _formatDuration(Duration? duration) {
@@ -1233,8 +1306,10 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
   }
 }
 
-class _SettingsDialog extends ConsumerWidget {
-  const _SettingsDialog();
+class _SettingsPanel extends ConsumerWidget {
+  const _SettingsPanel({required this.onClose});
+
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1245,317 +1320,699 @@ class _SettingsDialog extends ConsumerWidget {
     final controller = ref.read(libraryProvider.notifier);
     final playback = ref.watch(playbackProvider);
     final playbackController = ref.read(playbackProvider.notifier);
+    final audioDevices = playback.availableAudioOutputDevices;
+    final selectedAudioDeviceId = audioDevices.any(
+      (device) => device.id == playback.audioOutputDeviceId,
+    )
+        ? playback.audioOutputDeviceId
+        : audioDevices.first.id;
 
-    return Dialog(
-      backgroundColor: const Color(0xFF0C1528),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760, maxHeight: 640),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return GlassPanel(
+      lowEffects: library.lowEffects,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Text(
-                    t.settings,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+              IconButton(
+                tooltip: t.back,
+                onPressed: onClose,
+                icon: const Icon(Icons.arrow_back_rounded),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(width: 6),
               Text(
-                t.folderSection,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.white.withValues(alpha: 0.9),
-                  fontWeight: FontWeight.w600,
+                t.settings,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+              ),
+              const Spacer(),
+              if (library.isScanning)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Row(
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  FilledButton.icon(
-                    onPressed: library.isScanning
-                        ? null
-                        : controller.addMusicFolder,
-                    icon: const Icon(Icons.add_rounded),
-                    label: Text(t.addMusicFolder),
-                  ),
-                  const SizedBox(width: 10),
-                  OutlinedButton.icon(
-                    onPressed: library.isScanning
-                        ? null
-                        : controller.rescanAllFolders,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: Text(t.rescanAll),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: Colors.white.withValues(alpha: 0.04),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
+                  _SettingsBlock(
+                    title: t.folderSection,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            FilledButton.icon(
+                              onPressed: library.isScanning
+                                  ? null
+                                  : controller.addMusicFolder,
+                              icon: const Icon(Icons.add_rounded),
+                              label: Text(t.addMusicFolder),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: library.isScanning
+                                  ? null
+                                  : controller.rescanAllFolders,
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: Text(t.rescanAll),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _SettingsFoldersCard(
+                          folders: library.libraryFolders,
+                          emptyText: t.noFolderConfigured,
+                          removeLabel: t.remove,
+                          onRemove: controller.removeMusicFolder,
+                        ),
+                      ],
                     ),
                   ),
-                  child: library.libraryFolders.isEmpty
-                      ? Center(
+                  const SizedBox(height: 14),
+                  _SettingsBlock(
+                    title: t.languageTitle,
+                    child: _GlassSelectField<AppLanguage>(
+                      value: appSettings.language,
+                      lowEffects: library.lowEffects,
+                      onChanged: (value) {
+                        appSettingsController.setLanguage(value);
+                      },
+                      items: AppLanguage.values
+                          .map(
+                            (lang) => _GlassSelectEntry<AppLanguage>(
+                              value: lang,
+                              label: t.languageLabel(lang),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _SettingsBlock(
+                    title: t.topBarDisplayTitle,
+                    child: Column(
+                      children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
                           child: Text(
-                            t.noFolderConfigured,
+                            t.topBarIdleModeTitle,
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.62),
+                              color: Colors.white.withValues(alpha: 0.64),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        )
-                      : ListView.separated(
-                          itemCount: library.libraryFolders.length,
-                          separatorBuilder: (_, _) => Divider(
-                            color: Colors.white.withValues(alpha: 0.08),
-                            height: 1,
-                          ),
-                          itemBuilder: (_, index) {
-                            final folder = library.libraryFolders[index];
-                            return ListTile(
-                              title: Text(
-                                folder,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: IconButton(
-                                tooltip: t.remove,
-                                onPressed: () =>
-                                    controller.removeMusicFolder(folder),
-                                icon: const Icon(Icons.delete_outline_rounded),
-                              ),
-                            );
-                          },
                         ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                t.languageTitle,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.92),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 6),
-              DropdownButtonFormField<AppLanguage>(
-                initialValue: appSettings.language,
-                isExpanded: true,
-                onChanged: (value) {
-                  if (value == null) return;
-                  appSettingsController.setLanguage(value);
-                },
-                items: AppLanguage.values
-                    .map(
-                      (lang) => DropdownMenuItem<AppLanguage>(
-                        value: lang,
-                        child: Text(t.languageLabel(lang)),
-                      ),
-                    )
-                    .toList(growable: false),
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                t.topBarDisplayTitle,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.92),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 6),
-              DropdownButtonFormField<TopBarIdleMode>(
-                initialValue: appSettings.topBarIdleMode,
-                isExpanded: true,
-                onChanged: (value) {
-                  if (value == null) return;
-                  appSettingsController.setTopBarIdleMode(value);
-                },
-                items: TopBarIdleMode.values
-                    .map(
-                      (mode) => DropdownMenuItem<TopBarIdleMode>(
-                        value: mode,
-                        child: Text(t.topBarIdleModeLabel(mode)),
-                      ),
-                    )
-                    .toList(growable: false),
-                decoration: InputDecoration(
-                  labelText: t.topBarIdleModeTitle,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _IdleTopBarTextField(
-                initialValue: appSettings.topBarIdleText,
-                label: t.topBarCustomTextTitle,
-                hint: t.topBarCustomTextHint,
-                onSubmitted: appSettingsController.setTopBarIdleText,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                t.audioOutputMode,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.92),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 6),
-              DropdownButtonFormField<AudioOutputMode>(
-                initialValue: playback.audioOutputMode,
-                isExpanded: true,
-                onChanged: (value) {
-                  if (value == null) return;
-                  playbackController.setAudioOutputMode(value);
-                },
-                items: AudioOutputMode.values
-                    .map(
-                      (mode) => DropdownMenuItem<AudioOutputMode>(
-                        value: mode,
-                        child: Text(t.outputModeLabel(mode)),
-                      ),
-                    )
-                    .toList(growable: false),
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                t.outputModeDescription(playback.audioOutputMode),
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.66),
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 8),
-              SwitchListTile(
-                value: playback.developerMode,
-                onChanged: playbackController.setDeveloperMode,
-                contentPadding: EdgeInsets.zero,
-                title: Text(t.developerMode),
-                subtitle: Text(t.developerModeHint),
-              ),
-              if (playback.developerMode) ...[
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Text(
-                      '${t.playbackLogs} (${playback.debugLogs.length})',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.86),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    TextButton.icon(
-                      onPressed: playback.debugLogs.isEmpty
-                          ? null
-                          : () async {
-                              await Clipboard.setData(
-                                ClipboardData(
-                                  text: playback.debugLogs.join('\n'),
+                        const SizedBox(height: 8),
+                        _GlassSelectField<TopBarIdleMode>(
+                          value: appSettings.topBarIdleMode,
+                          lowEffects: library.lowEffects,
+                          onChanged: (value) {
+                            appSettingsController.setTopBarIdleMode(value);
+                          },
+                          items: TopBarIdleMode.values
+                              .map(
+                                (mode) => _GlassSelectEntry<TopBarIdleMode>(
+                                  value: mode,
+                                  label: t.topBarIdleModeLabel(mode),
                                 ),
-                              );
-                              if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(t.logsCopied)),
-                              );
-                            },
-                      icon: const Icon(Icons.copy_rounded, size: 16),
-                      label: Text(t.copy),
+                              )
+                              .toList(growable: false),
+                        ),
+                        const SizedBox(height: 10),
+                        _IdleTopBarTextField(
+                          initialValue: appSettings.topBarIdleText,
+                          label: t.topBarCustomTextTitle,
+                          hint: t.topBarCustomTextHint,
+                          onSubmitted: appSettingsController.setTopBarIdleText,
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 4),
-                    TextButton.icon(
-                      onPressed: playback.debugLogs.isEmpty
-                          ? null
-                          : playbackController.clearDebugLogs,
-                      icon: const Icon(Icons.delete_sweep_rounded, size: 16),
-                      label: Text(t.clear),
+                  ),
+                  const SizedBox(height: 14),
+                  _SettingsBlock(
+                    title: t.audioOutputMode,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _GlassSelectField<AudioOutputMode>(
+                          key: ValueKey(
+                            'audio-mode-${playback.audioOutputMode.id}',
+                          ),
+                          value: playback.audioOutputMode,
+                          lowEffects: library.lowEffects,
+                          onChanged: (value) {
+                            playbackController.setAudioOutputMode(value);
+                          },
+                          items: AudioOutputMode.values
+                              .map(
+                                (mode) => _GlassSelectEntry<AudioOutputMode>(
+                                  value: mode,
+                                  label: t.outputModeLabel(mode),
+                                ),
+                              )
+                              .toList(growable: false),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          t.outputModeDescription(playback.audioOutputMode),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.66),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _SettingsBlock(
+                    title: t.audioOutputDevice,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _GlassSelectField<String>(
+                          key: ValueKey(
+                            'audio-device-$selectedAudioDeviceId-${audioDevices.length}',
+                          ),
+                          value: selectedAudioDeviceId,
+                          lowEffects: library.lowEffects,
+                          onChanged: (value) {
+                            playbackController.setAudioOutputDevice(value);
+                          },
+                          items: audioDevices
+                              .map(
+                                (device) => _GlassSelectEntry<String>(
+                                  value: device.id,
+                                  label: t.audioDeviceLabel(
+                                    device.label,
+                                    isAuto: device.id == 'auto',
+                                  ),
+                                ),
+                              )
+                              .toList(growable: false),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          t.audioOutputDeviceHint,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.66),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _SettingsBlock(
+                    title: t.developerMode,
+                    child: Column(
+                      children: [
+                        SwitchListTile(
+                          value: playback.developerMode,
+                          onChanged: playbackController.setDeveloperMode,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(t.developerMode),
+                          subtitle: Text(t.developerModeHint),
+                        ),
+                        if (playback.developerMode) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Text(
+                                '${t.playbackLogs} (${playback.debugLogs.length})',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.86),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const Spacer(),
+                              TextButton.icon(
+                                onPressed: playback.debugLogs.isEmpty
+                                    ? null
+                                    : () async {
+                                        await Clipboard.setData(
+                                          ClipboardData(
+                                            text: playback.debugLogs.join('\n'),
+                                          ),
+                                        );
+                                        if (!context.mounted) return;
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text(t.logsCopied)),
+                                        );
+                                      },
+                                icon: const Icon(Icons.copy_rounded, size: 16),
+                                label: Text(t.copy),
+                              ),
+                              const SizedBox(width: 4),
+                              TextButton.icon(
+                                onPressed: playback.debugLogs.isEmpty
+                                    ? null
+                                    : playbackController.clearDebugLogs,
+                                icon: const Icon(Icons.delete_sweep_rounded, size: 16),
+                                label: Text(t.clear),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          SizedBox(
+                            height: 160,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.22),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.10),
+                                ),
+                              ),
+                              child: playback.debugLogs.isEmpty
+                                  ? Center(
+                                      child: Text(
+                                        t.noLogsHint,
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.62),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      reverse: true,
+                                      itemCount: playback.debugLogs.length,
+                                      itemBuilder: (_, index) {
+                                        final line = playback.debugLogs[
+                                            playback.debugLogs.length - 1 - index];
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          child: Text(
+                                            line,
+                                            style: TextStyle(
+                                              fontFamily: 'Consolas',
+                                              fontSize: 11,
+                                              height: 1.35,
+                                              color: Colors.white.withValues(alpha: 0.84),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsBlock extends StatelessWidget {
+  const _SettingsBlock({
+    required this.title,
+    required this.child,
+  });
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: Colors.white.withValues(alpha: 0.04),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.92),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsFoldersCard extends StatelessWidget {
+  const _SettingsFoldersCard({
+    required this.folders,
+    required this.emptyText,
+    required this.removeLabel,
+    required this.onRemove,
+  });
+
+  final List<String> folders;
+  final String emptyText;
+  final String removeLabel;
+  final Future<void> Function(String folder) onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final contentHeight = folders.isEmpty
+        ? 124.0
+        : (folders.length * 56.0 + (folders.length - 1) * 1.0)
+            .clamp(124.0, 220.0);
+
+    return Container(
+      constraints: BoxConstraints(
+        minHeight: 124,
+        maxHeight: contentHeight,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withValues(alpha: 0.04),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: folders.isEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  emptyText,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.62)),
+                ),
+              ),
+            )
+          : ListView.separated(
+              shrinkWrap: true,
+              physics: const ClampingScrollPhysics(),
+              key: ValueKey(folders.join('|')),
+              itemCount: folders.length,
+              separatorBuilder: (_, _) => Divider(
+                color: Colors.white.withValues(alpha: 0.08),
+                height: 1,
+              ),
+              itemBuilder: (_, index) {
+                final folder = folders[index];
+                return ListTile(
+                  dense: true,
+                  leading: Icon(
+                    Icons.folder_open_rounded,
+                    color: Colors.white.withValues(alpha: 0.72),
+                  ),
+                  title: Text(
+                    folder,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: IconButton(
+                    tooltip: removeLabel,
+                    onPressed: () => onRemove(folder),
+                    icon: const Icon(Icons.delete_outline_rounded),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _GlassSelectEntry<T> {
+  const _GlassSelectEntry({
+    required this.value,
+    required this.label,
+  });
+
+  final T value;
+  final String label;
+}
+
+class _GlassSelectField<T> extends StatefulWidget {
+  const _GlassSelectField({
+    super.key,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+    required this.lowEffects,
+    this.maxMenuHeight = 280,
+  });
+
+  final T value;
+  final List<_GlassSelectEntry<T>> items;
+  final ValueChanged<T> onChanged;
+  final bool lowEffects;
+  final double maxMenuHeight;
+
+  @override
+  State<_GlassSelectField<T>> createState() => _GlassSelectFieldState<T>();
+}
+
+class _GlassSelectFieldState<T> extends State<_GlassSelectField<T>> {
+  bool _isOpen = false;
+
+  void _toggleMenu() {
+    if (widget.items.isEmpty) return;
+    setState(() {
+      _isOpen = !_isOpen;
+    });
+  }
+
+  void _closeMenu() {
+    if (!_isOpen) return;
+    setState(() {
+      _isOpen = false;
+    });
+  }
+
+  void _selectValue(T value) {
+    _closeMenu();
+    if (value == widget.value) return;
+    widget.onChanged(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedEntry = widget.items.cast<_GlassSelectEntry<T>?>().firstWhere(
+          (entry) => entry?.value == widget.value,
+          orElse: () => widget.items.isEmpty ? null : widget.items.first,
+        );
+
+    final foreground = Colors.white.withValues(alpha: 0.92);
+    final border = Colors.white.withValues(alpha: 0.10);
+
+    const itemHeight = 50.0;
+
+    return TapRegion(
+      onTapOutside: (_) => _closeMenu(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _toggleMenu,
+              borderRadius: BorderRadius.circular(14),
+              child: Ink(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: const Color(0xFF0D1526).withValues(alpha: 0.28),
+                  border: Border.all(color: border),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        selectedEntry?.label ?? '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: foreground,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    AnimatedRotation(
+                      turns: _isOpen ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 20,
+                        color: Colors.white.withValues(alpha: 0.72),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  height: 140,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.22),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.10),
-                      ),
-                    ),
-                    child: playback.debugLogs.isEmpty
-                        ? Center(
-                            child: Text(
-                              t.noLogsHint,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.62),
-                                fontSize: 12,
-                              ),
-                            ),
-                          )
-                        : ListView.builder(
-                            reverse: true,
-                            itemCount: playback.debugLogs.length,
-                            itemBuilder: (_, index) {
-                              final line =
-                                  playback.debugLogs[playback.debugLogs.length -
-                                      1 -
-                                      index];
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                child: Text(
-                                  line,
-                                  style: TextStyle(
-                                    fontFamily: 'Consolas',
-                                    fontSize: 11,
-                                    height: 1.35,
-                                    color: Colors.white.withValues(alpha: 0.84),
+              ),
+            ),
+          ),
+          ClipRect(
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: !_isOpen
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: GlassPanel(
+                        lowEffects: widget.lowEffects,
+                        radius: 18,
+                        padding: const EdgeInsets.all(8),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight: widget.maxMenuHeight,
+                          ),
+                          child: ListView.separated(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            physics: const ClampingScrollPhysics(),
+                            itemCount: widget.items.length,
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(height: 6),
+                            itemBuilder: (context, index) {
+                              final item = widget.items[index];
+                              final selected = item.value == widget.value;
+                              return Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => _selectValue(item.value),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Ink(
+                                    height: itemHeight,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      color: selected
+                                          ? Colors.white.withValues(alpha: 0.12)
+                                          : Colors.white.withValues(alpha: 0.035),
+                                      border: Border.all(
+                                        color: selected
+                                            ? Colors.white.withValues(
+                                                alpha: 0.20,
+                                              )
+                                            : Colors.white.withValues(
+                                                alpha: 0.05,
+                                              ),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            item.label,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(
+                                                alpha: selected ? 0.96 : 0.84,
+                                              ),
+                                              fontSize: 14,
+                                              fontWeight: selected
+                                                  ? FontWeight.w600
+                                                  : FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                        if (selected)
+                                          Icon(
+                                            Icons.check_rounded,
+                                            size: 18,
+                                            color: Colors.white.withValues(
+                                              alpha: 0.90,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               );
                             },
                           ),
-                  ),
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GlassPlayAllButton extends StatelessWidget {
+  const _GlassPlayAllButton({
+    required this.label,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool enabled;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = Colors.white.withValues(alpha: enabled ? 0.94 : 0.42);
+    final border = Colors.white.withValues(alpha: enabled ? 0.16 : 0.08);
+    final fill = enabled
+        ? const Color(0xFF0F1A2F).withValues(alpha: 0.26)
+        : Colors.white.withValues(alpha: 0.03);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? onPressed : null,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          height: 42,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            color: fill,
+            border: Border.all(color: border),
+            boxShadow: enabled
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.play_arrow_rounded, size: 18, color: foreground),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: foreground,
+                  fontWeight: FontWeight.w600,
                 ),
-              ],
+              ),
             ],
           ),
         ),
@@ -2036,14 +2493,31 @@ class _TrackDetailsItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const chineseFallback = [
+      'Microsoft YaHei UI',
+      'Microsoft YaHei',
+      'PingFang SC',
+      'Noto Sans CJK SC',
+    ];
+
     final valueWidget = selectable
         ? SelectableText(
             value,
-            style: const TextStyle(fontSize: 14, height: 1.45),
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.45,
+              fontFamily: Platform.isWindows ? 'Microsoft YaHei UI' : null,
+              fontFamilyFallback: chineseFallback,
+            ),
           )
         : Text(
             value,
-            style: const TextStyle(fontSize: 14, height: 1.45),
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.45,
+              fontFamily: Platform.isWindows ? 'Microsoft YaHei UI' : null,
+              fontFamilyFallback: chineseFallback,
+            ),
           );
 
     return Container(
@@ -2065,6 +2539,8 @@ class _TrackDetailsItem extends StatelessWidget {
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: Colors.white.withValues(alpha: 0.72),
+                  fontFamily: Platform.isWindows ? 'Microsoft YaHei UI' : null,
+                  fontFamilyFallback: chineseFallback,
                 ),
               ),
               if (action != null) ...[
@@ -2108,20 +2584,40 @@ class _PlaybackModeButton extends StatelessWidget {
       PlaybackMode.single => 'assets/icons/mode_single.svg',
       PlaybackMode.shuffle => 'assets/icons/mode_shuffle.svg',
     };
+    final tooltip = switch (mode) {
+      PlaybackMode.loop => t.listLoop,
+      PlaybackMode.single => t.singleLoop,
+      PlaybackMode.shuffle => t.shuffle,
+    };
 
     return Tooltip(
-      message: switch (mode) {
-        PlaybackMode.loop => t.listLoop,
-        PlaybackMode.single => t.singleLoop,
-        PlaybackMode.shuffle => t.shuffle,
-      },
+      message: tooltip,
       child: IconButton(
         onPressed: onPressed,
-        icon: SvgPicture.asset(
-          iconPath,
-          width: 18,
-          height: 18,
-          colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+        icon: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.92, end: 1).animate(animation),
+                child: child,
+              ),
+            );
+          },
+          child: SvgPicture.asset(
+            iconPath,
+            key: ValueKey<String>('main-playback-mode-${mode.name}'),
+            width: 18,
+            height: 18,
+            semanticsLabel: tooltip,
+            colorFilter: const ColorFilter.mode(
+              Colors.white,
+              BlendMode.srcIn,
+            ),
+          ),
         ),
       ),
     );
@@ -2158,4 +2654,8 @@ class _PlaybackToggleButton extends StatelessWidget {
     );
   }
 }
+
+
+
+
 

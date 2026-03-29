@@ -10,6 +10,21 @@ import 'package:logging/logging.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:universal_platform/universal_platform.dart';
 
+class NativeAudioDeviceInfo {
+  const NativeAudioDeviceInfo({
+    required this.id,
+    required this.label,
+  });
+
+  final String id;
+  final String label;
+
+  static const auto = NativeAudioDeviceInfo(
+    id: 'auto',
+    label: 'Default Device',
+  );
+}
+
 class JustAudioMediaKit extends JustAudioPlatform {
   JustAudioMediaKit();
 
@@ -70,8 +85,26 @@ class JustAudioMediaKit extends JustAudioPlatform {
   /// See: https://mpv.io/manual/master/#options
   static Map<String, String> nativeMpvProperties = const {};
 
+  /// Preferred MPV audio device id. `auto` lets MPV choose the system default.
+  static String preferredAudioDevice = NativeAudioDeviceInfo.auto.id;
+
+  /// Latest known native audio devices reported by the active backend.
+  static List<NativeAudioDeviceInfo> latestAudioDevices = const [
+    NativeAudioDeviceInfo.auto,
+  ];
+
+  /// Latest known currently selected audio device id.
+  static String latestSelectedAudioDevice = NativeAudioDeviceInfo.auto.id;
+
   /// Optional callback used by host app to consume native audio backend logs.
   static void Function(String message)? nativeAudioRouteLogger;
+
+  /// Optional callback used by host app to observe native audio device list.
+  static void Function(List<NativeAudioDeviceInfo> devices)?
+      nativeAudioDevicesListener;
+
+  /// Optional callback used by host app to observe current native audio device.
+  static void Function(String deviceId)? nativeSelectedAudioDeviceListener;
 
   static final _logger = Logger('JustAudioMediaKit');
   final _players = HashMap<String, MediaKitPlayer>();
@@ -107,6 +140,23 @@ class JustAudioMediaKit extends JustAudioPlatform {
   /// Registers the plugin with [JustAudioPlatform]
   static void registerWith() {
     JustAudioPlatform.instance = JustAudioMediaKit();
+  }
+
+  static void updateNativeAudioDevices(List<NativeAudioDeviceInfo> devices) {
+    final normalized = <NativeAudioDeviceInfo>[
+      NativeAudioDeviceInfo.auto,
+      ...devices.where((device) => device.id != NativeAudioDeviceInfo.auto.id),
+    ];
+    latestAudioDevices = normalized;
+    nativeAudioDevicesListener?.call(normalized);
+  }
+
+  static void updateSelectedNativeAudioDevice(String deviceId) {
+    final normalized = deviceId.trim().isEmpty
+        ? NativeAudioDeviceInfo.auto.id
+        : deviceId.trim();
+    latestSelectedAudioDevice = normalized;
+    nativeSelectedAudioDeviceListener?.call(normalized);
   }
 
   @override

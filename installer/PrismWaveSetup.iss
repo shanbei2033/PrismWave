@@ -1,42 +1,48 @@
 #define MyAppName "PrismWave"
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "shanbei2033"
-#define MyAppExeName "prismwave_demo.exe"
-#define MyAppId "{{B3573F73-D0C1-4A80-9979-F78D414FA902}"
+#define MyAppURL "https://github.com/shanbei2033/PrismWave"
+#define MyAppExeName "PrismWave.exe"
 #define MySourceDir "..\app\build\windows\x64\runner\Release"
+#define MyLicenseFile "..\LICENSE"
+#define MyIconFile "..\app\windows\runner\resources\app_icon.ico"
 
 [Setup]
-AppId={#MyAppId}
+AppId={{C3E57196-9792-4D0C-9D5A-BF97222C843A}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-DefaultDirName={localappdata}\Programs\{#MyAppName}
+AppPublisherURL={#MyAppURL}
+AppSupportURL={#MyAppURL}
+AppUpdatesURL={#MyAppURL}
+DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
-DisableProgramGroupPage=yes
-PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
-LicenseFile=..\LICENSE
-OutputDir=..\release
-OutputBaseFilename=PrismWave-Setup-{#MyAppVersion}
-SetupIconFile=..\app\windows\runner\resources\app_icon.ico
+LicenseFile={#MyLicenseFile}
+SetupIconFile={#MyIconFile}
 UninstallDisplayIcon={app}\{#MyAppExeName}
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+DisableProgramGroupPage=yes
+PrivilegesRequired=admin
+OutputDir=..\dist
+OutputBaseFilename=PrismWave-Setup-{#MyAppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-ArchitecturesInstallIn64BitMode=x64compatible
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "{#MySourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MySourceDir}\prismwave_demo.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
+Source: "{#MySourceDir}\*"; DestDir: "{app}"; Excludes: "prismwave_demo.exe"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent

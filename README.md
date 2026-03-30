@@ -1,5 +1,7 @@
 # PrismWave
 
+[中文说明](./README_zh.md)
+
 PrismWave is a Windows local music player built with Flutter.
 
 This repository contains the first usable demo version. The current build focuses on getting the desktop experience, library structure, playback flow, output modes, and lyrics view working end to end.

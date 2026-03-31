@@ -112,6 +112,21 @@ class LibraryState {
               ),
             ),
             text: line.text,
+            segments: line.segments
+                .map(
+                  (segment) => LyricSegment(
+                    start: Duration(
+                      milliseconds: (segment.start.inMilliseconds + offsetMs)
+                          .clamp(0, 1 << 31),
+                    ),
+                    end: Duration(
+                      milliseconds: (segment.end.inMilliseconds + offsetMs)
+                          .clamp(0, 1 << 31),
+                    ),
+                    text: segment.text,
+                  ),
+                )
+                .toList(growable: false),
           ),
         )
         .toList(growable: false);

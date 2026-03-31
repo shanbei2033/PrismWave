@@ -362,12 +362,16 @@ class _FullPlayBody extends ConsumerWidget {
               Flexible(
                 flex: 3,
                 child: _SlotLyricsPanel(
+                  trackTitle: track.title,
                   lyrics: lyrics,
                   currentIndex: currentLyricIndex,
                   currentPosition: playback.currentTime,
                   noLyricsText: lyricsLoading
                       ? t.loadingLyrics
                       : t.noLyricsFound,
+                  onRenderDiagnostic: (message) {
+                    playbackCtrl.appendDeveloperLog(message);
+                  },
                 ),
               ),
             ],
@@ -411,16 +415,20 @@ class _FullPlayBody extends ConsumerWidget {
 
 class _SlotLyricsPanel extends StatefulWidget {
   const _SlotLyricsPanel({
+    required this.trackTitle,
     required this.lyrics,
     required this.currentIndex,
     required this.currentPosition,
     required this.noLyricsText,
+    required this.onRenderDiagnostic,
   });
 
+  final String trackTitle;
   final List<LyricLine> lyrics;
   final int currentIndex;
   final Duration currentPosition;
   final String noLyricsText;
+  final void Function(String message) onRenderDiagnostic;
 
   @override
   State<_SlotLyricsPanel> createState() => _SlotLyricsPanelState();
@@ -429,6 +437,7 @@ class _SlotLyricsPanel extends StatefulWidget {
 class _SlotLyricsPanelState extends State<_SlotLyricsPanel> {
   static const double _itemExtent = 102;
   late final ScrollController _controller;
+  String? _lastRenderDiagnosticKey;
 
   @override
   void initState() {
@@ -436,6 +445,7 @@ class _SlotLyricsPanelState extends State<_SlotLyricsPanel> {
     _controller = ScrollController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _jumpToCurrent();
+      _emitRenderDiagnostic();
     });
   }
 
@@ -447,13 +457,21 @@ class _SlotLyricsPanelState extends State<_SlotLyricsPanel> {
 
     if (next != prev) {
       _animateToCurrent(prev, next);
+      _emitRenderDiagnostic();
       return;
     }
 
     if (widget.lyrics.length != oldWidget.lyrics.length) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _jumpToCurrent();
+        _emitRenderDiagnostic();
       });
+      return;
+    }
+
+    if (widget.currentPosition != oldWidget.currentPosition &&
+        widget.currentIndex >= 0) {
+      _emitRenderDiagnostic();
     }
   }
 
@@ -489,6 +507,27 @@ class _SlotLyricsPanelState extends State<_SlotLyricsPanel> {
         (widget.currentPosition - current.time).inMilliseconds.toDouble();
     final raw = (elapsedMs / spanMs).clamp(0.0, 1.0);
     return Curves.easeInOut.transform(raw);
+  }
+
+  void _emitRenderDiagnostic() {
+    final lyrics = widget.lyrics;
+    final safeCurrent = lyrics.isEmpty ? -1 : _safeIndex(widget.currentIndex);
+    final activeLine = safeCurrent >= 0 ? lyrics[safeCurrent] : null;
+    final activeSegments = activeLine?.segments.length ?? 0;
+    final karaokeLines = lyrics.where((line) => line.hasTimedSegments).length;
+    final totalSegments = lyrics.fold<int>(
+      0,
+      (total, line) => total + line.segments.length,
+    );
+    final mode = activeSegments > 0 ? 'timed-karaoke' : 'fallback-average';
+    final key = '$mode|$safeCurrent|$activeSegments|$karaokeLines|$totalSegments';
+    if (_lastRenderDiagnosticKey == key) return;
+    _lastRenderDiagnosticKey = key;
+    widget.onRenderDiagnostic(
+      'lyrics.render -> track="${widget.trackTitle}", mode=$mode, '
+      'currentIndex=$safeCurrent, activeSegments=$activeSegments, '
+      'karaokeLines=$karaokeLines, totalSegments=$totalSegments',
+    );
   }
 
   void _jumpToCurrent() {
@@ -559,9 +598,11 @@ class _SlotLyricsPanelState extends State<_SlotLyricsPanel> {
                 child: _SlotLyricText(
                   key: ValueKey('slot-line-$index-$safeCurrent'),
                   text: widget.lyrics[index].text,
+                  segments: widget.lyrics[index].segments,
                   active: active,
                   distance: distance,
                   progress: active ? _lineProgress(index) : 0,
+                  currentPosition: widget.currentPosition,
                 ),
               );
             },
@@ -576,15 +617,19 @@ class _SlotLyricText extends StatelessWidget {
   const _SlotLyricText({
     super.key,
     required this.text,
+    required this.segments,
     required this.active,
     required this.distance,
     required this.progress,
+    required this.currentPosition,
   });
 
   final String text;
+  final List<LyricSegment> segments;
   final bool active;
   final int distance;
   final double progress;
+  final Duration currentPosition;
 
   @override
   Widget build(BuildContext context) {
@@ -617,29 +662,42 @@ class _SlotLyricText extends StatelessWidget {
       ),
     );
 
-    final activeKaraokeWidget = TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: progress),
-      duration: const Duration(milliseconds: 140),
-      curve: Curves.linearToEaseOut,
-      builder: (context, animatedProgress, _) {
-        return _KaraokeLyricText(
-          text: text,
-          progress: animatedProgress,
-          style: TextStyle(
-            fontSize: 30,
-            fontWeight: FontWeight.w700,
-            color: Colors.white.withValues(alpha: 0.34),
-            height: 1.24,
-          ),
-          highlightStyle: TextStyle(
-            fontSize: 30,
-            fontWeight: FontWeight.w700,
-            color: Colors.white.withValues(alpha: 0.98),
-            height: 1.24,
-          ),
-        );
-      },
+    final baseStyle = TextStyle(
+      fontSize: 30,
+      fontWeight: FontWeight.w700,
+      color: Colors.white.withValues(alpha: 0.34),
+      height: 1.24,
     );
+    final highlightStyle = TextStyle(
+      fontSize: 30,
+      fontWeight: FontWeight.w700,
+      color: Colors.white.withValues(alpha: 0.98),
+      height: 1.24,
+    );
+    final activeKaraokeWidget = segments.isNotEmpty
+        ? _KaraokeLyricText(
+            text: text,
+            progress: progress,
+            currentPosition: currentPosition,
+            segments: segments,
+            style: baseStyle,
+            highlightStyle: highlightStyle,
+          )
+        : TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: progress),
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.linearToEaseOut,
+            builder: (context, animatedProgress, _) {
+              return _KaraokeLyricText(
+                text: text,
+                progress: animatedProgress,
+                currentPosition: currentPosition,
+                segments: const <LyricSegment>[],
+                style: baseStyle,
+                highlightStyle: highlightStyle,
+              );
+            },
+          );
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 380),
@@ -671,17 +729,29 @@ class _KaraokeLyricText extends StatelessWidget {
   const _KaraokeLyricText({
     required this.text,
     required this.progress,
+    required this.currentPosition,
+    required this.segments,
     required this.style,
     required this.highlightStyle,
   });
 
   final String text;
   final double progress;
+  final Duration currentPosition;
+  final List<LyricSegment> segments;
   final TextStyle style;
   final TextStyle highlightStyle;
 
   @override
   Widget build(BuildContext context) {
+    if (segments.isNotEmpty) {
+      return _buildTimedSegmentsText();
+    }
+
+    return _buildFallbackCharacterText();
+  }
+
+  Widget _buildFallbackCharacterText() {
     final segments = text.runes.map(String.fromCharCode).toList(growable: false);
     final paintableIndexes = <int>[];
     for (var i = 0; i < segments.length; i++) {
@@ -726,6 +796,59 @@ class _KaraokeLyricText extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildTimedSegmentsText() {
+    final baseColor = style.color ?? Colors.white.withValues(alpha: 0.34);
+    final highlightColor =
+        highlightStyle.color ?? Colors.white.withValues(alpha: 0.98);
+
+    return RichText(
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+      softWrap: true,
+      textAlign: TextAlign.center,
+      text: TextSpan(
+        children: [
+          for (final segment in segments)
+            TextSpan(
+              text: segment.text,
+              style: _resolveSegmentStyle(
+                segment,
+                baseColor: baseColor,
+                highlightColor: highlightColor,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  TextStyle _resolveSegmentStyle(
+    LyricSegment segment, {
+    required Color baseColor,
+    required Color highlightColor,
+  }) {
+    if (currentPosition >= segment.end) {
+      return highlightStyle;
+    }
+    if (currentPosition <= segment.start) {
+      return style;
+    }
+
+    final spanMs = (segment.end - segment.start).inMilliseconds;
+    if (spanMs <= 0) {
+      return highlightStyle;
+    }
+
+    final elapsedMs = (currentPosition - segment.start).inMilliseconds.toDouble();
+    final rawProgress = (elapsedMs / spanMs).clamp(0.0, 1.0);
+    final partialColor = Color.lerp(
+      baseColor,
+      highlightColor,
+      Curves.easeOut.transform(rawProgress),
+    );
+    return highlightStyle.copyWith(color: partialColor);
   }
 }
 
@@ -1624,6 +1747,13 @@ class _OnlineLyricsSearchDialogState
       final results = await ref
           .read(libraryProvider.notifier)
           .searchOnlineLyrics(widget.track, query);
+      final qqCount = results.where((item) => item.provider == 'qqmusic').length;
+      final lrclibCount = results.where((item) => item.provider == 'lrclib').length;
+      final timedCount = results.where((item) => item.hasTimedSegments).length;
+      ref.read(playbackProvider.notifier).appendDeveloperLog(
+        'lyrics.search -> query="$query", total=${results.length}, '
+        'qq=$qqCount, lrclib=$lrclibCount, timed=$timedCount',
+      );
       if (!mounted) return;
       setState(() {
         _hasSearched = true;
@@ -1651,146 +1781,210 @@ class _OnlineLyricsSearchDialogState
   @override
   Widget build(BuildContext context) {
     final t = widget.t;
+    final library = ref.watch(libraryProvider);
+    final blur = library.lowEffects ? 10.0 : 18.0;
+    final currentDocument = library.lyricsDocumentOf(widget.track);
+    final effectiveSource = library.effectiveLyricsSourceOf(widget.track);
+    final currentSourceLabel = effectiveSource == LyricsSourceType.local
+        ? t.localLyricsSource
+        : t.onlineLyricsSource;
+    final currentStatusLabel = currentDocument == null
+        ? t.currentLyricsUnavailable
+        : (currentDocument.isSynced
+              ? t.syncedLyricsLabel
+              : t.unsyncedLyricsLabel);
+    final karaokeLabel = currentDocument?.hasTimedSegments == true
+        ? t.karaokeSupported
+        : t.karaokeUnsupported;
 
     return Dialog(
-      backgroundColor: const Color(0xFF0D1629),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: SizedBox(
-        width: 720,
-        height: 560,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    t.onlineLyricsSearch,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 42, vertical: 36),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          child: Container(
+            width: 720,
+            height: 560,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0B1220).withValues(alpha: 0.22),
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.18),
               ),
-              const SizedBox(height: 10),
-              Row(
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 28,
+                  offset: const Offset(0, 14),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _queryController,
-                      decoration: InputDecoration(
-                        hintText: t.onlineLyricsSearchHint,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  Row(
+                    children: [
+                      Text(
+                        t.onlineLyricsSearch,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
                         ),
-                        prefixIcon: const Icon(Icons.search_rounded),
                       ),
-                      onSubmitted: (_) => _search(),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  FilledButton(
-                    onPressed: _loading ? null : _search,
-                    child: Text(t.searchAction),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              if (_loading)
-                const Expanded(
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (_error != null)
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      _error!,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.72),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close_rounded),
                       ),
-                    ),
+                    ],
                   ),
-                )
-              else if (!_hasSearched)
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      t.onlineLyricsSearchHint,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.68),
-                      ),
-                    ),
-                  ),
-                )
-              else if (_results.isEmpty)
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      t.noOnlineLyricsResults,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.68),
-                      ),
-                    ),
-                  ),
-                )
-              else
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: _results.length,
-                    separatorBuilder: (_, _) => Divider(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      height: 1,
-                    ),
-                    itemBuilder: (_, index) {
-                      final result = _results[index];
-                      return ListTile(
-                        onTap: () => _selectResult(result),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _queryController,
+                          decoration: InputDecoration(
+                            hintText: t.onlineLyricsSearchHint,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            prefixIcon: const Icon(Icons.search_rounded),
+                          ),
+                          onSubmitted: (_) => _search(),
                         ),
-                        title: Text(
-                          '${result.title} - ${result.artist}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          _formatLyricsSize(result.byteSize),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(width: 10),
+                      FilledButton(
+                        onPressed: _loading ? null : _search,
+                        child: Text(t.searchAction),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      color: Colors.white.withValues(alpha: 0.05),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.12),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          t.currentLyricsInfo,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.62),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white.withValues(alpha: 0.90),
                           ),
                         ),
-                        trailing: result.isSynced
-                            ? Text(
-                                'LRC',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.78),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              )
-                            : Text(
-                                'TXT',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.52),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                      );
-                    },
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _LyricsStatusChip(
+                              label: '${t.lyricsSource}: $currentSourceLabel',
+                              emphasized: true,
+                            ),
+                            _LyricsStatusChip(label: currentStatusLabel),
+                            _LyricsStatusChip(
+                              label: karaokeLabel,
+                              highlighted: currentDocument?.hasTimedSegments == true,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-            ],
+                  const SizedBox(height: 14),
+                  if (_loading)
+                    const Expanded(
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_error != null)
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.72),
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (!_hasSearched)
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          t.onlineLyricsSearchHint,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.68),
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (_results.isEmpty)
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          t.noOnlineLyricsResults,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.68),
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: _results.length,
+                        separatorBuilder: (_, _) => Divider(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          height: 1,
+                        ),
+                        itemBuilder: (_, index) {
+                          final result = _results[index];
+                          return ListTile(
+                            onTap: () => _selectResult(result),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            title: Text(
+                              '${result.title} - ${result.artist}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              _formatLyricsSize(result.byteSize),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.62),
+                              ),
+                            ),
+                            trailing: _LyricsStatusChip(
+                              label: result.badgeLabel,
+                              highlighted: result.badgeHighlighted,
+                              emphasized: result.badgeEmphasized,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -1805,6 +1999,49 @@ class _OnlineLyricsSearchDialogState
       return '${(size / 1024).toStringAsFixed(1)} KB';
     }
     return '$size B';
+  }
+
+}
+
+class _LyricsStatusChip extends StatelessWidget {
+  const _LyricsStatusChip({
+    required this.label,
+    this.emphasized = false,
+    this.highlighted = false,
+  });
+
+  final String label;
+  final bool emphasized;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    final backgroundColor = highlighted
+        ? const Color(0xFF42D7FF).withValues(alpha: 0.16)
+        : Colors.white.withValues(alpha: emphasized ? 0.10 : 0.06);
+    final borderColor = highlighted
+        ? const Color(0xFF79E5FF).withValues(alpha: 0.34)
+        : Colors.white.withValues(alpha: emphasized ? 0.18 : 0.10);
+    final textColor = highlighted
+        ? const Color(0xFFD7F7FF)
+        : Colors.white.withValues(alpha: emphasized ? 0.88 : 0.76);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: backgroundColor,
+        border: Border.all(color: borderColor),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
+          color: textColor,
+        ),
+      ),
+    );
   }
 }
 

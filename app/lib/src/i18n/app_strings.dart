@@ -152,6 +152,12 @@ class AppStrings {
   String get lyricsSource => _tr('歌词来源', '歌詞來源', 'Lyrics Source');
   String get localLyricsSource => _tr('本地', '本機', 'Local');
   String get onlineLyricsSource => _tr('在线', '線上', 'Online');
+  String get currentLyricsInfo => _tr('当前歌词', '目前歌詞', 'Current Lyrics');
+  String get currentLyricsUnavailable => _tr('当前未加载歌词', '目前未載入歌詞', 'No lyrics loaded');
+  String get syncedLyricsLabel => _tr('同步歌词', '同步歌詞', 'Synced');
+  String get unsyncedLyricsLabel => _tr('非同步歌词', '非同步歌詞', 'Unsynced');
+  String get karaokeSupported => _tr('支持逐字高亮', '支援逐字高亮', 'Word-by-word supported');
+  String get karaokeUnsupported => _tr('不支持逐字高亮', '不支援逐字高亮', 'Word-by-word unsupported');
   String get onlineLyricsSearch => _tr('在线搜索', '線上搜尋', 'Online Search');
   String get onlineLyricsSearchHint => _tr('按歌曲名搜索歌词', '按歌曲名搜尋歌詞', 'Search lyrics by song name');
   String get lyricsTools => _tr('歌词工具', '歌詞工具', 'Lyrics Tools');

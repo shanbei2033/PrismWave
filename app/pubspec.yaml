@@ -47,6 +47,7 @@ dependencies:
   dart_tags: ^0.4.1
   ffi: ^2.1.4
   win32: ^5.15.0
+  fast_gbk: ^1.0.0
 
 dev_dependencies:
   flutter_test:

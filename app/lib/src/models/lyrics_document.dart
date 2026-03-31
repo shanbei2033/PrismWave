@@ -24,6 +24,7 @@ class LyricsDocument {
   final int? byteSize;
 
   bool get isEmpty => lines.isEmpty;
+  bool get hasTimedSegments => lines.any((line) => line.hasTimedSegments);
 
   Map<String, dynamic> toCacheJson() {
     return <String, dynamic>{
@@ -40,6 +41,15 @@ class LyricsDocument {
             (line) => <String, dynamic>{
               'timeMs': line.time.inMilliseconds,
               'text': line.text,
+              'segments': line.segments
+                  .map(
+                    (segment) => <String, dynamic>{
+                      'startMs': segment.start.inMilliseconds,
+                      'endMs': segment.end.inMilliseconds,
+                      'text': segment.text,
+                    },
+                  )
+                  .toList(growable: false),
             },
           )
           .toList(growable: false),
@@ -57,6 +67,22 @@ class LyricsDocument {
                     milliseconds: (line['timeMs'] as num?)?.round() ?? 0,
                   ),
                   text: line['text']?.toString() ?? '',
+                  segments: ((line['segments'] as List?) ?? const <dynamic>[])
+                      .whereType<Map>()
+                      .map(
+                        (segment) => LyricSegment(
+                          start: Duration(
+                            milliseconds:
+                                (segment['startMs'] as num?)?.round() ?? 0,
+                          ),
+                          end: Duration(
+                            milliseconds:
+                                (segment['endMs'] as num?)?.round() ?? 0,
+                          ),
+                          text: segment['text']?.toString() ?? '',
+                        ),
+                      )
+                      .toList(growable: false),
                 ),
               )
               .where((line) => line.text.trim().isNotEmpty)

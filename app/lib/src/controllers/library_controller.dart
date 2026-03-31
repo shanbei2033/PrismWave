@@ -20,14 +20,19 @@ import '../services/online_lyrics_service.dart';
 import '../services/track_duration_resolver.dart';
 import '../state/library_state.dart';
 
+typedef DeveloperLogWriter = void Function(String message, {bool force});
+
 class LibraryController extends StateNotifier<LibraryState> {
-  LibraryController() : super(const LibraryState()) {
+  LibraryController({DeveloperLogWriter? debugLog})
+    : _debugLog = debugLog,
+      super(const LibraryState()) {
     Future<void>.microtask(_loadInitialState);
   }
 
   int _metadataJobSeed = 0;
   final OnlineLyricsService _onlineLyricsService = OnlineLyricsService();
   final OnlineCoverService _onlineCoverService = OnlineCoverService();
+  final DeveloperLogWriter? _debugLog;
 
   static const _prefRootPath = 'library.rootPath';
   static const _prefLibraryFolders = 'library.folders';
@@ -488,6 +493,12 @@ class LibraryController extends StateNotifier<LibraryState> {
     );
 
     await _onlineLyricsService.saveCachedLyricsForTrack(track, document);
+    _logLyricsDocument(
+      track,
+      source: LyricsSourceType.online,
+      stage: 'manual-select',
+      document: document,
+    );
     _storeOnlineLyricsDocument(track, document, selectOnline: true);
   }
 
@@ -505,8 +516,18 @@ class LibraryController extends StateNotifier<LibraryState> {
     final nextLocal = <String, LyricsDocument>{...state.localLyricsByPath};
     if (document != null && !document.isEmpty) {
       nextLocal[track.path] = document;
+      _logLyricsDocument(
+        track,
+        source: LyricsSourceType.local,
+        stage: 'loaded',
+        document: document,
+      );
     } else {
       nextLocal.remove(track.path);
+      _debugLog?.call(
+        'lyrics.loaded -> stage=loaded, source=local, synced=false, '
+        'track="${track.title}", lines=0, karaokeLines=0, segments=0, provider=local',
+      );
     }
 
     state = state.copyWith(
@@ -539,6 +560,12 @@ class LibraryController extends StateNotifier<LibraryState> {
         durationHint: durationHint,
       );
       if (cached != null && !cached.isEmpty) {
+        _logLyricsDocument(
+          track,
+          source: LyricsSourceType.online,
+          stage: 'cache-hit',
+          document: cached,
+        );
         _storeOnlineLyricsDocument(track, cached, selectOnline: autoSelectOnline);
         return;
       }
@@ -549,6 +576,12 @@ class LibraryController extends StateNotifier<LibraryState> {
       );
       if (fetched != null && !fetched.isEmpty) {
         await _onlineLyricsService.saveCachedLyricsForTrack(track, fetched);
+        _logLyricsDocument(
+          track,
+          source: LyricsSourceType.online,
+          stage: 'fetched',
+          document: fetched,
+        );
         _storeOnlineLyricsDocument(
           track,
           fetched,
@@ -618,6 +651,26 @@ class LibraryController extends StateNotifier<LibraryState> {
     state = state.copyWith(lowEffects: value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefLowEffects, value);
+  }
+
+  void _logLyricsDocument(
+    Track track, {
+    required LyricsSourceType source,
+    required String stage,
+    required LyricsDocument document,
+  }) {
+    final lines = document.lines;
+    final karaokeLines = lines.where((line) => line.hasTimedSegments).length;
+    final segmentCount = lines.fold<int>(
+      0,
+      (total, line) => total + line.segments.length,
+    );
+    _debugLog?.call(
+      'lyrics.loaded -> stage=$stage, source=${source.name}, '
+      'synced=${document.isSynced}, track="${track.title}", '
+      'lines=${lines.length}, karaokeLines=$karaokeLines, '
+      'segments=$segmentCount, provider=${document.provider ?? 'local'}',
+    );
   }
 
   void _setPreferredLyricsSourceInState(String path, LyricsSourceType source) {

@@ -211,6 +211,10 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     state = state.copyWith(debugLogs: const []);
   }
 
+  void appendDeveloperLog(String message, {bool force = false}) {
+    _debug(message, force: force);
+  }
+
   void _applyAudioOutputModeToBackend(AudioOutputMode mode) {
     switch (mode) {
       case AudioOutputMode.compatibility:

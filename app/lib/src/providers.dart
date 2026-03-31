@@ -13,7 +13,9 @@ final appSettingsProvider =
     );
 
 final libraryProvider = StateNotifierProvider<LibraryController, LibraryState>(
-  (ref) => LibraryController(),
+  (ref) => LibraryController(
+    debugLog: ref.read(playbackProvider.notifier).appendDeveloperLog,
+  ),
 );
 
 final playbackProvider =

@@ -3,8 +3,14 @@ import 'dart:convert';
 import 'lyrics_document.dart';
 import 'lyric_line.dart';
 
+final RegExp _enhancedLrcSegmentPattern = RegExp(
+  r'<\d{1,2}:\d{2}(?:[.:]\d{1,3})?>',
+);
+final RegExp _qrcLinePattern = RegExp(r'^\[\d+,\d+\]');
+final RegExp _qrcWordPattern = RegExp(r'[^()]+?\(\d+,\d+\)');
+
 class OnlineLyricsSearchResult {
-  const OnlineLyricsSearchResult({
+  OnlineLyricsSearchResult({
     required this.id,
     required this.title,
     required this.artist,
@@ -14,6 +20,7 @@ class OnlineLyricsSearchResult {
     required this.syncedLyrics,
     required this.plainLyrics,
     required this.provider,
+    this.hasTimedSegments = false,
     this.score = 0,
   });
 
@@ -26,23 +33,50 @@ class OnlineLyricsSearchResult {
   final String? syncedLyrics;
   final String? plainLyrics;
   final String provider;
+  final bool hasTimedSegments;
   final int score;
 
-  String? get preferredRawLyrics {
+  late final String? preferredRawLyrics = () {
     final synced = syncedLyrics?.trim();
     if (synced != null && synced.isNotEmpty) return synced;
     final plain = plainLyrics?.trim();
     if (plain != null && plain.isNotEmpty) return plain;
     return null;
-  }
+  }();
 
-  bool get hasLyrics => preferredRawLyrics != null;
+  late final bool hasLyrics = preferredRawLyrics != null;
 
-  bool get isSynced => (syncedLyrics?.trim().isNotEmpty ?? false);
+  late final bool isSynced = syncedLyrics?.trim().isNotEmpty ?? false;
 
-  int get byteSize => utf8.encode(preferredRawLyrics ?? '').length;
+  late final bool isQrc = () {
+    final raw = preferredRawLyrics?.trim() ?? '';
+    if (raw.isEmpty) return false;
+    return raw.contains('LyricContent=') ||
+        _qrcLinePattern.hasMatch(raw) ||
+        _qrcWordPattern.hasMatch(raw);
+  }();
 
-  OnlineLyricsSearchResult copyWith({int? score}) {
+  late final bool isEnhancedLrc = () {
+    final raw = preferredRawLyrics?.trim() ?? '';
+    if (raw.isEmpty) return false;
+    return _enhancedLrcSegmentPattern.hasMatch(raw);
+  }();
+
+  late final String badgeLabel = () {
+    if (isQrc) return 'QRC';
+    if (isEnhancedLrc) return 'ELRC';
+    if (provider.trim().toLowerCase() == 'lrclib') return 'LRCLIB';
+    if (provider.trim().toLowerCase() == 'qqmusic') return 'QQ';
+    return isSynced ? 'LRC' : 'TXT';
+  }();
+
+  late final bool badgeHighlighted =
+      isQrc || isEnhancedLrc || hasTimedSegments;
+  late final bool badgeEmphasized = isSynced || provider.trim().isNotEmpty;
+
+  late final int byteSize = utf8.encode(preferredRawLyrics ?? '').length;
+
+  OnlineLyricsSearchResult copyWith({int? score, bool? hasTimedSegments}) {
     return OnlineLyricsSearchResult(
       id: id,
       title: title,
@@ -53,6 +87,7 @@ class OnlineLyricsSearchResult {
       syncedLyrics: syncedLyrics,
       plainLyrics: plainLyrics,
       provider: provider,
+      hasTimedSegments: hasTimedSegments ?? this.hasTimedSegments,
       score: score ?? this.score,
     );
   }

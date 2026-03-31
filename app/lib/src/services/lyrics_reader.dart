@@ -11,6 +11,9 @@ import '../models/lyrics_document.dart';
 final RegExp _timeTagPattern = RegExp(
   r'\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]',
 );
+final RegExp _karaokeTimeTagPattern = RegExp(
+  r'<(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?>',
+);
 
 Future<LyricsDocument?> readLocalLyricsDocumentForTrack(
   String audioPath, {
@@ -309,6 +312,13 @@ Future<String?> _readSidecarLrc(
     if (text != null && text.trim().isNotEmpty) return text;
   }
 
+  final exactQrcPath = p.setExtension(audioPath, '.qrc');
+  final exactQrc = File(exactQrcPath);
+  if (exactQrc.existsSync()) {
+    final text = await _readTextFileSmart(exactQrc);
+    if (text != null && text.trim().isNotEmpty) return text;
+  }
+
   final baseDir = Directory(p.dirname(audioPath));
   if (!baseDir.existsSync()) return null;
   final parentDir = baseDir.parent;
@@ -339,7 +349,8 @@ Future<String?> _readSidecarLrc(
     try {
       await for (final entity in dir.list(followLinks: false)) {
         if (entity is! File) continue;
-        if (p.extension(entity.path).toLowerCase() != '.lrc') continue;
+        final ext = p.extension(entity.path).toLowerCase();
+        if (ext != '.lrc' && ext != '.qrc') continue;
         final stem = _normalizeName(p.basenameWithoutExtension(entity.path));
         final matched = keys.any(
           (k) => stem == k || stem.contains(k) || k.contains(stem),
@@ -451,30 +462,53 @@ String? _findLyricsInDynamic(dynamic input) {
 }
 
 LyricsDocument? parseLyricsDocument(String raw, {Duration? durationHint}) {
+  final parsedQrc = _parseQrcLyricsDocument(raw);
+  if (parsedQrc != null && parsedQrc.isNotEmpty) {
+    return LyricsDocument(
+      lines: parsedQrc,
+      isSynced: true,
+      rawText: raw,
+    );
+  }
+
   final normalized = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
   final lines = normalized.split('\n');
   final parsed = <LyricLine>[];
   final plain = <String>[];
 
   for (final line in lines) {
-    final text = line.replaceAll(_timeTagPattern, '').trim();
     final matches = _timeTagPattern.allMatches(line).toList(growable: false);
     if (matches.isNotEmpty) {
+      final karaokeSegments = _parseKaraokeSegmentsFromLine(line);
+      final text = karaokeSegments != null
+          ? karaokeSegments.map((segment) => segment.text).join()
+          : line
+                .replaceAll(_timeTagPattern, '')
+                .replaceAll(_karaokeTimeTagPattern, '')
+                .trim();
       if (text.isEmpty) continue;
       for (final match in matches) {
-        parsed.add(LyricLine(time: _parseTimestamp(match), text: text));
+        parsed.add(
+          LyricLine(
+            time: _parseTimestamp(match),
+            text: text,
+            segments: karaokeSegments ?? const <LyricSegment>[],
+          ),
+        );
       }
       continue;
     }
 
+    final text = line.replaceAll(_karaokeTimeTagPattern, '').trim();
     if (_isMetadataLine(line)) continue;
     if (text.isNotEmpty) plain.add(text);
   }
 
   if (parsed.isNotEmpty) {
     parsed.sort((a, b) => a.time.compareTo(b.time));
+    final finalized = _finalizeKaraokeSegments(parsed);
     return LyricsDocument(
-      lines: parsed,
+      lines: finalized,
       isSynced: true,
       rawText: raw,
     );
@@ -499,6 +533,157 @@ LyricsDocument? parseLyricsDocument(String raw, {Duration? durationHint}) {
     isSynced: false,
     rawText: raw,
   );
+}
+
+List<LyricLine>? _parseQrcLyricsDocument(String raw) {
+  final content = _extractQrcLyricContent(raw);
+  if (content == null || content.trim().isEmpty) return null;
+
+  final normalized = content.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  final lines = <LyricLine>[];
+
+  for (final rawLine in normalized.split('\n')) {
+    final line = rawLine.trim();
+    if (line.isEmpty || _isMetadataLine(line)) continue;
+
+    final lineMatch = RegExp(r'^\[(\d+),(\d+)\](.*)$').firstMatch(line);
+    if (lineMatch == null) continue;
+
+    final lineStartMs = int.tryParse(lineMatch.group(1) ?? '') ?? 0;
+    final body = lineMatch.group(3) ?? '';
+    final segmentMatches = RegExp(r'([^()]+?)\((\d+),(\d+)\)').allMatches(body).toList(
+      growable: false,
+    );
+    if (segmentMatches.isEmpty) {
+      final text = body.trim();
+      if (text.isEmpty) continue;
+      lines.add(
+        LyricLine(
+          time: Duration(milliseconds: lineStartMs),
+          text: text,
+        ),
+      );
+      continue;
+    }
+
+    final segments = <LyricSegment>[];
+    for (final match in segmentMatches) {
+      final segmentText = (match.group(1) ?? '').trim();
+      final startMs = int.tryParse(match.group(2) ?? '') ?? 0;
+      final durationMs = int.tryParse(match.group(3) ?? '') ?? 0;
+      if (segmentText.isEmpty) continue;
+      segments.add(
+        LyricSegment(
+          start: Duration(milliseconds: startMs),
+          end: Duration(milliseconds: startMs + durationMs),
+          text: segmentText,
+        ),
+      );
+    }
+
+    final text = segments.map((segment) => segment.text).join();
+    if (text.trim().isEmpty) continue;
+    lines.add(
+      LyricLine(
+        time: Duration(milliseconds: lineStartMs),
+        text: text,
+        segments: segments,
+      ),
+    );
+  }
+
+  if (lines.isEmpty) return null;
+  lines.sort((a, b) => a.time.compareTo(b.time));
+  return lines;
+}
+
+String? _extractQrcLyricContent(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return null;
+  if (trimmed.startsWith('[0,') || RegExp(r'^\[\d+,\d+\]').hasMatch(trimmed)) {
+    return trimmed;
+  }
+
+  final attrMatch = RegExp(
+    r'LyricContent="([\s\S]*?)"',
+    caseSensitive: false,
+  ).firstMatch(trimmed);
+  if (attrMatch != null) {
+    return _decodeXmlEntities(attrMatch.group(1) ?? '');
+  }
+
+  final cdataMatch = RegExp(
+    r'<LyricContent><!\[CDATA\[([\s\S]*?)\]\]></LyricContent>',
+    caseSensitive: false,
+  ).firstMatch(trimmed);
+  if (cdataMatch != null) {
+    return cdataMatch.group(1);
+  }
+
+  return null;
+}
+
+String _decodeXmlEntities(String input) {
+  return input
+      .replaceAll('&quot;', '"')
+      .replaceAll('&apos;', "'")
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&amp;', '&')
+      .replaceAll('&#10;', '\n')
+      .replaceAll('&#13;', '\r');
+}
+
+List<LyricSegment>? _parseKaraokeSegmentsFromLine(String rawLine) {
+  final body = rawLine.replaceAll(_timeTagPattern, '');
+  final matches = _karaokeTimeTagPattern.allMatches(body).toList(growable: false);
+  if (matches.isEmpty) return null;
+
+  final segments = <LyricSegment>[];
+  for (var i = 0; i < matches.length; i++) {
+    final current = matches[i];
+    final start = _parseTimestamp(current);
+    final textStart = current.end;
+    final textEnd = i + 1 < matches.length ? matches[i + 1].start : body.length;
+    if (textEnd < textStart) continue;
+    final text = body.substring(textStart, textEnd);
+    if (text.isEmpty) continue;
+    segments.add(
+      LyricSegment(
+        start: start,
+        end: start,
+        text: text,
+      ),
+    );
+  }
+
+  if (segments.isEmpty) return null;
+  return segments;
+}
+
+List<LyricLine> _finalizeKaraokeSegments(List<LyricLine> lines) {
+  if (lines.every((line) => !line.hasTimedSegments)) return lines;
+
+  return List<LyricLine>.generate(lines.length, (index) {
+    final line = lines[index];
+    if (!line.hasTimedSegments) return line;
+
+    final nextLineTime = index + 1 < lines.length
+        ? lines[index + 1].time
+        : line.time + const Duration(seconds: 3);
+    final segments = List<LyricSegment>.generate(line.segments.length, (segmentIndex) {
+      final segment = line.segments[segmentIndex];
+      final nextStart = segmentIndex + 1 < line.segments.length
+          ? line.segments[segmentIndex + 1].start
+          : nextLineTime;
+      final safeEnd = nextStart > segment.start
+          ? nextStart
+          : segment.start + const Duration(milliseconds: 120);
+      return segment.copyWith(end: safeEnd);
+    }, growable: false);
+
+    return line.copyWith(segments: segments);
+  }, growable: false);
 }
 
 bool _isMetadataLine(String raw) {

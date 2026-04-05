@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
@@ -30,6 +30,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     _initializePlayer();
     unawaited(_loadDeveloperMode());
     unawaited(_loadAudioRoutePreferences());
+    unawaited(_loadFadePreferences());
   }
 
   late AudioPlayer _player;
@@ -48,9 +49,14 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
   static const String _prefDeveloperMode = 'debug.playbackDeveloperMode';
   static const String _prefAudioOutputDevice = 'audio.outputDevice';
+  static const String _prefFadeEnabled = 'audio.fadeEnabled';
+  static const String _prefFadeDurationMs = 'audio.fadeDurationMs';
   static const int _maxDebugLogs = 500;
   static const String _devLogDirName = 'PrismWave';
   static const String _devLogSubDir = 'logs';
+  static const int _minFadeDurationMs = 100;
+  static const int _maxFadeDurationMs = 1200;
+  static const int _volumeFadeSteps = 6;
 
   StreamSubscription<PlayerState>? _playerStateSub;
   StreamSubscription<Duration>? _positionSub;
@@ -68,6 +74,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
   bool _recoveringDecoderError = false;
   bool _recoveringAudioDeviceError = false;
   bool _currentTrackStartedByAutoAdvance = false;
+  int _volumeRampToken = 0;
   int _decoderRecoveryCount = 0;
   DateTime _decoderRecoveryWindowStart = DateTime.fromMillisecondsSinceEpoch(0);
   int _decodeSkipCount = 0;
@@ -138,6 +145,27 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     }
   }
 
+  Future<void> _loadFadePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final restoredEnabled =
+        prefs.getBool(_prefFadeEnabled) ?? state.fadeEnabled;
+    final restoredDuration = Duration(
+      milliseconds: _normalizeFadeDurationMs(
+        prefs.getInt(_prefFadeDurationMs) ?? state.fadeDuration.inMilliseconds,
+      ),
+    );
+
+    if (restoredEnabled == state.fadeEnabled &&
+        restoredDuration == state.fadeDuration) {
+      return;
+    }
+
+    state = state.copyWith(
+      fadeEnabled: restoredEnabled,
+      fadeDuration: restoredDuration,
+    );
+  }
+
   Future<void> setDeveloperMode(bool enabled) async {
     if (enabled == state.developerMode) return;
 
@@ -159,6 +187,44 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
   Future<void> setAudioOutputMode(AudioOutputMode mode) async {
     await _setAudioOutputModeInternal(mode, persist: true);
+  }
+
+  Future<void> setFadeEnabled(bool enabled) async {
+    if (enabled == state.fadeEnabled) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prefFadeEnabled, enabled);
+      return;
+    }
+
+    state = state.copyWith(fadeEnabled: enabled);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefFadeEnabled, enabled);
+
+    if (!enabled) {
+      _cancelPendingVolumeRamp();
+      await _setPlayerVolumeSafely(state.volume);
+    }
+
+    _debug('audio.fade setting -> enabled=$enabled', force: true);
+  }
+
+  Future<void> setFadeDuration(Duration duration) async {
+    final normalized = Duration(
+      milliseconds: _normalizeFadeDurationMs(duration.inMilliseconds),
+    );
+    if (normalized == state.fadeDuration) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_prefFadeDurationMs, normalized.inMilliseconds);
+      return;
+    }
+
+    state = state.copyWith(fadeDuration: normalized);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_prefFadeDurationMs, normalized.inMilliseconds);
+    _debug(
+      'audio.fade setting -> durationMs=${normalized.inMilliseconds}',
+      force: true,
+    );
   }
 
   Future<void> setAudioOutputDevice(String deviceId) async {
@@ -565,7 +631,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     );
 
     if (_player.playing) {
-      await _player.pause();
+      await _pauseWithFade();
       return;
     }
 
@@ -591,7 +657,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
     try {
       await _syncNativeLoopMode();
-      await _player.play();
+      await _resumeWithFade();
       state = state.copyWith(clearError: true);
     } catch (error) {
       state = state.copyWith(isLoading: false, error: 'Play failed: $error');
@@ -605,6 +671,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
   Future<void> setVolume(double volume) async {
     final normalized = volume.clamp(0.0, 1.0);
+    _cancelPendingVolumeRamp();
     await _player.setVolume(normalized);
     state = state.copyWith(volume: normalized);
   }
@@ -620,6 +687,118 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     state = state.copyWith(playbackMode: nextMode);
     _debug('cycleMode -> ${nextMode.name}', force: true);
     unawaited(_syncNativeLoopMode());
+  }
+
+  void reorderQueue(int oldIndex, int newIndex) {
+    final queue = [...state.currentPlaylist];
+    if (queue.length <= 1 ||
+        oldIndex < 0 ||
+        oldIndex >= queue.length ||
+        newIndex < 0 ||
+        newIndex > queue.length) {
+      return;
+    }
+
+    var normalizedNewIndex = newIndex;
+    if (normalizedNewIndex > oldIndex) {
+      normalizedNewIndex -= 1;
+    }
+    if (normalizedNewIndex == oldIndex ||
+        normalizedNewIndex < 0 ||
+        normalizedNewIndex >= queue.length) {
+      return;
+    }
+
+    final moved = queue.removeAt(oldIndex);
+    queue.insert(normalizedNewIndex, moved);
+
+    final currentTrack = state.currentTrack;
+    final currentIndex = currentTrack == null
+        ? -1
+        : queue.indexWhere((track) => track.id == currentTrack.id);
+
+    state = state.copyWith(
+      currentPlaylist: queue,
+      currentIndex: currentIndex,
+      clearError: true,
+    );
+    _debug(
+      'queue.reorder -> from=$oldIndex, to=$normalizedNewIndex, '
+      'currentIndex=$currentIndex',
+      force: true,
+    );
+  }
+
+  Future<void> removeFromQueueAt(int index) async {
+    final queue = [...state.currentPlaylist];
+    if (index < 0 || index >= queue.length) return;
+
+    final removed = queue.removeAt(index);
+    final removedCurrent = state.currentTrack?.id == removed.id;
+
+    if (queue.isEmpty) {
+      _newSession();
+      try {
+        await _player.stop();
+      } catch (_) {
+        // Keep queue removal resilient even if backend already stopped.
+      }
+      state = state.copyWith(
+        currentPlaylist: const [],
+        currentTrack: null,
+        currentIndex: -1,
+        currentTime: Duration.zero,
+        duration: Duration.zero,
+        isLoading: false,
+        isPlaying: false,
+        clearError: true,
+      );
+      _debug(
+        'queue.remove -> removed last track "${removed.title}"',
+        force: true,
+      );
+      return;
+    }
+
+    if (!removedCurrent) {
+      final currentTrack = state.currentTrack;
+      final currentIndex = currentTrack == null
+          ? -1
+          : queue.indexWhere((track) => track.id == currentTrack.id);
+      state = state.copyWith(
+        currentPlaylist: queue,
+        currentIndex: currentIndex,
+        clearError: true,
+      );
+      _debug(
+        'queue.remove -> removed "${removed.title}", '
+        'currentIndex=$currentIndex',
+        force: true,
+      );
+      return;
+    }
+
+    final targetIndex = index.clamp(0, queue.length - 1);
+    final token = _newSession();
+    final shouldAutoplay = state.isPlaying;
+    state = state.copyWith(
+      currentPlaylist: queue,
+      currentTrack: queue[targetIndex],
+      currentIndex: targetIndex,
+      currentTime: Duration.zero,
+      duration: Duration.zero,
+      isLoading: true,
+      clearError: true,
+    );
+    await _syncNativeLoopMode();
+    await _loadPlaylistAndPlay(
+      playlist: queue,
+      index: targetIndex,
+      expectedToken: token,
+      errorPrefix: 'Remove from queue failed',
+      markAutoAdvancedTrack: false,
+      autoplay: shouldAutoplay,
+    );
   }
 
   Future<void> previous() async {
@@ -650,10 +829,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     await _playIndex(nextIndex, causedByAutoAdvance: fromAutoEnded);
   }
 
-  Future<void> _playIndex(
-    int index, {
-    bool causedByAutoAdvance = false,
-  }) async {
+  Future<void> _playIndex(int index, {bool causedByAutoAdvance = false}) async {
     if (index < 0 || index >= state.currentPlaylist.length) return;
 
     if (index == state.currentIndex) {
@@ -713,6 +889,12 @@ class PlaybackController extends StateNotifier<PlaybackState> {
         _player.processingState == ProcessingState.completed;
 
     try {
+      await _fadeOutCurrentTrack(
+        expectedToken: token,
+        duration: _configuredFadeDuration,
+        reason: 'restart-current',
+      );
+
       if (shouldRebuildForExclusiveRestart) {
         _debug(
           'restartCurrentTrack -> completed in exclusive mode, reload via fresh player.',
@@ -732,7 +914,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       await _player.seek(Duration.zero);
       if (!_isSessionActive(token)) return;
 
-      await _player.play();
+      await _resumeWithFade(expectedToken: token, reason: 'restart-current');
       if (!_isSessionActive(token)) return;
 
       state = state.copyWith(
@@ -772,8 +954,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     if (state.currentPlaylist.length <= 1) return false;
 
     final now = DateTime.now();
-    if (now.difference(_decodeSkipWindowStart) >
-        const Duration(seconds: 30)) {
+    if (now.difference(_decodeSkipWindowStart) > const Duration(seconds: 30)) {
       _decodeSkipWindowStart = now;
       _decodeSkipCount = 0;
     }
@@ -836,8 +1017,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     final nearEndByTime = remaining <= const Duration(milliseconds: 1800);
     final nearEndByProgress =
         duration.inMilliseconds > 0 &&
-        position.inMilliseconds >=
-            (duration.inMilliseconds * 0.96).round();
+        position.inMilliseconds >= (duration.inMilliseconds * 0.96).round();
 
     final shouldTreatAsCompleted = nearEndByTime || nearEndByProgress;
     if (shouldTreatAsCompleted) {
@@ -904,7 +1084,8 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     if (normalized.contains('failed to initialize audio device')) {
       return true;
     }
-    if (normalized.contains('audio device') && normalized.contains('no sound')) {
+    if (normalized.contains('audio device') &&
+        normalized.contains('no sound')) {
       return true;
     }
     return false;
@@ -961,10 +1142,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       for (var attempt = 0; attempt < 3; attempt += 1) {
         final step = _resolveNextAudioRouteFallbackStep();
         if (step == null) {
-          state = state.copyWith(
-            isLoading: false,
-            error: trigger,
-          );
+          state = state.copyWith(isLoading: false, error: trigger);
           _debug(
             'audio.route recovery exhausted -> no further fallback. '
             'mode=${state.audioOutputMode.name}, device=${state.audioOutputDeviceId}',
@@ -1014,10 +1192,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
         );
       }
 
-      state = state.copyWith(
-        isLoading: false,
-        error: trigger,
-      );
+      state = state.copyWith(isLoading: false, error: trigger);
       _debug(
         'audio.route recovery exhausted -> maximum fallback attempts reached.',
         force: true,
@@ -1129,6 +1304,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     required int expectedToken,
     required String errorPrefix,
     required bool markAutoAdvancedTrack,
+    bool autoplay = true,
   }) async {
     _debug(
       'native.output.requested => mode=${state.audioOutputMode.name}, '
@@ -1139,6 +1315,13 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     );
     try {
       final track = playlist[index];
+      await _fadeOutCurrentTrack(
+        expectedToken: expectedToken,
+        duration: _configuredFadeDuration,
+        reason: 'track-load',
+      );
+      if (!_isSessionActive(expectedToken)) return;
+
       if (state.audioOutputMode == AudioOutputMode.wasapiExclusive) {
         await _recreatePlayerForExclusiveHandoff(
           expectedToken: expectedToken,
@@ -1169,13 +1352,32 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       await _syncNativeLoopMode();
       if (!_isSessionActive(expectedToken)) return;
 
-      _debug('loadPlaylistAndPlay -> begin play');
-      await _player.play();
-      if (!_isSessionActive(expectedToken)) return;
-      _debug('loadPlaylistAndPlay -> play completed');
+      if (autoplay) {
+        _debug('loadPlaylistAndPlay -> begin play');
+        await _resumeWithFade(
+          expectedToken: expectedToken,
+          reason: 'track-load',
+        );
+        if (!_isSessionActive(expectedToken)) return;
+        _debug('loadPlaylistAndPlay -> play completed');
+      } else {
+        _cancelPendingVolumeRamp();
+        await _setPlayerVolumeSafely(state.volume);
+        try {
+          await _player.pause();
+        } catch (_) {
+          // Keep paused reload resilient.
+        }
+        if (!_isSessionActive(expectedToken)) return;
+        _debug('loadPlaylistAndPlay -> loaded without autoplay', force: true);
+      }
 
       _currentTrackStartedByAutoAdvance = markAutoAdvancedTrack;
-      state = state.copyWith(isLoading: false, clearError: true);
+      state = state.copyWith(
+        isLoading: false,
+        isPlaying: autoplay ? state.isPlaying : false,
+        clearError: true,
+      );
       _debug('loadPlaylistAndPlay success.');
     } on PlayerInterruptedException {
       if (!_isSessionActive(expectedToken)) return;
@@ -1199,10 +1401,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
         return;
       }
       _currentTrackStartedByAutoAdvance = false;
-      state = state.copyWith(
-        isLoading: false,
-        error: detailedMessage,
-      );
+      state = state.copyWith(isLoading: false, error: detailedMessage);
       _debug(
         '$errorPrefix -> ${track?.title ?? 'Unknown Track'} | $error',
         force: true,
@@ -1216,11 +1415,158 @@ class PlaybackController extends StateNotifier<PlaybackState> {
   }
 
   int _newSession() {
+    _cancelPendingVolumeRamp();
     _sessionToken += 1;
     return _sessionToken;
   }
 
   bool _isSessionActive(int token) => token == _sessionToken;
+
+  int _normalizeFadeDurationMs(int milliseconds) {
+    return milliseconds.clamp(_minFadeDurationMs, _maxFadeDurationMs);
+  }
+
+  Duration get _configuredFadeDuration => Duration(
+    milliseconds: _normalizeFadeDurationMs(state.fadeDuration.inMilliseconds),
+  );
+
+  void _cancelPendingVolumeRamp() {
+    _volumeRampToken += 1;
+  }
+
+  bool _canFadeCurrentTrack() {
+    if (!state.hasTrack) return false;
+    if (!state.fadeEnabled) return false;
+    if (state.volume <= 0) return false;
+    if (!_player.playing) return false;
+    return _player.processingState == ProcessingState.ready ||
+        _player.processingState == ProcessingState.buffering;
+  }
+
+  Future<void> _pauseWithFade() async {
+    if (!state.fadeEnabled) {
+      await _player.pause();
+      return;
+    }
+
+    final expectedToken = _sessionToken;
+    await _fadePlayerVolume(
+      from: _player.volume,
+      to: 0,
+      duration: _configuredFadeDuration,
+      expectedToken: expectedToken,
+      reason: 'pause',
+    );
+    if (!_isSessionActive(expectedToken)) return;
+    await _player.pause();
+    if (!_isSessionActive(expectedToken)) return;
+    await _setPlayerVolumeSafely(state.volume);
+  }
+
+  Future<void> _resumeWithFade({
+    int? expectedToken,
+    String reason = 'resume',
+  }) async {
+    final effectiveToken = expectedToken ?? _sessionToken;
+    final targetVolume = state.volume.clamp(0.0, 1.0);
+    if (targetVolume <= 0) {
+      await _player.play();
+      return;
+    }
+
+    if (!state.fadeEnabled) {
+      await _setPlayerVolumeSafely(targetVolume);
+      if (!_isSessionActive(effectiveToken)) return;
+      await _player.play();
+      return;
+    }
+
+    await _setPlayerVolumeSafely(0);
+    if (!_isSessionActive(effectiveToken)) return;
+
+    await _player.play();
+    if (!_isSessionActive(effectiveToken)) return;
+
+    await _fadePlayerVolume(
+      from: 0,
+      to: targetVolume,
+      duration: _configuredFadeDuration,
+      expectedToken: effectiveToken,
+      reason: '$reason-in',
+    );
+  }
+
+  Future<void> _fadeOutCurrentTrack({
+    required int expectedToken,
+    required Duration duration,
+    required String reason,
+  }) async {
+    if (!_canFadeCurrentTrack()) return;
+
+    final startVolume = _player.volume.clamp(0.0, 1.0);
+    if (startVolume <= 0) return;
+
+    await _fadePlayerVolume(
+      from: startVolume,
+      to: 0,
+      duration: duration,
+      expectedToken: expectedToken,
+      reason: '$reason-out',
+    );
+  }
+
+  Future<void> _fadePlayerVolume({
+    required double from,
+    required double to,
+    required Duration duration,
+    int? expectedToken,
+    required String reason,
+  }) async {
+    final start = from.clamp(0.0, 1.0);
+    final end = to.clamp(0.0, 1.0);
+    final delta = (start - end).abs();
+
+    if (delta < 0.01 || duration <= Duration.zero) {
+      await _setPlayerVolumeSafely(end);
+      return;
+    }
+
+    final rampToken = ++_volumeRampToken;
+    final stepCount = max(
+      1,
+      min(_volumeFadeSteps, duration.inMilliseconds ~/ 24),
+    );
+    final stepDelay = Duration(
+      milliseconds: max(12, duration.inMilliseconds ~/ stepCount),
+    );
+
+    _debug(
+      'audio.fade -> reason=$reason, from=${start.toStringAsFixed(2)}, '
+      'to=${end.toStringAsFixed(2)}, durationMs=${duration.inMilliseconds}',
+      force: true,
+    );
+
+    for (var step = 1; step <= stepCount; step++) {
+      if (rampToken != _volumeRampToken) return;
+      if (expectedToken != null && !_isSessionActive(expectedToken)) return;
+
+      final progress = step / stepCount;
+      final nextVolume = start + ((end - start) * progress);
+      await _setPlayerVolumeSafely(nextVolume);
+
+      if (step < stepCount) {
+        await Future<void>.delayed(stepDelay);
+      }
+    }
+  }
+
+  Future<void> _setPlayerVolumeSafely(double volume) async {
+    try {
+      await _player.setVolume(volume.clamp(0.0, 1.0));
+    } catch (_) {
+      // Ignore transient backend volume failures during player rebuilds.
+    }
+  }
 
   Future<void> _syncNativeLoopMode() async {
     final targetMode = LoopMode.off;
@@ -1398,6 +1744,7 @@ Get-Content -Path \$logPath -Wait
       scriptPath,
     ], mode: ProcessStartMode.detached);
   }
+
   void _writeDebugLineToFile(String line) {
     final path = _developerLogFilePath;
     if (path == null || path.isEmpty) return;
@@ -1432,7 +1779,9 @@ Get-Content -Path \$logPath -Wait
 
   void _syncKnownAudioDevicesFromBackend() {
     _handleNativeAudioDevices(JustAudioMediaKit.latestAudioDevices);
-    _handleNativeSelectedAudioDevice(JustAudioMediaKit.latestSelectedAudioDevice);
+    _handleNativeSelectedAudioDevice(
+      JustAudioMediaKit.latestSelectedAudioDevice,
+    );
   }
 
   void _handleNativeAudioDevices(List<NativeAudioDeviceInfo> devices) {
@@ -1506,7 +1855,7 @@ Get-Content -Path \$logPath -Wait
             label: device.description.trim().isEmpty
                 ? device.name
                 : device.description,
-            ),
+          ),
         )
         .toList(growable: false);
 
@@ -1585,9 +1934,7 @@ Get-Content -Path \$logPath -Wait
       '耳麥',
     ];
     final looksLikeHeadset = headsetHints.any(label.contains);
-    return looksLikeHeadset
-        ? AudioOutputMode.wasapiShared
-        : requestedMode;
+    return looksLikeHeadset ? AudioOutputMode.wasapiShared : requestedMode;
   }
 
   String _labelForAudioDeviceId(String deviceId) {
@@ -1599,6 +1946,3 @@ Get-Content -Path \$logPath -Wait
     return deviceId;
   }
 }
-
-
-

@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:metadata_god/metadata_god.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/lyrics_document.dart';
@@ -37,16 +38,25 @@ class LibraryController extends StateNotifier<LibraryState> {
   static const _prefRootPath = 'library.rootPath';
   static const _prefLibraryFolders = 'library.folders';
   static const _prefFavorites = 'library.favorites';
+  static const _prefFavoriteOrder = 'library.favoriteOrder';
+  static const _prefTrackOrder = 'library.trackOrder';
+  static const _prefHiddenTracks = 'library.hiddenTracks';
   static const _prefLowEffects = 'ui.lowEffects';
   static const _prefPreferredLyricsSources = 'lyrics.preferredSources';
   static const _prefCustomCoverPaths = 'library.customCoverPaths';
   static const _prefLyricsOffsets = 'lyrics.offsets';
+
+  List<String> _savedTrackOrderPaths = const [];
+  Set<String> _hiddenTrackPaths = const {};
 
   Future<void> _loadInitialState() async {
     final prefs = await SharedPreferences.getInstance();
     final legacyRoot = prefs.getString(_prefRootPath);
     final folders = prefs.getStringList(_prefLibraryFolders) ?? const [];
     final favorites = prefs.getStringList(_prefFavorites) ?? const [];
+    final favoriteOrder = prefs.getStringList(_prefFavoriteOrder) ?? const [];
+    final trackOrder = prefs.getStringList(_prefTrackOrder) ?? const [];
+    final hiddenTracks = prefs.getStringList(_prefHiddenTracks) ?? const [];
     final lowEffects = prefs.getBool(_prefLowEffects) ?? false;
     final preferredLyricsSourceByPath = _decodePreferredLyricsSources(
       prefs.getString(_prefPreferredLyricsSources),
@@ -64,9 +74,14 @@ class LibraryController extends StateNotifier<LibraryState> {
               ? const <String>[]
               : [legacyRoot]);
 
+    _savedTrackOrderPaths = trackOrder;
+    _hiddenTrackPaths = hiddenTracks.toSet();
+    final favoritePaths = favorites.toSet();
+
     state = state.copyWith(
       libraryFolders: resolvedFolders,
-      favoritePaths: favorites.toSet(),
+      favoritePaths: favoritePaths,
+      favoriteOrderPaths: _sanitizeFavoriteOrder(favoritePaths, favoriteOrder),
       lowEffects: lowEffects,
       preferredLyricsSourceByPath: preferredLyricsSourceByPath,
       customCoverPathByTrackPath: customCoverPathByTrackPath,
@@ -88,9 +103,10 @@ class LibraryController extends StateNotifier<LibraryState> {
       dialogTitle: 'Select Music Folder',
     );
     if (selected == null) return;
-    final nextFolders = <String>{...state.libraryFolders, selected}.toList(
-      growable: false,
-    );
+    final nextFolders = <String>{
+      ...state.libraryFolders,
+      selected,
+    }.toList(growable: false);
     await _scanFolders(nextFolders, persistFolders: true);
   }
 
@@ -108,9 +124,10 @@ class LibraryController extends StateNotifier<LibraryState> {
   Future<void> pickAndScanDirectory() => addMusicFolder();
 
   Future<void> scanDirectory(String path, {required bool persistRoot}) async {
-    final nextFolders = <String>{...state.libraryFolders, path}.toList(
-      growable: false,
-    );
+    final nextFolders = <String>{
+      ...state.libraryFolders,
+      path,
+    }.toList(growable: false);
     await _scanFolders(nextFolders, persistFolders: persistRoot);
   }
 
@@ -139,7 +156,19 @@ class LibraryController extends StateNotifier<LibraryState> {
             return track.copyWith(coverPath: customCover);
           })
           .toList(growable: false);
-      final activePaths = scanned.map((track) => track.path).toSet();
+      final visibleTracks = _applyStoredTrackOrder(
+        customizedTracks
+            .where((track) => !_hiddenTrackPaths.contains(track.path))
+            .toList(growable: false),
+      );
+      final activePaths = visibleTracks.map((track) => track.path).toSet();
+      final nextFavoritePaths = state.favoritePaths
+          .where(activePaths.contains)
+          .toSet();
+      final nextFavoriteOrderPaths = _sanitizeFavoriteOrder(
+        nextFavoritePaths,
+        state.favoriteOrderPaths,
+      );
 
       final nextDurations = <String, Duration>{};
       final nextCoverBytes = <String, Uint8List>{};
@@ -151,7 +180,7 @@ class LibraryController extends StateNotifier<LibraryState> {
       final nextLocalResolved = <String>{};
       final nextOnlineResolved = <String>{};
 
-      for (final track in customizedTracks) {
+      for (final track in visibleTracks) {
         final path = track.path;
         final duration = state.durationByPath[path];
         final coverBytes = state.coverBytesByPath[path];
@@ -166,7 +195,8 @@ class LibraryController extends StateNotifier<LibraryState> {
           nextCoverBytes[path] = coverBytes;
         }
         final customCoverPath = state.customCoverPathByTrackPath[path];
-        if ((customCoverPath ?? '').isNotEmpty && File(customCoverPath!).existsSync()) {
+        if ((customCoverPath ?? '').isNotEmpty &&
+            File(customCoverPath!).existsSync()) {
           try {
             nextCoverBytes[path] = await File(customCoverPath).readAsBytes();
           } catch (_) {
@@ -191,7 +221,7 @@ class LibraryController extends StateNotifier<LibraryState> {
       }
 
       state = state.copyWith(
-        tracks: customizedTracks,
+        tracks: visibleTracks,
         durationByPath: nextDurations,
         coverBytesByPath: nextCoverBytes,
         localLyricsByPath: nextLocalLyrics,
@@ -202,8 +232,14 @@ class LibraryController extends StateNotifier<LibraryState> {
         lyricsLoadingPaths: state.lyricsLoadingPaths
             .where(activePaths.contains)
             .toSet(),
+        favoritePaths: nextFavoritePaths,
+        favoriteOrderPaths: nextFavoriteOrderPaths,
         isScanning: false,
       );
+
+      _savedTrackOrderPaths = visibleTracks
+          .map((track) => track.path)
+          .toList(growable: false);
 
       if (persistFolders) {
         final prefs = await SharedPreferences.getInstance();
@@ -215,7 +251,11 @@ class LibraryController extends StateNotifier<LibraryState> {
         }
       }
 
-      unawaited(_enrichMetadata(customizedTracks, job: job));
+      await _persistTrackOrder();
+      await _persistFavorites();
+      await _persistFavoriteOrder();
+
+      unawaited(_enrichMetadata(visibleTracks, job: job));
     } catch (error) {
       state = state.copyWith(isScanning: false, error: 'Scan failed: $error');
     }
@@ -339,6 +379,134 @@ class LibraryController extends StateNotifier<LibraryState> {
 
   bool isFavorite(Track track) => state.favoritePaths.contains(track.path);
 
+  Future<void> reorderLibraryTracks({
+    required List<Track> visibleTracks,
+    required int oldIndex,
+    required int newIndex,
+  }) async {
+    final reorderedPaths = _reorderVisiblePathSubset(
+      fullOrder: state.tracks
+          .map((track) => track.path)
+          .toList(growable: false),
+      visibleOrder: visibleTracks
+          .map((track) => track.path)
+          .toList(growable: false),
+      oldIndex: oldIndex,
+      newIndex: newIndex,
+    );
+    if (reorderedPaths == null) return;
+
+    final trackByPath = <String, Track>{
+      for (final track in state.tracks) track.path: track,
+    };
+    final reorderedTracks = reorderedPaths
+        .map((path) => trackByPath[path])
+        .whereType<Track>()
+        .toList(growable: false);
+
+    state = state.copyWith(tracks: reorderedTracks, clearError: true);
+    _savedTrackOrderPaths = reorderedTracks
+        .map((track) => track.path)
+        .toList(growable: false);
+    await _persistTrackOrder();
+  }
+
+  Future<void> reorderFavoriteTracks({
+    required List<Track> visibleTracks,
+    required int oldIndex,
+    required int newIndex,
+  }) async {
+    final reorderedPaths = _reorderVisiblePathSubset(
+      fullOrder: _resolvedFavoriteOrderPaths(),
+      visibleOrder: visibleTracks
+          .map((track) => track.path)
+          .toList(growable: false),
+      oldIndex: oldIndex,
+      newIndex: newIndex,
+    );
+    if (reorderedPaths == null) return;
+
+    state = state.copyWith(
+      favoriteOrderPaths: reorderedPaths,
+      clearError: true,
+    );
+    await _persistFavoriteOrder();
+  }
+
+  Future<void> removeTrackFromLibrary(
+    Track track, {
+    required bool deleteSourceFile,
+  }) async {
+    if (deleteSourceFile) {
+      await _deleteTrackSourceFiles(track.path);
+      _hiddenTrackPaths = {..._hiddenTrackPaths}..remove(track.path);
+    } else {
+      _hiddenTrackPaths = {..._hiddenTrackPaths, track.path};
+    }
+
+    final nextTracks = state.tracks
+        .where((item) => item.path != track.path)
+        .toList(growable: false);
+    final nextFavoritePaths = state.favoritePaths.toSet()..remove(track.path);
+    final nextFavoriteOrderPaths = _sanitizeFavoriteOrder(
+      nextFavoritePaths,
+      state.favoriteOrderPaths.where((path) => path != track.path).toList(),
+    );
+
+    final nextDurations = <String, Duration>{...state.durationByPath}
+      ..remove(track.path);
+    final nextCoverBytes = <String, Uint8List>{...state.coverBytesByPath}
+      ..remove(track.path);
+    final nextCustomCoverPaths = <String, String>{
+      ...state.customCoverPathByTrackPath,
+    }..remove(track.path);
+    final nextLyricsOffsets = <String, double>{
+      ...state.lyricsOffsetSecondsByPath,
+    }..remove(track.path);
+    final nextLocalLyrics = <String, LyricsDocument>{...state.localLyricsByPath}
+      ..remove(track.path);
+    final nextOnlineLyrics = <String, LyricsDocument>{
+      ...state.onlineLyricsByPath,
+    }..remove(track.path);
+    final nextPreferredSources = <String, LyricsSourceType>{
+      ...state.preferredLyricsSourceByPath,
+    }..remove(track.path);
+    final nextLocalResolved = {...state.localLyricsResolvedPaths}
+      ..remove(track.path);
+    final nextOnlineResolved = {...state.onlineLyricsResolvedPaths}
+      ..remove(track.path);
+    final nextLyricsLoading = {...state.lyricsLoadingPaths}..remove(track.path);
+
+    state = state.copyWith(
+      tracks: nextTracks,
+      durationByPath: nextDurations,
+      coverBytesByPath: nextCoverBytes,
+      customCoverPathByTrackPath: nextCustomCoverPaths,
+      lyricsOffsetSecondsByPath: nextLyricsOffsets,
+      localLyricsByPath: nextLocalLyrics,
+      onlineLyricsByPath: nextOnlineLyrics,
+      preferredLyricsSourceByPath: nextPreferredSources,
+      localLyricsResolvedPaths: nextLocalResolved,
+      onlineLyricsResolvedPaths: nextOnlineResolved,
+      lyricsLoadingPaths: nextLyricsLoading,
+      favoritePaths: nextFavoritePaths,
+      favoriteOrderPaths: nextFavoriteOrderPaths,
+      clearError: true,
+    );
+
+    _savedTrackOrderPaths = nextTracks
+        .map((item) => item.path)
+        .toList(growable: false);
+
+    await _persistTrackOrder();
+    await _persistFavorites();
+    await _persistFavoriteOrder();
+    await _persistHiddenTracks();
+    await _persistCustomCoverPaths();
+    await _persistPreferredLyricsSources();
+    await _persistLyricsOffsets();
+  }
+
   Future<void> ensureLyricsLoaded(Track track) async {
     await _ensureLocalLyricsLoaded(track);
 
@@ -431,7 +599,10 @@ class LibraryController extends StateNotifier<LibraryState> {
     OnlineCoverSearchResult result,
   ) async {
     try {
-      final cached = await _onlineCoverService.cacheCoverForTrack(track, result);
+      final cached = await _onlineCoverService.cacheCoverForTrack(
+        track,
+        result,
+      );
       final updatedTracks = state.tracks
           .map(
             (item) => item.path == track.path
@@ -512,7 +683,10 @@ class LibraryController extends StateNotifier<LibraryState> {
       artist: track.artist,
     );
 
-    final nextResolved = <String>{...state.localLyricsResolvedPaths, track.path};
+    final nextResolved = <String>{
+      ...state.localLyricsResolvedPaths,
+      track.path,
+    };
     final nextLocal = <String, LyricsDocument>{...state.localLyricsByPath};
     if (document != null && !document.isEmpty) {
       nextLocal[track.path] = document;
@@ -566,7 +740,11 @@ class LibraryController extends StateNotifier<LibraryState> {
           stage: 'cache-hit',
           document: cached,
         );
-        _storeOnlineLyricsDocument(track, cached, selectOnline: autoSelectOnline);
+        _storeOnlineLyricsDocument(
+          track,
+          cached,
+          selectOnline: autoSelectOnline,
+        );
         return;
       }
 
@@ -635,16 +813,21 @@ class LibraryController extends StateNotifier<LibraryState> {
 
   Future<void> toggleFavorite(Track track) async {
     final next = state.favoritePaths.toSet();
+    final nextOrder = _resolvedFavoriteOrderPaths();
     if (next.contains(track.path)) {
       next.remove(track.path);
+      nextOrder.remove(track.path);
     } else {
       next.add(track.path);
+      if (!nextOrder.contains(track.path)) {
+        nextOrder.add(track.path);
+      }
     }
 
-    state = state.copyWith(favoritePaths: next);
+    state = state.copyWith(favoritePaths: next, favoriteOrderPaths: nextOrder);
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_prefFavorites, next.toList(growable: false));
+    await _persistFavorites();
+    await _persistFavoriteOrder();
   }
 
   Future<void> setLowEffects(bool value) async {
@@ -688,6 +871,145 @@ class LibraryController extends StateNotifier<LibraryState> {
   ) async {
     _setPreferredLyricsSourceInState(path, source);
     await _persistPreferredLyricsSources();
+  }
+
+  List<Track> _applyStoredTrackOrder(List<Track> tracks) {
+    if (tracks.isEmpty) return const [];
+
+    final trackByPath = <String, Track>{
+      for (final track in tracks) track.path: track,
+    };
+    final ordered = <Track>[];
+    final seen = <String>{};
+
+    for (final path in _savedTrackOrderPaths) {
+      final track = trackByPath[path];
+      if (track == null || !seen.add(path)) continue;
+      ordered.add(track);
+    }
+
+    for (final track in tracks) {
+      if (!seen.add(track.path)) continue;
+      ordered.add(track);
+    }
+
+    return ordered;
+  }
+
+  List<String> _sanitizeFavoriteOrder(
+    Set<String> favoritePaths,
+    List<String> preferredOrder,
+  ) {
+    final ordered = <String>[];
+    final seen = <String>{};
+
+    for (final path in preferredOrder) {
+      if (!favoritePaths.contains(path) || !seen.add(path)) continue;
+      ordered.add(path);
+    }
+
+    for (final track in state.tracks) {
+      final path = track.path;
+      if (!favoritePaths.contains(path) || !seen.add(path)) continue;
+      ordered.add(path);
+    }
+
+    for (final path in favoritePaths) {
+      if (!seen.add(path)) continue;
+      ordered.add(path);
+    }
+
+    return ordered;
+  }
+
+  List<String> _resolvedFavoriteOrderPaths() {
+    return _sanitizeFavoriteOrder(
+      state.favoritePaths,
+      state.favoriteOrderPaths,
+    );
+  }
+
+  List<String>? _reorderVisiblePathSubset({
+    required List<String> fullOrder,
+    required List<String> visibleOrder,
+    required int oldIndex,
+    required int newIndex,
+  }) {
+    if (fullOrder.length <= 1 || visibleOrder.length <= 1) return null;
+    if (oldIndex < 0 ||
+        oldIndex >= visibleOrder.length ||
+        newIndex < 0 ||
+        newIndex > visibleOrder.length) {
+      return null;
+    }
+
+    var normalizedNewIndex = newIndex;
+    if (normalizedNewIndex > oldIndex) {
+      normalizedNewIndex -= 1;
+    }
+    if (normalizedNewIndex == oldIndex ||
+        normalizedNewIndex < 0 ||
+        normalizedNewIndex >= visibleOrder.length) {
+      return null;
+    }
+
+    final reorderedVisible = [...visibleOrder];
+    final moved = reorderedVisible.removeAt(oldIndex);
+    reorderedVisible.insert(normalizedNewIndex, moved);
+
+    final visibleSet = visibleOrder.toSet();
+    final rebuilt = <String>[];
+    var visibleCursor = 0;
+
+    for (final path in fullOrder) {
+      if (!visibleSet.contains(path)) {
+        rebuilt.add(path);
+        continue;
+      }
+      rebuilt.add(reorderedVisible[visibleCursor]);
+      visibleCursor += 1;
+    }
+
+    return rebuilt;
+  }
+
+  Future<void> _deleteTrackSourceFiles(String trackPath) async {
+    final audioFile = File(trackPath);
+    if (audioFile.existsSync()) {
+      await audioFile.delete();
+    }
+
+    final lyricFile = File('${p.withoutExtension(trackPath)}.lrc');
+    if (lyricFile.existsSync()) {
+      await lyricFile.delete();
+    }
+  }
+
+  Future<void> _persistFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    final favoritePaths = state.favoritePaths.toList(growable: false);
+    await prefs.setStringList(_prefFavorites, favoritePaths);
+  }
+
+  Future<void> _persistFavoriteOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _prefFavoriteOrder,
+      _resolvedFavoriteOrderPaths(),
+    );
+  }
+
+  Future<void> _persistTrackOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_prefTrackOrder, _savedTrackOrderPaths);
+  }
+
+  Future<void> _persistHiddenTracks() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _prefHiddenTracks,
+      _hiddenTrackPaths.toList(growable: false),
+    );
   }
 
   Future<void> _persistPreferredLyricsSources() async {

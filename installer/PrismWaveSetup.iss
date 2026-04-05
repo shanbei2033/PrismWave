@@ -1,5 +1,5 @@
 #define MyAppName "PrismWave"
-#define MyAppVersion "R010_fix1"
+#define MyAppVersion "R011"
 #define MyAppPublisher "shanbei2033"
 #define MyAppURL "https://github.com/shanbei2033/PrismWave"
 #define MyAppExeName "PrismWave.exe"
@@ -23,6 +23,8 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
+DisableDirPage=no
+UsePreviousAppDir=no
 PrivilegesRequired=admin
 OutputDir=..\dist
 OutputBaseFilename=PrismWave-Setup-{#MyAppVersion}
@@ -53,5 +55,5 @@ begin
   if DirExists('D:\') then
     Result := 'D:\{#MyAppName}'
   else
-    Result := ExpandConstant('{autopf}\{#MyAppName}');
+    Result := 'C:\{#MyAppName}';
 end;

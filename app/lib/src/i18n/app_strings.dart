@@ -1,4 +1,4 @@
-﻿import '../models/app_language.dart';
+import '../models/app_language.dart';
 import '../models/audio_output_mode.dart';
 import '../models/top_bar_idle_mode.dart';
 
@@ -16,8 +16,10 @@ class AppStrings {
     return enUs;
   }
 
-  String get appTitle => _tr('PrismWave 演示版', 'PrismWave 演示版', 'PrismWave Demo');
-  String get localMusicPlayer => _tr('本地音乐播放器', '本機音樂播放器', 'Local Music Player');
+  String get appTitle =>
+      _tr('PrismWave 演示版', 'PrismWave 演示版', 'PrismWave Demo');
+  String get localMusicPlayer =>
+      _tr('本地音乐播放器', '本機音樂播放器', 'Local Music Player');
 
   String get settings => _tr('设置', '設定', 'Settings');
   String get library => _tr('库', '庫', 'Library');
@@ -33,17 +35,19 @@ class AppStrings {
       _tr('搜索专辑 / 歌手 / 歌名', '搜尋專輯 / 歌手 / 歌名', 'Search album / artist / track');
   String get searchArtist => _tr('搜索艺术家', '搜尋藝術家', 'Search artist');
 
-  String get noAlbumMatch => _tr('没有找到匹配的专辑', '沒有找到符合的專輯', 'No matching albums');
-  String get noArtistMatch => _tr('没有找到匹配的艺术家', '沒有找到符合的藝術家', 'No matching artists');
+  String get noAlbumMatch =>
+      _tr('没有找到匹配的专辑', '沒有找到符合的專輯', 'No matching albums');
+  String get noArtistMatch =>
+      _tr('没有找到匹配的艺术家', '沒有找到符合的藝術家', 'No matching artists');
   String get noTrackMatch =>
       _tr('当前筛选条件下没有匹配的歌曲', '目前篩選條件下沒有符合的歌曲', 'No matching tracks');
   String get addFolderFirst =>
       _tr('请先通过设置添加歌曲文件夹', '請先透過設定新增歌曲資料夾', 'Please add a music folder first');
   String get noFavoriteTracks => _tr(
-        '还没有收藏歌曲，点击歌曲右侧爱心即可加入我最爱的',
-        '還沒有收藏歌曲，點擊歌曲右側愛心即可加入我最愛的',
-        'No favorites yet. Click the heart icon to add favorites.',
-      );
+    '还没有收藏歌曲，点击歌曲右侧爱心即可加入我最爱的',
+    '還沒有收藏歌曲，點擊歌曲右側愛心即可加入我最愛的',
+    'No favorites yet. Click the heart icon to add favorites.',
+  );
 
   String get cover => _tr('封面', '封面', 'Cover');
   String get replaceCover => _tr('替换封面', '替換封面', 'Replace Cover');
@@ -52,22 +56,35 @@ class AppStrings {
   String get noOnlineCoverResults =>
       _tr('没有找到可用封面', '沒有找到可用封面', 'No covers found');
   String get chooseCoverHint => _tr(
-        '点击列表中的封面即可替换',
-        '點擊清單中的封面即可替換',
-        'Click a cover below to replace the current artwork',
-      );
+    '点击列表中的封面即可替换',
+    '點擊清單中的封面即可替換',
+    'Click a cover below to replace the current artwork',
+  );
   String get doubleClickToReplaceCover => _tr(
-        '双击封面可替换当前封面',
-        '雙擊封面可替換目前封面',
-        'Double-click the cover to replace artwork',
-      );
+    '双击封面可替换当前封面',
+    '雙擊封面可替換目前封面',
+    'Double-click the cover to replace artwork',
+  );
   String get trackName => _tr('歌名', '歌名', 'Title');
   String get singer => _tr('歌手', '歌手', 'Artist');
   String get duration => _tr('时长', '時長', 'Duration');
   String get collect => _tr('收藏', '收藏', 'Favorite');
   String get uncollect => _tr('取消收藏', '取消收藏', 'Unfavorite');
   String get details => _tr('详细信息', '詳細資訊', 'Details');
-  String get revealInExplorer => _tr('定位到文件资源管理器', '定位到檔案總管', 'Reveal in Explorer');
+  String get deleteTrack => _tr('删除歌曲', '刪除歌曲', 'Delete Track');
+  String get removeFromQueue => _tr('移出播放列表', '移出播放清單', 'Remove from Queue');
+  String get removeFromListPrompt =>
+      _tr('是否将其歌曲移出列表', '是否將其歌曲移出列表', 'Remove this track from the list?');
+  String get deleteSourceFileToo =>
+      _tr('同时删除源文件', '同時刪除來源檔案', 'Also delete source file');
+  String get confirmYes => _tr('是', '是', 'Yes');
+  String get confirmNo => _tr('否', '否', 'No');
+  String get trackRemoved =>
+      _tr('歌曲已移出列表', '歌曲已移出列表', 'Track removed from list');
+  String get trackRemovedAndDeleted =>
+      _tr('歌曲及源文件已删除', '歌曲及來源檔案已刪除', 'Track and source file deleted');
+  String get revealInExplorer =>
+      _tr('定位到文件资源管理器', '定位到檔案總管', 'Reveal in Explorer');
   String get detailsTitle => _tr('歌曲详细信息', '歌曲詳細資訊', 'Track Details');
   String get audioTrack => _tr('音轨', '音軌', 'Track');
   String get bitrate => _tr('码率', '碼率', 'Bitrate');
@@ -84,13 +101,31 @@ class AppStrings {
   String get addMusicFolder => _tr('添加歌曲文件夹', '新增歌曲資料夾', 'Add Music Folder');
   String get rescanAll => _tr('重新刷新', '重新整理', 'Rescan');
   String get noFolderConfigured => _tr(
-        '还没有添加文件夹，请先添加歌曲文件夹',
-        '還沒有新增資料夾，請先新增歌曲資料夾',
-        'No folder added yet. Please add a music folder first.',
-      );
+    '还没有添加文件夹，请先添加歌曲文件夹',
+    '還沒有新增資料夾，請先新增歌曲資料夾',
+    'No folder added yet. Please add a music folder first.',
+  );
   String get remove => _tr('移除', '移除', 'Remove');
 
   String get languageTitle => _tr('语言', '語言', 'Language');
+  String get checkUpdates => _tr('检查更新', '檢查更新', 'Check for Updates');
+  String get checkingUpdates => _tr('检查中...', '檢查中...', 'Checking...');
+  String get currentVersionLabel => _tr('当前版本', '目前版本', 'Current Version');
+  String get latestVersionLabel => _tr('最新版本', '最新版本', 'Latest Version');
+  String get getUpdate => _tr('获取更新', '取得更新', 'Get Update');
+  String get updateCheckTitle => _tr('版本更新', '版本更新', 'Version Update');
+  String get updateUpToDate =>
+      _tr('当前已经是最新版本。', '目前已是最新版本。', 'You are already on the latest version.');
+  String updateAvailable(String version) => _tr(
+    '检测到新版本：$version',
+    '檢測到新版本：$version',
+    'New version available: $version',
+  );
+  String get updateCheckFailed => _tr(
+    '检查更新失败，请稍后重试。',
+    '檢查更新失敗，請稍後再試。',
+    'Update check failed. Please try again later.',
+  );
   String languageLabel(AppLanguage target) => switch (target) {
     AppLanguage.zhCn => '简体中文',
     AppLanguage.zhTw => '繁體中文',
@@ -99,78 +134,133 @@ class AppStrings {
 
   String get audioOutputMode => _tr('音频输出模式', '音訊輸出模式', 'Audio Output Mode');
   String get audioOutputDevice => _tr('播放设备', '播放裝置', 'Playback Device');
+  String get audioFade => _tr('淡入淡出', '淡入淡出', 'Fade In / Out');
+  String get audioFadeEnabled =>
+      _tr('启用淡入淡出', '啟用淡入淡出', 'Enable Fade In / Out');
+  String get audioFadeDuration => _tr('淡入淡出时长', '淡入淡出時長', 'Fade Duration');
+  String get audioFadeHint => _tr(
+    '切歌、暂停和继续播放时应用音量渐变。',
+    '切歌、暫停和繼續播放時套用音量漸變。',
+    'Apply a volume ramp when switching tracks, pausing, and resuming.',
+  );
+  String get audioFadeDisabledHint => _tr(
+    '关闭后，播放与切换将立即生效，不做音量渐变。',
+    '關閉後，播放與切換將立即生效，不做音量漸變。',
+    'When off, playback changes apply immediately with no volume ramp.',
+  );
   String get defaultAudioDevice => _tr('默认设备', '預設裝置', 'Default Device');
   String get audioOutputDeviceHint => _tr(
-        '选择当前使用的播放设备，切换后会重建播放器以应用到当前后端。',
-        '選擇目前使用的播放裝置，切換後會重建播放器以套用到目前後端。',
-        'Choose the playback device. The player will be recreated to apply it.',
-      );
+    '选择当前使用的播放设备，切换后会重建播放器以应用到当前后端。',
+    '選擇目前使用的播放裝置，切換後會重建播放器以套用到目前後端。',
+    'Choose the playback device. The player will be recreated to apply it.',
+  );
   String outputModeLabel(AudioOutputMode mode) => switch (mode) {
-    AudioOutputMode.compatibility => _tr('兼容模式 (MPV)', '相容模式 (MPV)', 'Compatibility (MPV)'),
-    AudioOutputMode.wasapiShared => _tr('WASAPI 共享模式', 'WASAPI 共享模式', 'WASAPI Shared'),
-    AudioOutputMode.wasapiExclusive => _tr('WASAPI 独占模式', 'WASAPI 獨占模式', 'WASAPI Exclusive'),
+    AudioOutputMode.compatibility => _tr(
+      '兼容模式 (MPV)',
+      '相容模式 (MPV)',
+      'Compatibility (MPV)',
+    ),
+    AudioOutputMode.wasapiShared => _tr(
+      'WASAPI 共享模式',
+      'WASAPI 共享模式',
+      'WASAPI Shared',
+    ),
+    AudioOutputMode.wasapiExclusive => _tr(
+      'WASAPI 独占模式',
+      'WASAPI 獨占模式',
+      'WASAPI Exclusive',
+    ),
   };
   String outputModeDescription(AudioOutputMode mode) => switch (mode) {
     AudioOutputMode.compatibility => _tr(
-        '兼容模式，由 MPV 自动选择输出后端。',
-        '相容模式，由 MPV 自動選擇輸出後端。',
-        'Compatibility mode with MPV default output selection.',
-      ),
+      '兼容模式，由 MPV 自动选择输出后端。',
+      '相容模式，由 MPV 自動選擇輸出後端。',
+      'Compatibility mode with MPV default output selection.',
+    ),
     AudioOutputMode.wasapiShared => _tr(
-        '使用 WASAPI 共享模式，可与其他应用同时播放。',
-        '使用 WASAPI 共享模式，可與其他應用同時播放。',
-        'Use WASAPI shared mode for maximum compatibility with other apps.',
-      ),
+      '使用 WASAPI 共享模式，可与其他应用同时播放。',
+      '使用 WASAPI 共享模式，可與其他應用同時播放。',
+      'Use WASAPI shared mode for maximum compatibility with other apps.',
+    ),
     AudioOutputMode.wasapiExclusive => _tr(
-        '优先 WASAPI 独占模式，失败时自动回落共享模式。',
-        '優先 WASAPI 獨占模式，失敗時自動回落共享模式。',
-        'Prefer WASAPI exclusive mode; fallback to shared on failure.',
-      ),
+      '优先 WASAPI 独占模式，失败时自动回落共享模式。',
+      '優先 WASAPI 獨占模式，失敗時自動回落共享模式。',
+      'Prefer WASAPI exclusive mode; fallback to shared on failure.',
+    ),
   };
 
   String get developerMode => _tr('开发者模式', '開發者模式', 'Developer Mode');
   String get developerModeHint => _tr(
-        '开启后弹出独立终端实时查看日志，并同步写入本地日志文件。',
-        '開啟後彈出獨立終端即時查看日誌，並同步寫入本機日誌檔。',
-        'Open a dedicated terminal and mirror logs to a local file in real time.',
-      );
+    '开启后弹出独立终端实时查看日志，并同步写入本地日志文件。',
+    '開啟後彈出獨立終端即時查看日誌，並同步寫入本機日誌檔。',
+    'Open a dedicated terminal and mirror logs to a local file in real time.',
+  );
   String get playbackLogs => _tr('播放日志', '播放日誌', 'Playback Logs');
   String get copy => _tr('复制', '複製', 'Copy');
   String get clear => _tr('清空', '清空', 'Clear');
   String get logsCopied => _tr('已复制播放日志', '已複製播放日誌', 'Playback logs copied');
-  String get noLogsHint => _tr('暂无日志。请先复现问题。', '暫無日誌。請先重現問題。', 'No logs yet. Reproduce the failed case first.');
+  String get noLogsHint => _tr(
+    '暂无日志。请先复现问题。',
+    '暫無日誌。請先重現問題。',
+    'No logs yet. Reproduce the failed case first.',
+  );
 
   String get listLoop => _tr('列表循环', '列表循環', 'List Loop');
   String get singleLoop => _tr('单曲循环', '單曲循環', 'Single Loop');
   String get shuffle => _tr('随机播放', '隨機播放', 'Shuffle');
+  String get playbackQueue => _tr('播放队列', '播放佇列', 'Playback Queue');
+  String get noActivePlaylist =>
+      _tr('当前没有可显示的播放列表', '目前沒有可顯示的播放清單', 'No active playlist to display');
   String get back => _tr('返回', '返回', 'Back');
-  String get noTrackPlaying => _tr('当前没有正在播放的歌曲', '目前沒有正在播放的歌曲', 'No track is currently playing');
-  String get noLyricsFound => _tr('当前歌曲未找到可用歌词', '目前歌曲未找到可用歌詞', 'No lyrics found for this track');
+  String get noTrackPlaying =>
+      _tr('当前没有正在播放的歌曲', '目前沒有正在播放的歌曲', 'No track is currently playing');
+  String get noLyricsFound =>
+      _tr('当前歌曲未找到可用歌词', '目前歌曲未找到可用歌詞', 'No lyrics found for this track');
 
-  String get loadingLyrics => _tr('正在加载歌词...', '正在載入歌詞...', 'Loading lyrics...');
+  String get loadingLyrics =>
+      _tr('正在加载歌词...', '正在載入歌詞...', 'Loading lyrics...');
   String get loading => _tr('加载中...', '載入中...', 'Loading...');
   String get lyricsSource => _tr('歌词来源', '歌詞來源', 'Lyrics Source');
   String get localLyricsSource => _tr('本地', '本機', 'Local');
   String get onlineLyricsSource => _tr('在线', '線上', 'Online');
   String get currentLyricsInfo => _tr('当前歌词', '目前歌詞', 'Current Lyrics');
-  String get currentLyricsUnavailable => _tr('当前未加载歌词', '目前未載入歌詞', 'No lyrics loaded');
+  String get currentLyricsUnavailable =>
+      _tr('当前未加载歌词', '目前未載入歌詞', 'No lyrics loaded');
   String get syncedLyricsLabel => _tr('同步歌词', '同步歌詞', 'Synced');
   String get unsyncedLyricsLabel => _tr('非同步歌词', '非同步歌詞', 'Unsynced');
-  String get karaokeSupported => _tr('支持逐字高亮', '支援逐字高亮', 'Word-by-word supported');
-  String get karaokeUnsupported => _tr('不支持逐字高亮', '不支援逐字高亮', 'Word-by-word unsupported');
+  String get karaokeSupported =>
+      _tr('支持逐字高亮', '支援逐字高亮', 'Word-by-word supported');
+  String get karaokeUnsupported =>
+      _tr('不支持逐字高亮', '不支援逐字高亮', 'Word-by-word unsupported');
   String get onlineLyricsSearch => _tr('在线搜索', '線上搜尋', 'Online Search');
-  String get onlineLyricsSearchHint => _tr('按歌曲名搜索歌词', '按歌曲名搜尋歌詞', 'Search lyrics by song name');
+  String get onlineLyricsSearchHint =>
+      _tr('按歌曲名搜索歌词', '按歌曲名搜尋歌詞', 'Search lyrics by song name');
   String get lyricsTools => _tr('歌词工具', '歌詞工具', 'Lyrics Tools');
-  String get toggleLyricsSource => _tr('切换歌词源', '切換歌詞來源', 'Toggle Lyrics Source');
+  String get toggleLyricsSource =>
+      _tr('切换歌词源', '切換歌詞來源', 'Toggle Lyrics Source');
   String get lyricsOffset => _tr('歌词偏移', '歌詞偏移', 'Lyrics Offset');
-  String get lyricsOffsetHint => _tr('输入秒数，支持一位小数', '輸入秒數，支援一位小數', 'Enter seconds with up to one decimal place');
-  String get offsetInvalid => _tr('请输入正确的秒数', '請輸入正確的秒數', 'Enter a valid offset value');
+  String get lyricsOffsetHint => _tr(
+    '输入秒数，支持一位小数',
+    '輸入秒數，支援一位小數',
+    'Enter seconds with up to one decimal place',
+  );
+  String get offsetInvalid =>
+      _tr('请输入正确的秒数', '請輸入正確的秒數', 'Enter a valid offset value');
   String get addSign => _tr('加号', '加號', 'Plus');
   String get minusSign => _tr('减号', '減號', 'Minus');
   String get searchAction => _tr('搜索', '搜尋', 'Search');
-  String get noOnlineLyricsResults => _tr('没有找到在线歌词结果', '沒有找到線上歌詞結果', 'No online lyrics found');
+  String get noOnlineLyricsResults =>
+      _tr('没有找到在线歌词结果', '沒有找到線上歌詞結果', 'No online lyrics found');
   String get useThisCover => _tr('使用这张封面', '使用這張封面', 'Use This Cover');
   String get volume => _tr('音量', '音量', 'Volume');
+  String audioFadeDurationValue(Duration duration) {
+    final seconds = duration.inMilliseconds / 1000;
+    return _tr(
+      '${seconds.toStringAsFixed(1)} 秒',
+      '${seconds.toStringAsFixed(1)} 秒',
+      '${seconds.toStringAsFixed(1)} s',
+    );
+  }
 
   String get topBarDisplayTitle => _tr('顶部栏显示', '頂部欄顯示', 'Top Bar Display');
   String get topBarIdleModeTitle => _tr('空闲时显示内容', '空閒時顯示內容', 'Idle Content');
@@ -181,15 +271,19 @@ class AppStrings {
   };
   String audioDeviceLabel(String label, {required bool isAuto}) =>
       isAuto ? defaultAudioDevice : label;
-  String get topBarCustomTextTitle => _tr('自定义显示文字', '自訂顯示文字', 'Custom Display Text');
+  String get topBarCustomTextTitle =>
+      _tr('自定义显示文字', '自訂顯示文字', 'Custom Display Text');
   String get topBarCustomTextHint => _tr(
-        '没有播放时显示在顶部栏里的文字',
-        '沒有播放時顯示在頂部欄裡的文字',
-        'Text shown in the top bar when nothing is playing',
-      );
+    '没有播放时显示在顶部栏里的文字',
+    '沒有播放時顯示在頂部欄裡的文字',
+    'Text shown in the top bar when nothing is playing',
+  );
 
   String trackCountText(int count) => '$count $trackUnit';
-  String albumTrackCountText(int count) => _tr('$count 首歌曲', '$count 首歌曲', '$count tracks');
-  String albumSubtitle(int count) => _tr('专辑 · $count 首', '專輯 · $count 首', 'Album · $count tracks');
-  String artistSubtitle(int count) => _tr('艺术家 · $count 首', '藝術家 · $count 首', 'Artist · $count tracks');
+  String albumTrackCountText(int count) =>
+      _tr('$count 首歌曲', '$count 首歌曲', '$count tracks');
+  String albumSubtitle(int count) =>
+      _tr('专辑 · $count 首', '專輯 · $count 首', 'Album · $count tracks');
+  String artistSubtitle(int count) =>
+      _tr('艺术家 · $count 首', '藝術家 · $count 首', 'Artist · $count tracks');
 }

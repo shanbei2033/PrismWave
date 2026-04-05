@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fast_gbk/fast_gbk.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/lyrics_document.dart';
 import '../models/online_lyrics_search_result.dart';
 import '../models/track.dart';
 import 'lyrics_reader.dart';
+import 'qqmusic_qrc_decoder.dart';
 
 class OnlineLyricsService {
   OnlineLyricsService();
@@ -16,9 +16,14 @@ class OnlineLyricsService {
   static const String _provider = 'lrclib';
   static const String _host = 'lrclib.net';
   static const String _qqProvider = 'qqmusic';
-  static const String _qqHost = 'api.ygking.top';
+  static const String _qqHost = 'c.y.qq.com';
   static const String _cacheDirName = 'PrismWave';
   static const String _cacheSubDir = 'lyrics_cache';
+  static final RegExp _qqLyricContentPattern = RegExp(
+    r'<content[^>]*><!\[CDATA\[([\s\S]*?)\]\]></content>',
+    caseSensitive: false,
+  );
+  static final RegExp _hexLyricsPattern = RegExp(r'^[0-9a-fA-F]+$');
 
   final HttpClient _httpClient = HttpClient()..connectionTimeout = const Duration(seconds: 6);
 
@@ -85,14 +90,7 @@ class OnlineLyricsService {
       ...resultGroups[0],
       ...resultGroups[1],
     ];
-    merged.sort((a, b) {
-      final scoreCompare = b.score.compareTo(a.score);
-      if (scoreCompare != 0) return scoreCompare;
-      if (a.hasTimedSegments != b.hasTimedSegments) {
-        return a.hasTimedSegments ? -1 : 1;
-      }
-      return a.byteSize.compareTo(b.byteSize);
-    });
+    merged.sort(_compareSearchResults);
     return _deduplicateResults(merged);
   }
 
@@ -143,22 +141,22 @@ class OnlineLyricsService {
     required String query,
     Duration? durationHint,
   }) async {
-    final raw = await _requestJsonFromHost(
-      _qqHost,
-      '/api/search',
-      <String, String>{
-        'keyword': query.trim(),
-        'type': 'song',
-        'num': '8',
-      },
-    );
-    final items = _extractQqSearchItems(raw);
-    if (items.isEmpty) return const <OnlineLyricsSearchResult>[];
+    final queryVariants = _buildQqQueries(track, query);
+    if (queryVariants.isEmpty) {
+      return const <OnlineLyricsSearchResult>[];
+    }
 
-    final candidates = items
-        .map((item) => _parseQqSearchCandidate(item))
-        .whereType<_QqSongCandidate>()
-        .toList(growable: false);
+    final candidateLists = await Future.wait(
+      queryVariants.map((variant) => _searchQqSuggestions(variant)),
+    );
+    final candidateByKey = <String, _QqSongCandidate>{};
+    for (final list in candidateLists) {
+      for (final candidate in list) {
+        candidateByKey[candidate.identityKey] = candidate;
+      }
+    }
+
+    final candidates = candidateByKey.values.toList(growable: false);
     if (candidates.isEmpty) return const <OnlineLyricsSearchResult>[];
 
     final narrowed = candidates
@@ -177,7 +175,10 @@ class OnlineLyricsService {
         .toList(growable: false)
       ..sort((a, b) => b.score.compareTo(a.score));
 
-    final top = narrowed.take(5).map((entry) => entry.candidate).toList(growable: false);
+    final top = narrowed
+        .take(8)
+        .map((entry) => entry.candidate)
+        .toList(growable: false);
     final fetched = await Future.wait(
       top.map((candidate) => _fetchQqLyricsCandidate(candidate, durationHint: durationHint)),
     );
@@ -238,6 +239,20 @@ class OnlineLyricsService {
     String path,
     Map<String, String> params,
   ) async {
+    final body = await _requestTextFromHost(host, path, params);
+    if (body == null || body.trim().isEmpty) return null;
+    try {
+      return jsonDecode(body);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _requestTextFromHost(
+    String host,
+    String path,
+    Map<String, String> params,
+  ) async {
     final uri = Uri.https(host, path, params);
     try {
       final request = await _httpClient.getUrl(uri);
@@ -246,16 +261,17 @@ class OnlineLyricsService {
         HttpHeaders.userAgentHeader,
         'PrismWave/1.0.0 (+https://github.com/shanbei2033/PrismWave)',
       );
+      if (host.endsWith('y.qq.com')) {
+        request.headers.set(HttpHeaders.refererHeader, 'https://y.qq.com/');
+        request.headers.set('origin', 'https://y.qq.com');
+      }
       final response = await request.close();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return null;
       }
 
       final bytes = await consolidateHttpClientResponseBytes(response);
-      final body = host == _qqHost
-          ? gbk.decode(bytes, allowMalformed: true)
-          : utf8.decode(bytes, allowMalformed: true);
-      return jsonDecode(body);
+      return utf8.decode(bytes, allowMalformed: true);
     } catch (_) {
       return null;
     }
@@ -340,85 +356,19 @@ class OnlineLyricsService {
     return score;
   }
 
-  List<dynamic> _extractQqSearchItems(dynamic raw) {
-    if (raw is List) return raw;
-    if (raw is Map) {
-      final data = raw['data'];
-      if (data is List) return data;
-      if (data is Map) {
-        if (data['list'] is List) return data['list'] as List;
-        if (data['song'] is List) return data['song'] as List;
-        if (data['song']['list'] is List) {
-          return data['song']['list'] as List;
-        }
-      }
-      if (raw['result'] is List) return raw['result'] as List;
-    }
-    return const <dynamic>[];
-  }
-
-  _QqSongCandidate? _parseQqSearchCandidate(dynamic raw) {
-    if (raw is! Map) return null;
-    final map = Map<String, dynamic>.from(raw);
-    final mid = map['mid']?.toString() ??
-        map['songmid']?.toString() ??
-        map['musicrid']?.toString();
-    if (mid == null || mid.isEmpty) return null;
-
-    final title = map['name']?.toString() ??
-        map['songname']?.toString() ??
-        map['title']?.toString() ??
-        '';
-    if (title.trim().isEmpty) return null;
-
-    final artist = _parseQqArtists(map);
-    final album = _parseQqAlbum(map);
-    final durationSeconds = _parseQqDurationSeconds(map);
-    return _QqSongCandidate(
-      mid: mid,
-      title: title,
-      artist: artist,
-      album: album,
-      durationSeconds: durationSeconds,
-    );
-  }
-
   Future<OnlineLyricsSearchResult?> _fetchQqLyricsCandidate(
     _QqSongCandidate candidate, {
     Duration? durationHint,
   }) async {
-    final raw = await _requestJsonFromHost(
-      _qqHost,
-      '/api/lyric',
-      <String, String>{
-        'mid': candidate.mid,
-        'qrc': '1',
-        'trans': '1',
-      },
+    final qrcResult = await _fetchQqQrcLyricsCandidate(
+      candidate,
+      durationHint: durationHint,
     );
-    if (raw is! Map) return null;
-    final map = Map<String, dynamic>.from(raw);
-    final data = map['data'] is Map ? Map<String, dynamic>.from(map['data']) : null;
-    final lyric = map['qrc']?.toString() ??
-        map['lyric']?.toString() ??
-        data?['qrc']?.toString() ??
-        data?['lyric']?.toString();
-    if (lyric == null || lyric.trim().isEmpty) return null;
+    if (qrcResult != null) return qrcResult;
 
-    final parsed = parseLyricsDocument(lyric, durationHint: durationHint);
-    if (parsed == null || parsed.isEmpty) return null;
-
-    return OnlineLyricsSearchResult(
-      id: candidate.mid.hashCode,
-      title: candidate.title,
-      artist: candidate.artist,
-      album: candidate.album,
-      durationSeconds: candidate.durationSeconds,
-      instrumental: false,
-      syncedLyrics: lyric,
-      plainLyrics: null,
-      provider: _qqProvider,
-      hasTimedSegments: parsed.hasTimedSegments,
+    return _fetchQqFallbackLineLyricsCandidate(
+      candidate,
+      durationHint: durationHint,
     );
   }
 
@@ -430,7 +380,7 @@ class OnlineLyricsService {
   }) {
     return _scoreResult(
       OnlineLyricsSearchResult(
-        id: candidate.mid.hashCode,
+        id: candidate.id,
         title: candidate.title,
         artist: candidate.artist,
         album: candidate.album,
@@ -446,42 +396,170 @@ class OnlineLyricsService {
     );
   }
 
-  String _parseQqArtists(Map<String, dynamic> map) {
-    final singer = map['singer'];
-    if (singer is List) {
-      final names = singer
-          .whereType<Map>()
-          .map((item) => item['name']?.toString() ?? '')
-          .where((name) => name.trim().isNotEmpty)
-          .toList(growable: false);
-      if (names.isNotEmpty) return names.join(' / ');
-    }
+  Future<List<_QqSongCandidate>> _searchQqSuggestions(String query) async {
+    final raw = await _requestJsonFromHost(
+      _qqHost,
+      '/splcloud/fcgi-bin/smartbox_new.fcg',
+      <String, String>{'key': query.trim()},
+    );
+    if (raw is! Map) return const <_QqSongCandidate>[];
 
-    return map['artist']?.toString() ??
-        map['singername']?.toString() ??
-        map['author_simple']?.toString() ??
-        'Unknown Artist';
+    final data = raw['data'];
+    if (data is! Map) return const <_QqSongCandidate>[];
+    final song = data['song'];
+    if (song is! Map) return const <_QqSongCandidate>[];
+    final items = song['itemlist'];
+    if (items is! List) return const <_QqSongCandidate>[];
+
+    return items
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .map(_parseQqSuggestionCandidate)
+        .whereType<_QqSongCandidate>()
+        .toList(growable: false);
   }
 
-  String _parseQqAlbum(Map<String, dynamic> map) {
-    final album = map['album'];
-    if (album is Map) {
-      final name = album['name']?.toString();
-      if (name != null && name.trim().isNotEmpty) return name;
-    }
-    return map['albumName']?.toString() ??
-        map['albumname']?.toString() ??
-        map['album_name']?.toString() ??
-        '';
+  _QqSongCandidate? _parseQqSuggestionCandidate(Map<String, dynamic> map) {
+    final id = int.tryParse(map['id']?.toString() ?? '') ?? 0;
+    final mid = map['mid']?.toString().trim() ?? '';
+    final title = map['name']?.toString().trim() ?? '';
+    final artist = map['singer']?.toString().trim() ?? '';
+    if (id <= 0 || mid.isEmpty || title.isEmpty) return null;
+
+    return _QqSongCandidate(
+      id: id,
+      mid: mid,
+      title: title,
+      artist: artist.isEmpty ? 'Unknown Artist' : artist,
+      album: '',
+      durationSeconds: 0,
+    );
   }
 
-  double _parseQqDurationSeconds(Map<String, dynamic> map) {
-    final raw = (map['interval'] as num?)?.toDouble() ??
-        (map['duration'] as num?)?.toDouble() ??
-        (map['songtime'] as num?)?.toDouble() ??
-        0;
-    if (raw > 10000) return raw / 1000;
-    return raw;
+  Future<OnlineLyricsSearchResult?> _fetchQqQrcLyricsCandidate(
+    _QqSongCandidate candidate, {
+    Duration? durationHint,
+  }) async {
+    final raw = await _requestTextFromHost(
+      _qqHost,
+      '/qqmusic/fcgi-bin/lyric_download.fcg',
+      <String, String>{
+        'version': '15',
+        'miniversion': '82',
+        'lrctype': '4',
+        'musicid': candidate.id.toString(),
+      },
+    );
+    if (raw == null || raw.trim().isEmpty) return null;
+
+    final content = _extractQqLyricContent(raw);
+    if (content == null || content.trim().isEmpty) return null;
+
+    final resolved = _hexLyricsPattern.hasMatch(content.trim())
+        ? decryptQqMusicLyrics(content) ?? ''
+        : content;
+    if (resolved.trim().isEmpty) return null;
+
+    final parsed = parseLyricsDocument(resolved, durationHint: durationHint);
+    if (parsed == null || parsed.isEmpty) return null;
+
+    return OnlineLyricsSearchResult(
+      id: candidate.id,
+      title: candidate.title,
+      artist: candidate.artist,
+      album: candidate.album,
+      durationSeconds: candidate.durationSeconds,
+      instrumental: false,
+      syncedLyrics: resolved,
+      plainLyrics: null,
+      provider: _qqProvider,
+      hasTimedSegments: parsed.hasTimedSegments,
+    );
+  }
+
+  Future<OnlineLyricsSearchResult?> _fetchQqFallbackLineLyricsCandidate(
+    _QqSongCandidate candidate, {
+    Duration? durationHint,
+  }) async {
+    final raw = await _requestJsonFromHost(
+      _qqHost,
+      '/lyric/fcgi-bin/fcg_query_lyric_new.fcg',
+      <String, String>{
+        'songmid': candidate.mid,
+        'format': 'json',
+        'nobase64': '1',
+        'g_tk': '5381',
+        'loginUin': '0',
+        'hostUin': '0',
+        'inCharset': 'utf8',
+        'outCharset': 'utf-8',
+        'notice': '0',
+        'platform': 'yqq.json',
+        'needNewCode': '0',
+      },
+    );
+    if (raw is! Map) return null;
+
+    final lyric = raw['lyric']?.toString();
+    if (lyric == null || lyric.trim().isEmpty) return null;
+
+    final parsed = parseLyricsDocument(lyric, durationHint: durationHint);
+    if (parsed == null || parsed.isEmpty) return null;
+
+    return OnlineLyricsSearchResult(
+      id: candidate.id,
+      title: candidate.title,
+      artist: candidate.artist,
+      album: candidate.album,
+      durationSeconds: candidate.durationSeconds,
+      instrumental: false,
+      syncedLyrics: lyric,
+      plainLyrics: null,
+      provider: _qqProvider,
+      hasTimedSegments: parsed.hasTimedSegments,
+    );
+  }
+
+  String? _extractQqLyricContent(String raw) {
+    final match = _qqLyricContentPattern.firstMatch(raw);
+    if (match == null) return null;
+    return match.group(1);
+  }
+
+  List<String> _buildQqQueries(Track track, String query) {
+    final variants = <String>{};
+    final baseQuery = query.trim();
+    final strippedQuery = _stripSearchDecorations(baseQuery);
+    final title = track.title.trim();
+    final strippedTitle = _stripSearchDecorations(title);
+    final artist = track.artist.trim();
+
+    void add(String value) {
+      final trimmed = value.trim();
+      if (trimmed.isNotEmpty) variants.add(trimmed);
+    }
+
+    add(baseQuery);
+    add(strippedQuery);
+    add(title);
+    add(strippedTitle);
+    if (artist.isNotEmpty) {
+      add('$baseQuery $artist');
+      add('$strippedQuery $artist');
+      add('$artist $title');
+      add('$artist $strippedTitle');
+    }
+
+    return variants.take(6).toList(growable: false);
+  }
+
+  String _stripSearchDecorations(String input) {
+    return input
+        .replaceAll(RegExp(r'\[[^\]]*\]'), ' ')
+        .replaceAll(RegExp(r'\([^)]*\)'), ' ')
+        .replaceAll(RegExp(r'feat\.?|ft\.?|ver\.?|version|live|remix', caseSensitive: false), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   List<OnlineLyricsSearchResult> _deduplicateResults(
@@ -504,7 +582,22 @@ class OnlineLyricsService {
       }
     }
     return bestByKey.values.toList(growable: false)
-      ..sort((a, b) => b.score.compareTo(a.score));
+      ..sort(_compareSearchResults);
+  }
+
+  int _compareSearchResults(
+    OnlineLyricsSearchResult a,
+    OnlineLyricsSearchResult b,
+  ) {
+    if (a.hasTimedSegments != b.hasTimedSegments) {
+      return a.hasTimedSegments ? -1 : 1;
+    }
+    if (a.isSynced != b.isSynced) {
+      return a.isSynced ? -1 : 1;
+    }
+    final scoreCompare = b.score.compareTo(a.score);
+    if (scoreCompare != 0) return scoreCompare;
+    return b.byteSize.compareTo(a.byteSize);
   }
 
   String _normalize(String input) {
@@ -577,6 +670,7 @@ Future<List<int>> consolidateHttpClientResponseBytes(HttpClientResponse response
 
 class _QqSongCandidate {
   const _QqSongCandidate({
+    required this.id,
     required this.mid,
     required this.title,
     required this.artist,
@@ -584,9 +678,12 @@ class _QqSongCandidate {
     required this.durationSeconds,
   });
 
+  final int id;
   final String mid;
   final String title;
   final String artist;
   final String album;
   final double durationSeconds;
+
+  String get identityKey => '$id|$mid';
 }

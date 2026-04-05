@@ -1,6 +1,7 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import '../models/audio_file_details.dart';
 import '../models/app_language.dart';
 import '../models/audio_output_mode.dart';
 import '../models/playback_mode.dart';
+import '../models/release_update_status.dart';
 import '../models/top_bar_idle_mode.dart';
 import '../models/track.dart';
 import '../providers.dart';
@@ -25,6 +27,17 @@ import 'glass_panel.dart';
 import 'window_top_bar.dart';
 
 enum MainSection { library, albums, artists, favorites, settings }
+
+Future<void> _openExternalUrl(String url) async {
+  final trimmed = url.trim();
+  if (trimmed.isEmpty) return;
+  await Process.start('cmd.exe', [
+    '/c',
+    'start',
+    '',
+    trimmed,
+  ], mode: ProcessStartMode.detached);
+}
 
 class PrismWaveHomePage extends ConsumerStatefulWidget {
   const PrismWaveHomePage({super.key});
@@ -38,6 +51,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
   MainSection _section = MainSection.library;
   String? _selectedAlbum;
   String? _selectedArtist;
+  bool _showPlaybackQueue = false;
 
   @override
   void initState() {
@@ -51,6 +65,41 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _hidePlaybackQueue({bool rebuild = true}) {
+    if (!_showPlaybackQueue) return;
+    if (rebuild && mounted) {
+      setState(() {
+        _showPlaybackQueue = false;
+      });
+      return;
+    }
+    _showPlaybackQueue = false;
+  }
+
+  void _togglePlaybackQueue(PlaybackState playback) {
+    if (playback.currentPlaylist.isEmpty) return;
+    if (!mounted) {
+      _showPlaybackQueue = !_showPlaybackQueue;
+      return;
+    }
+    setState(() {
+      _showPlaybackQueue = !_showPlaybackQueue;
+    });
+  }
+
+  void _syncPlaybackQueueWithPlaybackState(
+    PlaybackState _,
+    PlaybackState next,
+  ) {
+    final shouldHideQueue = _showPlaybackQueue && next.currentPlaylist.isEmpty;
+    if (shouldHideQueue) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _hidePlaybackQueue();
+      });
+    }
   }
 
   Future<void> _openTrackDetails({
@@ -99,11 +148,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     bool runInShell = false,
   }) async {
     try {
-      await Process.start(
-        'explorer.exe',
-        arguments,
-        runInShell: runInShell,
-      );
+      await Process.start('explorer.exe', arguments, runInShell: runInShell);
       return true;
     } catch (_) {
       return false;
@@ -114,8 +159,9 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     return using((arena) {
       final operation = 'open'.toNativeUtf16(allocator: arena);
       final executable = 'explorer.exe'.toNativeUtf16(allocator: arena);
-      final parameters =
-          '/select,"$normalizedPath"'.toNativeUtf16(allocator: arena);
+      final parameters = '/select,"$normalizedPath"'.toNativeUtf16(
+        allocator: arena,
+      );
       final result = ShellExecute(
         0,
         operation,
@@ -168,6 +214,9 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
               .ensureLyricsLoaded(next.currentTrack!),
         );
       }
+      if (previous != null) {
+        _syncPlaybackQueueWithPlaybackState(previous, next);
+      }
     });
 
     final library = ref.watch(libraryProvider);
@@ -201,7 +250,11 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                         children: [
                           SizedBox(
                             width: 260,
-                            child: _buildSidebar(library: library, t: t),
+                            child: _buildSidebar(
+                              library: library,
+                              playback: playback,
+                              t: t,
+                            ),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -250,79 +303,306 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     );
   }
 
-  Widget _buildSidebar({required LibraryState library, required AppStrings t}) {
+  Widget _buildSidebar({
+    required LibraryState library,
+    required PlaybackState playback,
+    required AppStrings t,
+  }) {
+    final showingQueue = _showPlaybackQueue;
+
     return GlassPanel(
       lowEffects: library.lowEffects,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'PrismWave',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.04, 0),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        child: showingQueue
+            ? KeyedSubtree(
+                key: const ValueKey('sidebar-playback-queue'),
+                child: _buildPlaybackQueueSidebar(
+                  library: library,
+                  playback: playback,
+                  t: t,
                 ),
+              )
+            : KeyedSubtree(
+                key: const ValueKey('sidebar-navigation'),
+                child: _buildNavigationSidebar(library: library, t: t),
               ),
-              IconButton(
-                tooltip: t.settings,
-                onPressed: _openSettings,
-                icon: SvgPicture.asset(
-                  'assets/icons/settings.svg',
-                  width: 19,
-                  height: 19,
-                  colorFilter: const ColorFilter.mode(
-                    Color(0xFFB9DEFF),
-                    BlendMode.srcIn,
-                  ),
-                ),
-                style: IconButton.styleFrom(
-                  backgroundColor: _section == MainSection.settings
-                      ? Colors.white.withValues(alpha: 0.10)
-                      : Colors.transparent,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          _navButton(
-            section: MainSection.library,
-            icon: Icons.library_music_rounded,
-            label: t.library,
-          ),
-          const SizedBox(height: 8),
-          _navButton(
-            section: MainSection.albums,
-            icon: Icons.album_rounded,
-            label: t.albums,
-          ),
-          const SizedBox(height: 8),
-          _navButton(
-            section: MainSection.artists,
-            icon: Icons.mic_rounded,
-            label: t.artists,
-          ),
-          const SizedBox(height: 8),
-          _navButton(
-            section: MainSection.favorites,
-            icon: Icons.favorite_rounded,
-            label: t.favorites,
-          ),
-          const Spacer(),
-          Text(
-            '${t.folders}: ${library.libraryFolders.length}',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.70)),
-          ),
-          Text(
-            '${t.tracks}: ${library.tracks.length}',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.70)),
-          ),
-          Text(
-            '${t.favoriteCountLabel}: ${library.favoritePaths.length}',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.70)),
-          ),
-        ],
       ),
+    );
+  }
+
+  Widget _buildNavigationSidebar({
+    required LibraryState library,
+    required AppStrings t,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'PrismWave',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+              ),
+            ),
+            IconButton(
+              tooltip: t.settings,
+              onPressed: _openSettings,
+              icon: SvgPicture.asset(
+                'assets/icons/settings.svg',
+                width: 19,
+                height: 19,
+                colorFilter: const ColorFilter.mode(
+                  Color(0xFFB9DEFF),
+                  BlendMode.srcIn,
+                ),
+              ),
+              style: IconButton.styleFrom(
+                backgroundColor: _section == MainSection.settings
+                    ? Colors.white.withValues(alpha: 0.10)
+                    : Colors.transparent,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        _navButton(
+          section: MainSection.library,
+          icon: Icons.library_music_rounded,
+          label: t.library,
+        ),
+        const SizedBox(height: 8),
+        _navButton(
+          section: MainSection.albums,
+          icon: Icons.album_rounded,
+          label: t.albums,
+        ),
+        const SizedBox(height: 8),
+        _navButton(
+          section: MainSection.artists,
+          icon: Icons.mic_rounded,
+          label: t.artists,
+        ),
+        const SizedBox(height: 8),
+        _navButton(
+          section: MainSection.favorites,
+          icon: Icons.favorite_rounded,
+          label: t.favorites,
+        ),
+        const Spacer(),
+        Text(
+          '${t.folders}: ${library.libraryFolders.length}',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.70)),
+        ),
+        Text(
+          '${t.tracks}: ${library.tracks.length}',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.70)),
+        ),
+        Text(
+          '${t.favoriteCountLabel}: ${library.favoritePaths.length}',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.70)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlaybackQueueSidebar({
+    required LibraryState library,
+    required PlaybackState playback,
+    required AppStrings t,
+  }) {
+    final playbackCtrl = ref.read(playbackProvider.notifier);
+    final playlist = playback.currentPlaylist;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    t.playbackQueue,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    t.trackCountText(playlist.length),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.68),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: t.back,
+              onPressed: _hidePlaybackQueue,
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Expanded(
+          child: playlist.isEmpty
+              ? Center(
+                  child: Text(
+                    t.noActivePlaylist,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.68),
+                    ),
+                  ),
+                )
+              : ReorderableListView.builder(
+                  buildDefaultDragHandles: false,
+                  padding: EdgeInsets.zero,
+                  onReorder: playbackCtrl.reorderQueue,
+                  itemCount: playlist.length,
+                  itemBuilder: (_, index) {
+                    final track = playlist[index];
+                    final active = playback.currentTrack?.id == track.id;
+                    final coverBytes = library.coverBytesOf(track);
+
+                    return Padding(
+                      key: ValueKey('queue-track-${track.path}'),
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Material(
+                        color: active
+                            ? const Color(0xFF39C0FF).withValues(alpha: 0.18)
+                            : Colors.white.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () =>
+                              playbackCtrl.playFromPlaylist(track, playlist),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                            child: Row(
+                              children: [
+                                ReorderableDragStartListener(
+                                  index: index,
+                                  child: MouseRegion(
+                                    cursor: SystemMouseCursors.grab,
+                                    child: Icon(
+                                      Icons.drag_indicator_rounded,
+                                      size: 18,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.44,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                SizedBox(
+                                  width: 20,
+                                  child: Text(
+                                    '${index + 1}',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: active ? 0.94 : 0.54,
+                                      ),
+                                      fontSize: 12,
+                                      fontWeight: active
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                _TrackCover(
+                                  track: track,
+                                  isActive: active,
+                                  coverBytes: coverBytes,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        track.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontWeight: active
+                                              ? FontWeight.w700
+                                              : FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        track.artist,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.66,
+                                          ),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: t.removeFromQueue,
+                                  onPressed: () =>
+                                      playbackCtrl.removeFromQueueAt(index),
+                                  icon: Icon(
+                                    Icons.close_rounded,
+                                    size: 18,
+                                    color: Colors.redAccent.withValues(
+                                      alpha: 0.92,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          switch (playback.playbackMode) {
+            PlaybackMode.loop => t.listLoop,
+            PlaybackMode.single => t.singleLoop,
+            PlaybackMode.shuffle => t.shuffle,
+          },
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.62),
+            fontSize: 12,
+          ),
+        ),
+      ],
     );
   }
 
@@ -391,11 +671,11 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
           onPlayAll: library.favoriteTracks.isEmpty
               ? null
               : () => ref
-                  .read(playbackProvider.notifier)
-                  .playFromPlaylist(
-                    library.favoriteTracks.first,
-                    library.favoriteTracks,
-                  ),
+                    .read(playbackProvider.notifier)
+                    .playFromPlaylist(
+                      library.favoriteTracks.first,
+                      library.favoriteTracks,
+                    ),
           emptyMessage: t.noFavoriteTracks,
           t: t,
         );
@@ -447,6 +727,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     final playbackContext = playbackContextTracks ?? tracks;
     final useLibraryContext =
         forceLibraryContext && playbackContextTracks != null;
+    final canReorder = tracks.length > 1;
 
     return GlassPanel(
       lowEffects: library.lowEffects,
@@ -513,7 +794,24 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                       ),
                     ),
                   )
-                : ListView.builder(
+                : ReorderableListView.builder(
+                    buildDefaultDragHandles: false,
+                    padding: EdgeInsets.zero,
+                    onReorder: (oldIndex, newIndex) {
+                      if (forceLibraryContext) {
+                        libraryCtrl.reorderLibraryTracks(
+                          visibleTracks: tracks,
+                          oldIndex: oldIndex,
+                          newIndex: newIndex,
+                        );
+                        return;
+                      }
+                      libraryCtrl.reorderFavoriteTracks(
+                        visibleTracks: tracks,
+                        oldIndex: oldIndex,
+                        newIndex: newIndex,
+                      );
+                    },
                     itemCount: tracks.length,
                     itemBuilder: (_, index) {
                       final track = tracks[index];
@@ -523,6 +821,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                       final coverBytes = library.coverBytesOf(track);
 
                       return Padding(
+                        key: ValueKey('track-list-row-${track.path}'),
                         padding: const EdgeInsets.symmetric(vertical: 2),
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
@@ -534,7 +833,9 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                           ),
                           child: Material(
                             color: active
-                                ? const Color(0xFF39C0FF).withValues(alpha: 0.16)
+                                ? const Color(
+                                    0xFF39C0FF,
+                                  ).withValues(alpha: 0.16)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(10),
                             child: InkWell(
@@ -552,6 +853,24 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                                 height: 56,
                                 child: Row(
                                   children: [
+                                    const SizedBox(width: 6),
+                                    ReorderableDragStartListener(
+                                      index: index,
+                                      enabled: canReorder,
+                                      child: MouseRegion(
+                                        cursor: canReorder
+                                            ? SystemMouseCursors.grab
+                                            : MouseCursor.defer,
+                                        child: Icon(
+                                          Icons.drag_indicator_rounded,
+                                          size: 18,
+                                          color: Colors.white.withValues(
+                                            alpha: canReorder ? 0.46 : 0.18,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
                                     const SizedBox(width: 10),
                                     SizedBox(
                                       width: 52,
@@ -643,6 +962,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
       ),
       child: Row(
         children: [
+          const SizedBox(width: 30),
           SizedBox(
             width: 52,
             child: Text(
@@ -691,7 +1011,10 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     );
   }
 
-  Widget _buildAlbumsPanel({required LibraryState library, required AppStrings t}) {
+  Widget _buildAlbumsPanel({
+    required LibraryState library,
+    required AppStrings t,
+  }) {
     final groups = <String, List<Track>>{};
     for (final track in library.filteredTracks) {
       groups.putIfAbsent(track.album, () => <Track>[]).add(track);
@@ -1028,7 +1351,9 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                           ),
                           child: Material(
                             color: active
-                                ? const Color(0xFF39C0FF).withValues(alpha: 0.16)
+                                ? const Color(
+                                    0xFF39C0FF,
+                                  ).withValues(alpha: 0.16)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(10),
                             child: InkWell(
@@ -1126,6 +1451,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     required AppStrings t,
   }) {
     final ctrl = ref.read(playbackProvider.notifier);
+    final canToggleQueue = playback.currentPlaylist.isNotEmpty;
     final duration = playback.duration.inMilliseconds.toDouble();
     final position = playback.currentTime.inMilliseconds.toDouble();
     final safeDuration = duration > 0 ? duration : 1.0;
@@ -1186,6 +1512,14 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                           t: t,
                           mode: playback.playbackMode,
                           onPressed: ctrl.cycleMode,
+                        ),
+                        const SizedBox(width: 8),
+                        _PlaybackQueueButton(
+                          tooltip: t.playbackQueue,
+                          onPressed: canToggleQueue
+                              ? () => _togglePlaybackQueue(playback)
+                              : null,
+                          isActive: _showPlaybackQueue,
                         ),
                       ],
                     ),
@@ -1321,9 +1655,8 @@ class _SettingsPanel extends ConsumerWidget {
     final playback = ref.watch(playbackProvider);
     final playbackController = ref.read(playbackProvider.notifier);
     final audioDevices = playback.availableAudioOutputDevices;
-    final selectedAudioDeviceId = audioDevices.any(
-      (device) => device.id == playback.audioOutputDeviceId,
-    )
+    final selectedAudioDeviceId =
+        audioDevices.any((device) => device.id == playback.audioOutputDeviceId)
         ? playback.audioOutputDeviceId
         : audioDevices.first.id;
 
@@ -1342,7 +1675,10 @@ class _SettingsPanel extends ConsumerWidget {
               const SizedBox(width: 6),
               Text(
                 t.settings,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const Spacer(),
               if (library.isScanning)
@@ -1530,6 +1866,37 @@ class _SettingsPanel extends ConsumerWidget {
                   ),
                   const SizedBox(height: 14),
                   _SettingsBlock(
+                    title: t.audioFade,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SettingsToggleTile(
+                          title: t.audioFadeEnabled,
+                          subtitle: playback.fadeEnabled
+                              ? t.audioFadeHint
+                              : t.audioFadeDisabledHint,
+                          value: playback.fadeEnabled,
+                          onChanged: playbackController.setFadeEnabled,
+                        ),
+                        const SizedBox(height: 12),
+                        _SettingsDurationSlider(
+                          label: t.audioFadeDuration,
+                          valueLabel: t.audioFadeDurationValue(
+                            playback.fadeDuration,
+                          ),
+                          valueMs: playback.fadeDuration.inMilliseconds,
+                          enabled: playback.fadeEnabled,
+                          onChanged: (milliseconds) {
+                            playbackController.setFadeDuration(
+                              Duration(milliseconds: milliseconds),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _SettingsBlock(
                     title: t.developerMode,
                     child: Column(
                       children: [
@@ -1562,7 +1929,9 @@ class _SettingsPanel extends ConsumerWidget {
                                           ),
                                         );
                                         if (!context.mounted) return;
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           SnackBar(content: Text(t.logsCopied)),
                                         );
                                       },
@@ -1574,7 +1943,10 @@ class _SettingsPanel extends ConsumerWidget {
                                 onPressed: playback.debugLogs.isEmpty
                                     ? null
                                     : playbackController.clearDebugLogs,
-                                icon: const Icon(Icons.delete_sweep_rounded, size: 16),
+                                icon: const Icon(
+                                  Icons.delete_sweep_rounded,
+                                  size: 16,
+                                ),
                                 label: Text(t.clear),
                               ),
                             ],
@@ -1595,7 +1967,9 @@ class _SettingsPanel extends ConsumerWidget {
                                       child: Text(
                                         t.noLogsHint,
                                         style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.62),
+                                          color: Colors.white.withValues(
+                                            alpha: 0.62,
+                                          ),
                                           fontSize: 12,
                                         ),
                                       ),
@@ -1604,8 +1978,12 @@ class _SettingsPanel extends ConsumerWidget {
                                       reverse: true,
                                       itemCount: playback.debugLogs.length,
                                       itemBuilder: (_, index) {
-                                        final line = playback.debugLogs[
-                                            playback.debugLogs.length - 1 - index];
+                                        final line =
+                                            playback.debugLogs[playback
+                                                    .debugLogs
+                                                    .length -
+                                                1 -
+                                                index];
                                         return Padding(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 10,
@@ -1617,7 +1995,9 @@ class _SettingsPanel extends ConsumerWidget {
                                               fontFamily: 'Consolas',
                                               fontSize: 11,
                                               height: 1.35,
-                                              color: Colors.white.withValues(alpha: 0.84),
+                                              color: Colors.white.withValues(
+                                                alpha: 0.84,
+                                              ),
                                             ),
                                           ),
                                         );
@@ -1627,6 +2007,24 @@ class _SettingsPanel extends ConsumerWidget {
                           ),
                         ],
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _SettingsBlock(
+                    title: t.updateCheckTitle,
+                    child: _SettingsUpdateBlock(
+                      currentVersion: appSettings.currentVersion,
+                      latestVersion: appSettings.latestReleaseVersion,
+                      status: appSettings.releaseUpdateStatus,
+                      errorMessage: appSettings.releaseUpdateError,
+                      onCheckUpdate: appSettingsController.checkForUpdates,
+                      onOpenUpdate: () async {
+                        final targetUrl =
+                            appSettings.latestInstallerUrl.isNotEmpty
+                            ? appSettings.latestInstallerUrl
+                            : appSettings.latestReleaseUrl;
+                        await _openExternalUrl(targetUrl);
+                      },
                     ),
                   ),
                 ],
@@ -1640,10 +2038,7 @@ class _SettingsPanel extends ConsumerWidget {
 }
 
 class _SettingsBlock extends StatelessWidget {
-  const _SettingsBlock({
-    required this.title,
-    required this.child,
-  });
+  const _SettingsBlock({required this.title, required this.child});
 
   final String title;
   final Widget child;
@@ -1676,6 +2071,362 @@ class _SettingsBlock extends StatelessWidget {
   }
 }
 
+class _SettingsUpdateBlock extends ConsumerWidget {
+  const _SettingsUpdateBlock({
+    required this.currentVersion,
+    required this.latestVersion,
+    required this.status,
+    required this.errorMessage,
+    required this.onCheckUpdate,
+    required this.onOpenUpdate,
+  });
+
+  final String currentVersion;
+  final String latestVersion;
+  final ReleaseUpdateStatus status;
+  final String errorMessage;
+  final Future<void> Function() onCheckUpdate;
+  final Future<void> Function() onOpenUpdate;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(appSettingsProvider);
+    final t = AppStrings(settings.language);
+    final checking = status == ReleaseUpdateStatus.checking;
+    final updateAvailable = status == ReleaseUpdateStatus.updateAvailable;
+    final showLatest =
+        latestVersion.trim().isNotEmpty &&
+        status != ReleaseUpdateStatus.idle &&
+        status != ReleaseUpdateStatus.checking;
+
+    String? message;
+    if (status == ReleaseUpdateStatus.upToDate) {
+      message = t.updateUpToDate;
+    } else if (status == ReleaseUpdateStatus.updateAvailable) {
+      message = t.updateAvailable(latestVersion);
+    } else if (status == ReleaseUpdateStatus.failed) {
+      message = t.updateCheckFailed;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    t.currentVersionLabel,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.64),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    currentVersion,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.92),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            _SettingsActionButton(
+              label: checking ? t.checkingUpdates : t.checkUpdates,
+              onPressed: checking ? null : () => onCheckUpdate(),
+            ),
+          ],
+        ),
+        if (message != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            message,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+        if (showLatest) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Text(
+                '${t.latestVersionLabel}: ',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.64),
+                  fontSize: 12,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  latestVersion,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.88),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (updateAvailable) ...[
+          const SizedBox(height: 12),
+          _SettingsActionButton(
+            label: t.getUpdate,
+            onPressed: () => onOpenUpdate(),
+          ),
+        ],
+        if (status == ReleaseUpdateStatus.failed &&
+            errorMessage.trim().isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            errorMessage,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.46),
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _SettingsActionButton extends StatelessWidget {
+  const _SettingsActionButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    final foreground = Colors.white.withValues(alpha: enabled ? 0.94 : 0.46);
+    final border = Colors.white.withValues(alpha: enabled ? 0.14 : 0.08);
+    final fill = enabled
+        ? const Color(0xFF0F1A2F).withValues(alpha: 0.30)
+        : Colors.white.withValues(alpha: 0.03);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            color: fill,
+            border: Border.all(color: border),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(color: foreground, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsToggleTile extends StatelessWidget {
+  const _SettingsToggleTile({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: const Color(0xFF0D1526).withValues(alpha: 0.28),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.64),
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Switch.adaptive(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: Colors.white,
+            activeTrackColor: Colors.white.withValues(alpha: 0.36),
+            inactiveThumbColor: Colors.white.withValues(alpha: 0.82),
+            inactiveTrackColor: Colors.white.withValues(alpha: 0.16),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsDurationSlider extends StatefulWidget {
+  const _SettingsDurationSlider({
+    required this.label,
+    required this.valueLabel,
+    required this.valueMs,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String valueLabel;
+  final int valueMs;
+  final bool enabled;
+  final ValueChanged<int> onChanged;
+
+  @override
+  State<_SettingsDurationSlider> createState() =>
+      _SettingsDurationSliderState();
+}
+
+class _SettingsDurationSliderState extends State<_SettingsDurationSlider> {
+  late double _sliderValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _sliderValue = widget.valueMs.toDouble();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SettingsDurationSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.valueMs != widget.valueMs) {
+      _sliderValue = widget.valueMs.toDouble();
+    }
+  }
+
+  int _normalizedSliderMs(double value) {
+    final snapped = (value / 100).round() * 100;
+    return snapped.clamp(100, 1200);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveAlpha = widget.enabled ? 1.0 : 0.46;
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 180),
+      opacity: effectiveAlpha,
+      child: IgnorePointer(
+        ignoring: !widget.enabled,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            color: const Color(0xFF0D1526).withValues(alpha: 0.28),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.label,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    widget.valueLabel,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: Colors.white,
+                  inactiveTrackColor: Colors.white.withValues(alpha: 0.20),
+                  thumbColor: Colors.white,
+                  overlayColor: Colors.white.withValues(alpha: 0.14),
+                  trackHeight: 3,
+                ),
+                child: Slider(
+                  value: _sliderValue,
+                  min: 100,
+                  max: 1200,
+                  divisions: 11,
+                  label: widget.valueLabel,
+                  onChanged: (value) {
+                    setState(() {
+                      _sliderValue = value;
+                    });
+                  },
+                  onChangeEnd: (value) {
+                    final normalized = _normalizedSliderMs(value);
+                    setState(() {
+                      _sliderValue = normalized.toDouble();
+                    });
+                    widget.onChanged(normalized);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SettingsFoldersCard extends StatelessWidget {
   const _SettingsFoldersCard({
     required this.folders,
@@ -1693,14 +2444,13 @@ class _SettingsFoldersCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final contentHeight = folders.isEmpty
         ? 124.0
-        : (folders.length * 56.0 + (folders.length - 1) * 1.0)
-            .clamp(124.0, 220.0);
+        : (folders.length * 56.0 + (folders.length - 1) * 1.0).clamp(
+            124.0,
+            220.0,
+          );
 
     return Container(
-      constraints: BoxConstraints(
-        minHeight: 124,
-        maxHeight: contentHeight,
-      ),
+      constraints: BoxConstraints(minHeight: 124, maxHeight: contentHeight),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         color: Colors.white.withValues(alpha: 0.04),
@@ -1752,10 +2502,7 @@ class _SettingsFoldersCard extends StatelessWidget {
 }
 
 class _GlassSelectEntry<T> {
-  const _GlassSelectEntry({
-    required this.value,
-    required this.label,
-  });
+  const _GlassSelectEntry({required this.value, required this.label});
 
   final T value;
   final String label;
@@ -1807,9 +2554,9 @@ class _GlassSelectFieldState<T> extends State<_GlassSelectField<T>> {
   @override
   Widget build(BuildContext context) {
     final selectedEntry = widget.items.cast<_GlassSelectEntry<T>?>().firstWhere(
-          (entry) => entry?.value == widget.value,
-          orElse: () => widget.items.isEmpty ? null : widget.items.first,
-        );
+      (entry) => entry?.value == widget.value,
+      orElse: () => widget.items.isEmpty ? null : widget.items.first,
+    );
 
     final foreground = Colors.white.withValues(alpha: 0.92);
     final border = Colors.white.withValues(alpha: 0.10);
@@ -1905,7 +2652,9 @@ class _GlassSelectFieldState<T> extends State<_GlassSelectField<T>> {
                                       borderRadius: BorderRadius.circular(12),
                                       color: selected
                                           ? Colors.white.withValues(alpha: 0.12)
-                                          : Colors.white.withValues(alpha: 0.035),
+                                          : Colors.white.withValues(
+                                              alpha: 0.035,
+                                            ),
                                       border: Border.all(
                                         color: selected
                                             ? Colors.white.withValues(
@@ -2075,9 +2824,7 @@ class _IdleTopBarTextFieldState extends State<_IdleTopBarTextField> {
       decoration: InputDecoration(
         labelText: widget.label,
         hintText: widget.hint,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
           vertical: 10,
@@ -2260,6 +3007,45 @@ class _TrackDetailsPage extends ConsumerWidget {
   final Uint8List? coverBytes;
   final Future<void> Function() onReveal;
 
+  Future<void> _deleteTrack(
+    BuildContext context,
+    WidgetRef ref,
+    AppStrings t,
+    bool lowEffects,
+  ) async {
+    final decision = await showDialog<_TrackDeleteDecision>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.34),
+      builder: (_) => _TrackDeleteDialog(t: t, lowEffects: lowEffects),
+    );
+    if (decision == null || !context.mounted) return;
+
+    try {
+      await ref
+          .read(libraryProvider.notifier)
+          .removeTrackFromLibrary(
+            track,
+            deleteSourceFile: decision.deleteSourceFile,
+          );
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            decision.deleteSourceFile
+                ? t.trackRemovedAndDeleted
+                : t.trackRemoved,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${t.deleteTrack}: $error')));
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(appSettingsProvider);
@@ -2311,7 +3097,8 @@ class _TrackDetailsPage extends ConsumerWidget {
                             children: [
                               IconButton(
                                 tooltip: t.back,
-                                onPressed: () => Navigator.of(context).maybePop(),
+                                onPressed: () =>
+                                    Navigator.of(context).maybePop(),
                                 icon: const Icon(Icons.arrow_back_rounded),
                               ),
                               const SizedBox(width: 6),
@@ -2331,13 +3118,16 @@ class _TrackDetailsPage extends ConsumerWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       SizedBox(
                                         width: 156,
                                         height: 156,
                                         child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(16),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
                                           child: _CoverImage(
                                             coverPath: track.coverPath,
                                             coverBytes: coverBytes,
@@ -2347,7 +3137,9 @@ class _TrackDetailsPage extends ConsumerWidget {
                                       const SizedBox(width: 20),
                                       Expanded(
                                         child: Padding(
-                                          padding: const EdgeInsets.only(top: 6),
+                                          padding: const EdgeInsets.only(
+                                            top: 6,
+                                          ),
                                           child: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
@@ -2365,9 +3157,8 @@ class _TrackDetailsPage extends ConsumerWidget {
                                                 track.artist,
                                                 style: TextStyle(
                                                   fontSize: 16,
-                                                  color: Colors.white.withValues(
-                                                    alpha: 0.76,
-                                                  ),
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.76),
                                                 ),
                                               ),
                                             ],
@@ -2396,20 +3187,47 @@ class _TrackDetailsPage extends ConsumerWidget {
                                   _TrackDetailsItem(
                                     label: t.pathLabel,
                                     value: details.path,
-                                    action: Tooltip(
-                                      message: t.revealInExplorer,
-                                      child: IconButton(
-                                        onPressed: onReveal,
-                                        icon: SvgPicture.string(
-                                          _folderRevealSvg,
-                                          width: 19,
-                                          height: 19,
-                                          colorFilter: const ColorFilter.mode(
-                                            Colors.white,
-                                            BlendMode.srcIn,
+                                    action: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Tooltip(
+                                          message: t.revealInExplorer,
+                                          child: IconButton(
+                                            onPressed: onReveal,
+                                            icon: SvgPicture.string(
+                                              _folderRevealSvg,
+                                              width: 19,
+                                              height: 19,
+                                              colorFilter:
+                                                  const ColorFilter.mode(
+                                                    Colors.white,
+                                                    BlendMode.srcIn,
+                                                  ),
+                                            ),
                                           ),
                                         ),
-                                      ),
+                                        Tooltip(
+                                          message: t.deleteTrack,
+                                          child: IconButton(
+                                            onPressed: () => _deleteTrack(
+                                              context,
+                                              ref,
+                                              t,
+                                              library.lowEffects,
+                                            ),
+                                            icon: SvgPicture.string(
+                                              _deleteTrackSvg,
+                                              width: 18,
+                                              height: 18,
+                                              colorFilter:
+                                                  const ColorFilter.mode(
+                                                    Color(0xFFFF6B6B),
+                                                    BlendMode.srcIn,
+                                                  ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                     selectable: true,
                                   ),
@@ -2478,6 +3296,152 @@ class _TrackDetailsPage extends ConsumerWidget {
   }
 }
 
+class _TrackDeleteDecision {
+  const _TrackDeleteDecision({required this.deleteSourceFile});
+
+  final bool deleteSourceFile;
+}
+
+class _TrackDeleteDialog extends StatefulWidget {
+  const _TrackDeleteDialog({required this.t, required this.lowEffects});
+
+  final AppStrings t;
+  final bool lowEffects;
+
+  @override
+  State<_TrackDeleteDialog> createState() => _TrackDeleteDialogState();
+}
+
+class _TrackDeleteDialogState extends State<_TrackDeleteDialog> {
+  bool _deleteSourceFile = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final blur = widget.lowEffects ? 10.0 : 18.0;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 42, vertical: 36),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          child: Container(
+            width: 420,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0B1220).withValues(alpha: 0.24),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 28,
+                  offset: const Offset(0, 14),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.t.deleteTrack,
+                    style: const TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    widget.t.removeFromListPrompt,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      color: Colors.white.withValues(alpha: 0.88),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      color: Colors.white.withValues(alpha: 0.05),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.12),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Checkbox(
+                          value: _deleteSourceFile,
+                          onChanged: (value) {
+                            setState(() {
+                              _deleteSourceFile = value ?? false;
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            widget.t.deleteSourceFileToo,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.84),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white.withValues(
+                              alpha: 0.84,
+                            ),
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.18),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                          ),
+                          child: Text(widget.t.confirmNo),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () => Navigator.of(context).pop(
+                            _TrackDeleteDecision(
+                              deleteSourceFile: _deleteSourceFile,
+                            ),
+                          ),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFFD74B4B),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                          ),
+                          child: Text(widget.t.confirmYes),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _TrackDetailsItem extends StatelessWidget {
   const _TrackDetailsItem({
     required this.label,
@@ -2543,10 +3507,8 @@ class _TrackDetailsItem extends StatelessWidget {
                   fontFamilyFallback: chineseFallback,
                 ),
               ),
-              if (action != null) ...[
-                const SizedBox(width: 8),
-                action!,
-              ],
+              const Spacer(),
+              if (action != null) ...[action!],
             ],
           ),
           const SizedBox(height: 8),
@@ -2563,6 +3525,16 @@ const String _folderRevealSvg = '''
   <path d="M5.75 9.75H18.25C19.3546 9.75 20.25 10.6454 20.25 11.75V16.25C20.25 17.3546 19.3546 18.25 18.25 18.25H5.75C4.64543 18.25 3.75 17.3546 3.75 16.25V11.75C3.75 10.6454 4.64543 9.75 5.75 9.75Z" stroke="currentColor" stroke-width="1.5"/>
   <path d="M13.25 12.25H17.75V16.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M12.75 17.25L17.75 12.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+</svg>
+''';
+
+const String _deleteTrackSvg = '''
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M9.25 4.75H14.75L15.25 6.25H18.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M5.75 6.25H18.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M7.25 8.25L7.95 17.32C8.01 18.11 8.67 18.72 9.46 18.72H14.54C15.33 18.72 15.99 18.11 16.05 17.32L16.75 8.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M10 10.75V15.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M14 10.75V15.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 </svg>
 ''';
 
@@ -2613,10 +3585,43 @@ class _PlaybackModeButton extends StatelessWidget {
             width: 18,
             height: 18,
             semanticsLabel: tooltip,
-            colorFilter: const ColorFilter.mode(
-              Colors.white,
-              BlendMode.srcIn,
-            ),
+            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlaybackQueueButton extends StatelessWidget {
+  const _PlaybackQueueButton({
+    required this.tooltip,
+    required this.onPressed,
+    required this.isActive,
+  });
+
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: IconButton(
+        onPressed: onPressed,
+        icon: SvgPicture.asset(
+          'assets/icons/player_queue.svg',
+          width: 18,
+          height: 18,
+          semanticsLabel: tooltip,
+          colorFilter: ColorFilter.mode(
+            isActive
+                ? const Color(0xFF39C0FF)
+                : Colors.white.withValues(
+                    alpha: onPressed == null ? 0.42 : 0.94,
+                  ),
+            BlendMode.srcIn,
           ),
         ),
       ),
@@ -2654,8 +3659,3 @@ class _PlaybackToggleButton extends StatelessWidget {
     );
   }
 }
-
-
-
-
-

@@ -10,6 +10,14 @@ backups/
 *.tmp
 release/
 release_test_install/
+dist/
+.codex_appdata/
+.codex_bin/
+.codex_home/
+.codex_localappdata/
+.fake_android_sdk/
+.pub-cache/
+.tmp/
 
 # Flutter / Dart
 app/.dart_tool/
@@ -17,6 +25,7 @@ app/build/
 app/.flutter-plugins
 app/.flutter-plugins-dependencies
 app/.packages
+app/tool/verify_online_lyrics.dart
 
 # Windows build leftovers
 app/windows/flutter/ephemeral/

@@ -14,6 +14,9 @@ final RegExp _timeTagPattern = RegExp(
 final RegExp _karaokeTimeTagPattern = RegExp(
   r'<(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?>',
 );
+final RegExp _qrcWordPattern = RegExp(
+  r'(?:\[\d+,\d+\])?((?:(?!\(\d+,\d+\)).)*)\((\d+),(\d+)\)',
+);
 
 Future<LyricsDocument?> readLocalLyricsDocumentForTrack(
   String audioPath, {
@@ -551,7 +554,7 @@ List<LyricLine>? _parseQrcLyricsDocument(String raw) {
 
     final lineStartMs = int.tryParse(lineMatch.group(1) ?? '') ?? 0;
     final body = lineMatch.group(3) ?? '';
-    final segmentMatches = RegExp(r'([^()]+?)\((\d+),(\d+)\)').allMatches(body).toList(
+    final segmentMatches = _qrcWordPattern.allMatches(body).toList(
       growable: false,
     );
     if (segmentMatches.isEmpty) {
@@ -568,10 +571,10 @@ List<LyricLine>? _parseQrcLyricsDocument(String raw) {
 
     final segments = <LyricSegment>[];
     for (final match in segmentMatches) {
-      final segmentText = (match.group(1) ?? '').trim();
+      final segmentText = match.group(1) ?? '';
       final startMs = int.tryParse(match.group(2) ?? '') ?? 0;
       final durationMs = int.tryParse(match.group(3) ?? '') ?? 0;
-      if (segmentText.isEmpty) continue;
+      if (segmentText.isEmpty || segmentText == '\r') continue;
       segments.add(
         LyricSegment(
           start: Duration(milliseconds: startMs),
@@ -605,11 +608,11 @@ String? _extractQrcLyricContent(String raw) {
   }
 
   final attrMatch = RegExp(
-    r'LyricContent="([\s\S]*?)"',
+    r'''LyricContent=(?:"([\s\S]*?)"|'([\s\S]*?)')''',
     caseSensitive: false,
   ).firstMatch(trimmed);
   if (attrMatch != null) {
-    return _decodeXmlEntities(attrMatch.group(1) ?? '');
+    return _decodeXmlEntities(attrMatch.group(1) ?? attrMatch.group(2) ?? '');
   }
 
   final cdataMatch = RegExp(
@@ -624,7 +627,7 @@ String? _extractQrcLyricContent(String raw) {
 }
 
 String _decodeXmlEntities(String input) {
-  return input
+  final decoded = input
       .replaceAll('&quot;', '"')
       .replaceAll('&apos;', "'")
       .replaceAll('&lt;', '<')
@@ -632,6 +635,18 @@ String _decodeXmlEntities(String input) {
       .replaceAll('&amp;', '&')
       .replaceAll('&#10;', '\n')
       .replaceAll('&#13;', '\r');
+
+  return decoded.replaceAllMapped(
+    RegExp(r'&#(x?[0-9a-fA-F]+);'),
+    (match) {
+      final token = match.group(1) ?? '';
+      final value = token.startsWith('x') || token.startsWith('X')
+          ? int.tryParse(token.substring(1), radix: 16)
+          : int.tryParse(token);
+      if (value == null) return match.group(0) ?? '';
+      return String.fromCharCode(value);
+    },
+  );
 }
 
 List<LyricSegment>? _parseKaraokeSegmentsFromLine(String rawLine) {

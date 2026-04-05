@@ -89,6 +89,11 @@ C:\Users\<你的用户名>\AppData\Local\PrismWave\logs\
 
 这些日志主要用于排查播放错误、输出模式诊断以及自动切换相关问题。
 
+## 鸣谢
+
+- [QQMusicDecoder](https://github.com/WXRIW/QQMusicDecoder)：帮助确认了 QQ `QRC` 逐字歌词的处理链路，尤其是歌词内容在解析前所需的解密与解压步骤。
+- [LDDC](https://github.com/chenmozhijin/LDDC)：为逐字歌词 / 同步歌词的格式细节、解析容错和边界情况处理提供了很有价值的参考。
+
 ## 许可证
 
 GPL-3.0

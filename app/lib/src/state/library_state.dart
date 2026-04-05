@@ -20,6 +20,7 @@ class LibraryState {
     this.onlineLyricsResolvedPaths = const {},
     this.lyricsLoadingPaths = const {},
     this.favoritePaths = const {},
+    this.favoriteOrderPaths = const [],
     this.searchQuery = '',
     this.isScanning = false,
     this.error,
@@ -39,6 +40,7 @@ class LibraryState {
   final Set<String> onlineLyricsResolvedPaths;
   final Set<String> lyricsLoadingPaths;
   final Set<String> favoritePaths;
+  final List<String> favoriteOrderPaths;
   final String searchQuery;
   final bool isScanning;
   final String? error;
@@ -59,16 +61,36 @@ class LibraryState {
   }
 
   List<Track> get favoriteTracks {
-    return filteredTracks
-        .where((track) => favoritePaths.contains(track.path))
-        .toList(growable: false);
+    final favoriteTrackByPath = <String, Track>{
+      for (final track in filteredTracks)
+        if (favoritePaths.contains(track.path)) track.path: track,
+    };
+
+    final ordered = <Track>[];
+    final seen = <String>{};
+
+    for (final path in favoriteOrderPaths) {
+      final track = favoriteTrackByPath[path];
+      if (track == null || !seen.add(path)) continue;
+      ordered.add(track);
+    }
+
+    for (final track in filteredTracks) {
+      if (!favoritePaths.contains(track.path) || !seen.add(track.path)) {
+        continue;
+      }
+      ordered.add(track);
+    }
+
+    return ordered;
   }
 
   Duration? durationOf(Track track) => durationByPath[track.path];
 
   Uint8List? coverBytesOf(Track track) => coverBytesByPath[track.path];
 
-  double lyricsOffsetOf(Track track) => lyricsOffsetSecondsByPath[track.path] ?? 0;
+  double lyricsOffsetOf(Track track) =>
+      lyricsOffsetSecondsByPath[track.path] ?? 0;
 
   LyricsSourceType preferredLyricsSourceOf(Track track) =>
       preferredLyricsSourceByPath[track.path] ?? LyricsSourceType.local;
@@ -151,6 +173,7 @@ class LibraryState {
     Set<String>? onlineLyricsResolvedPaths,
     Set<String>? lyricsLoadingPaths,
     Set<String>? favoritePaths,
+    List<String>? favoriteOrderPaths,
     String? searchQuery,
     bool? isScanning,
     String? error,
@@ -176,6 +199,7 @@ class LibraryState {
           onlineLyricsResolvedPaths ?? this.onlineLyricsResolvedPaths,
       lyricsLoadingPaths: lyricsLoadingPaths ?? this.lyricsLoadingPaths,
       favoritePaths: favoritePaths ?? this.favoritePaths,
+      favoriteOrderPaths: favoriteOrderPaths ?? this.favoriteOrderPaths,
       searchQuery: searchQuery ?? this.searchQuery,
       isScanning: isScanning ?? this.isScanning,
       error: clearError ? null : (error ?? this.error),

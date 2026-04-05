@@ -89,6 +89,11 @@ C:\Users\<YourUser>\AppData\Local\PrismWave\logs\
 
 This is mainly used for playback errors, output mode diagnostics, and auto-switch debugging.
 
+## Acknowledgements
+
+- [QQMusicDecoder](https://github.com/WXRIW/QQMusicDecoder): helped verify the QQ `QRC` word-by-word lyrics pipeline, especially the decrypt and decompress steps required before parsing lyric content.
+- [LDDC](https://github.com/chenmozhijin/LDDC): provided useful reference for timed / word-by-word lyric parsing details, format tolerance, and edge-case handling during the PrismWave lyrics adaptation work.
+
 ## License
 
 GPL-3.0

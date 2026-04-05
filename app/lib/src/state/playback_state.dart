@@ -14,6 +14,8 @@ class PlaybackState {
     this.currentTime = Duration.zero,
     this.duration = Duration.zero,
     this.volume = 1.0,
+    this.fadeEnabled = true,
+    this.fadeDuration = const Duration(milliseconds: 220),
     this.error,
     this.developerMode = false,
     this.audioOutputMode = AudioOutputMode.wasapiExclusive,
@@ -31,6 +33,8 @@ class PlaybackState {
   final Duration currentTime;
   final Duration duration;
   final double volume;
+  final bool fadeEnabled;
+  final Duration fadeDuration;
   final String? error;
   final bool developerMode;
   final AudioOutputMode audioOutputMode;
@@ -50,6 +54,8 @@ class PlaybackState {
     Duration? currentTime,
     Duration? duration,
     double? volume,
+    bool? fadeEnabled,
+    Duration? fadeDuration,
     String? error,
     bool? developerMode,
     AudioOutputMode? audioOutputMode,
@@ -68,6 +74,8 @@ class PlaybackState {
       currentTime: currentTime ?? this.currentTime,
       duration: duration ?? this.duration,
       volume: volume ?? this.volume,
+      fadeEnabled: fadeEnabled ?? this.fadeEnabled,
+      fadeDuration: fadeDuration ?? this.fadeDuration,
       error: clearError ? null : (error ?? this.error),
       developerMode: developerMode ?? this.developerMode,
       audioOutputMode: audioOutputMode ?? this.audioOutputMode,

@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_language.dart';
+import '../models/release_update_status.dart';
 import '../models/top_bar_idle_mode.dart';
 import '../services/quote_service.dart';
+import '../services/release_update_service.dart';
 import '../state/app_settings_state.dart';
 
 class AppSettingsController extends StateNotifier<AppSettingsState> {
@@ -19,6 +21,7 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
   static const String _legacyPrefTopBarQuoteDate = 'ui.topBarQuoteDate';
 
   final QuoteService _quoteService = QuoteService();
+  final ReleaseUpdateService _releaseUpdateService = ReleaseUpdateService();
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -99,6 +102,38 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
     state = state.copyWith(topBarQuoteText: onlineQuote);
     await prefs.setString(_quoteTextKey(language), onlineQuote);
     await prefs.setString(_quoteDateKey(language), today);
+  }
+
+  Future<void> checkForUpdates() async {
+    if (state.releaseUpdateStatus == ReleaseUpdateStatus.checking) return;
+
+    state = state.copyWith(
+      releaseUpdateStatus: ReleaseUpdateStatus.checking,
+      clearReleaseUpdateError: true,
+    );
+
+    try {
+      final release = await _releaseUpdateService.fetchLatestRelease();
+      final hasUpdate = _releaseUpdateService.isRemoteNewer(
+        release.version,
+        state.currentVersion,
+      );
+
+      state = state.copyWith(
+        releaseUpdateStatus: hasUpdate
+            ? ReleaseUpdateStatus.updateAvailable
+            : ReleaseUpdateStatus.upToDate,
+        latestReleaseVersion: release.version,
+        latestReleaseUrl: release.releasePageUrl,
+        latestInstallerUrl: release.installerUrl,
+        clearReleaseUpdateError: true,
+      );
+    } catch (error) {
+      state = state.copyWith(
+        releaseUpdateStatus: ReleaseUpdateStatus.failed,
+        releaseUpdateError: '$error',
+      );
+    }
   }
 
   String _quoteTextKey(AppLanguage language) => 'ui.topBarQuoteText.${language.id}';

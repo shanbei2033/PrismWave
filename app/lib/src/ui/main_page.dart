@@ -24,6 +24,7 @@ import '../state/library_state.dart';
 import '../state/playback_state.dart';
 import 'fullplay_page.dart';
 import 'glass_panel.dart';
+import 'middle_click_autoscroll.dart';
 import 'window_top_bar.dart';
 
 enum MainSection { library, albums, artists, favorites, settings }
@@ -475,119 +476,39 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                     ),
                   ),
                 )
-              : ReorderableListView.builder(
-                  buildDefaultDragHandles: false,
-                  padding: EdgeInsets.zero,
-                  onReorder: playbackCtrl.reorderQueue,
-                  itemCount: playlist.length,
-                  itemBuilder: (_, index) {
-                    final track = playlist[index];
-                    final active = playback.currentTrack?.id == track.id;
-                    final coverBytes = library.coverBytesOf(track);
+              : MiddleClickAutoScrollView(
+                  builder: (context, controller) => ReorderableListView.builder(
+                    buildDefaultDragHandles: false,
+                    padding: EdgeInsets.zero,
+                    scrollController: controller,
+                    proxyDecorator: (child, _, animation) =>
+                        _buildReorderProxy(child, animation, radius: 12),
+                    onReorder: playbackCtrl.reorderQueue,
+                    itemCount: playlist.length,
+                    itemBuilder: (_, index) {
+                      final track = playlist[index];
+                      final active = playback.currentTrack?.id == track.id;
+                      final coverBytes = library.coverBytesOf(track);
 
-                    return Padding(
-                      key: ValueKey('queue-track-${track.path}'),
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Material(
-                        color: active
-                            ? const Color(0xFF39C0FF).withValues(alpha: 0.18)
-                            : Colors.white.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(12),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () =>
-                              playbackCtrl.playFromPlaylist(track, playlist),
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-                            child: Row(
-                              children: [
-                                ReorderableDragStartListener(
-                                  index: index,
-                                  child: MouseRegion(
-                                    cursor: SystemMouseCursors.grab,
-                                    child: Icon(
-                                      Icons.drag_indicator_rounded,
-                                      size: 18,
-                                      color: Colors.white.withValues(
-                                        alpha: 0.44,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                SizedBox(
-                                  width: 20,
-                                  child: Text(
-                                    '${index + 1}',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: active ? 0.94 : 0.54,
-                                      ),
-                                      fontSize: 12,
-                                      fontWeight: active
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                _TrackCover(
-                                  track: track,
-                                  isActive: active,
-                                  coverBytes: coverBytes,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        track.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontWeight: active
-                                              ? FontWeight.w700
-                                              : FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        track.artist,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.66,
-                                          ),
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: t.removeFromQueue,
-                                  onPressed: () =>
-                                      playbackCtrl.removeFromQueueAt(index),
-                                  icon: Icon(
-                                    Icons.close_rounded,
-                                    size: 18,
-                                    color: Colors.redAccent.withValues(
-                                      alpha: 0.92,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                      return ReorderableDelayedDragStartListener(
+                        key: ValueKey('queue-track-${track.path}'),
+                        index: index,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: _PlaybackQueueTrackTile(
+                            track: track,
+                            index: index,
+                            isActive: active,
+                            coverBytes: coverBytes,
+                            onTap: () =>
+                                playbackCtrl.playFromCurrentQueue(track),
+                            onRemove: () =>
+                                playbackCtrl.removeFromQueueAt(index),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
         ),
         const SizedBox(height: 10),
@@ -794,157 +715,148 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                       ),
                     ),
                   )
-                : ReorderableListView.builder(
-                    buildDefaultDragHandles: false,
-                    padding: EdgeInsets.zero,
-                    onReorder: (oldIndex, newIndex) {
-                      if (forceLibraryContext) {
-                        libraryCtrl.reorderLibraryTracks(
+                : MiddleClickAutoScrollView(
+                    builder: (context, controller) => ReorderableListView.builder(
+                      buildDefaultDragHandles: false,
+                      padding: EdgeInsets.zero,
+                      scrollController: controller,
+                      proxyDecorator: (child, _, animation) =>
+                          _buildReorderProxy(child, animation, radius: 10),
+                      onReorder: (oldIndex, newIndex) {
+                        if (forceLibraryContext) {
+                          libraryCtrl.reorderLibraryTracks(
+                            visibleTracks: tracks,
+                            oldIndex: oldIndex,
+                            newIndex: newIndex,
+                          );
+                          return;
+                        }
+                        libraryCtrl.reorderFavoriteTracks(
                           visibleTracks: tracks,
                           oldIndex: oldIndex,
                           newIndex: newIndex,
                         );
-                        return;
-                      }
-                      libraryCtrl.reorderFavoriteTracks(
-                        visibleTracks: tracks,
-                        oldIndex: oldIndex,
-                        newIndex: newIndex,
-                      );
-                    },
-                    itemCount: tracks.length,
-                    itemBuilder: (_, index) {
-                      final track = tracks[index];
-                      final active = playback.currentTrack?.id == track.id;
-                      final isFavorite = libraryCtrl.isFavorite(track);
-                      final duration = library.durationOf(track);
-                      final coverBytes = library.coverBytesOf(track);
+                      },
+                      itemCount: tracks.length,
+                      itemBuilder: (_, index) {
+                        final track = tracks[index];
+                        final active = playback.currentTrack?.id == track.id;
+                        final isFavorite = libraryCtrl.isFavorite(track);
+                        final duration = library.durationOf(track);
+                        final coverBytes = library.coverBytesOf(track);
 
-                      return Padding(
-                        key: ValueKey('track-list-row-${track.path}'),
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onSecondaryTapDown: (_) => _openTrackDetails(
-                            context: context,
-                            track: track,
-                            duration: duration,
-                            coverBytes: coverBytes,
-                          ),
-                          child: Material(
-                            color: active
-                                ? const Color(
-                                    0xFF39C0FF,
-                                  ).withValues(alpha: 0.16)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(10),
-                              onTap: () => useLibraryContext
-                                  ? playbackCtrl.playFromLibrary(
-                                      track,
-                                      playbackContext,
-                                    )
-                                  : playbackCtrl.playFromPlaylist(
-                                      track,
-                                      playbackContext,
-                                    ),
-                              child: SizedBox(
-                                height: 56,
-                                child: Row(
-                                  children: [
-                                    const SizedBox(width: 6),
-                                    ReorderableDragStartListener(
-                                      index: index,
-                                      enabled: canReorder,
-                                      child: MouseRegion(
-                                        cursor: canReorder
-                                            ? SystemMouseCursors.grab
-                                            : MouseCursor.defer,
-                                        child: Icon(
-                                          Icons.drag_indicator_rounded,
-                                          size: 18,
-                                          color: Colors.white.withValues(
-                                            alpha: canReorder ? 0.46 : 0.18,
+                        return ReorderableDelayedDragStartListener(
+                          key: ValueKey('track-list-row-${track.path}'),
+                          index: index,
+                          enabled: canReorder,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onSecondaryTapDown: (_) => _openTrackDetails(
+                                context: context,
+                                track: track,
+                                duration: duration,
+                                coverBytes: coverBytes,
+                              ),
+                              child: Material(
+                                color: active
+                                    ? const Color(
+                                        0xFF39C0FF,
+                                      ).withValues(alpha: 0.16)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: () => useLibraryContext
+                                      ? playbackCtrl.playFromLibrary(
+                                          track,
+                                          playbackContext,
+                                        )
+                                      : playbackCtrl.playFromPlaylist(
+                                          track,
+                                          playbackContext,
+                                        ),
+                                  child: SizedBox(
+                                    height: 56,
+                                    child: Row(
+                                      children: [
+                                        const SizedBox(width: 10),
+                                        SizedBox(
+                                          width: 52,
+                                          child: _TrackCover(
+                                            track: track,
+                                            isActive: active,
+                                            coverBytes: coverBytes,
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const SizedBox(width: 10),
-                                    SizedBox(
-                                      width: 52,
-                                      child: _TrackCover(
-                                        track: track,
-                                        isActive: active,
-                                        coverBytes: coverBytes,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      flex: 5,
-                                      child: Text(
-                                        track.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 3,
-                                      child: Text(
-                                        track.artist,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.75,
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          flex: 5,
+                                          child: Text(
+                                            track.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      width: 84,
-                                      child: Text(
-                                        _formatDuration(duration),
-                                        textAlign: TextAlign.right,
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.82,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    IconButton(
-                                      tooltip: isFavorite
-                                          ? t.uncollect
-                                          : t.collect,
-                                      onPressed: () =>
-                                          libraryCtrl.toggleFavorite(track),
-                                      icon: Icon(
-                                        isFavorite
-                                            ? Icons.favorite_rounded
-                                            : Icons.favorite_border_rounded,
-                                        color: isFavorite
-                                            ? const Color(0xFF39C0FF)
-                                            : Colors.white.withValues(
-                                                alpha: 0.78,
+                                        Expanded(
+                                          flex: 3,
+                                          child: Text(
+                                            track.artist,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.75,
                                               ),
-                                        size: 18,
-                                      ),
+                                            ),
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          width: 84,
+                                          child: Text(
+                                            _formatDuration(duration),
+                                            textAlign: TextAlign.right,
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.82,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          tooltip: isFavorite
+                                              ? t.uncollect
+                                              : t.collect,
+                                          onPressed: () =>
+                                              libraryCtrl.toggleFavorite(track),
+                                          icon: Icon(
+                                            isFavorite
+                                                ? Icons.favorite_rounded
+                                                : Icons.favorite_border_rounded,
+                                            color: isFavorite
+                                                ? const Color(0xFF39C0FF)
+                                                : Colors.white.withValues(
+                                                    alpha: 0.78,
+                                                  ),
+                                            size: 18,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                      ],
                                     ),
-                                    const SizedBox(width: 6),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
           ),
         ],
@@ -962,7 +874,6 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
       ),
       child: Row(
         children: [
-          const SizedBox(width: 30),
           SizedBox(
             width: 52,
             child: Text(
@@ -1053,69 +964,74 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                       ),
                     ),
                   )
-                : GridView.builder(
-                    itemCount: albums.length,
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 220,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 0.80,
-                        ),
-                    itemBuilder: (_, index) {
-                      final album = albums[index];
-                      final firstTrack = album.value.first;
-                      final coverBytes = library.coverBytesOf(firstTrack);
+                : MiddleClickAutoScrollView(
+                    builder: (context, controller) => GridView.builder(
+                      controller: controller,
+                      itemCount: albums.length,
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 220,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                            childAspectRatio: 0.80,
+                          ),
+                      itemBuilder: (_, index) {
+                        final album = albums[index];
+                        final firstTrack = album.value.first;
+                        final coverBytes = library.coverBytesOf(firstTrack);
 
-                      return Material(
-                        color: Colors.white.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(14),
-                        child: InkWell(
+                        return Material(
+                          color: Colors.white.withValues(alpha: 0.04),
                           borderRadius: BorderRadius.circular(14),
-                          onTap: () {
-                            setState(() {
-                              _selectedAlbum = album.key;
-                            });
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: _CoverImage(
-                                      coverPath: firstTrack.coverPath,
-                                      coverBytes: coverBytes,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () {
+                              setState(() {
+                                _selectedAlbum = album.key;
+                              });
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: _CoverImage(
+                                        coverPath: firstTrack.coverPath,
+                                        coverBytes: coverBytes,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  album.key,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    album.key,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  t.albumTrackCountText(album.value.length),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white.withValues(alpha: 0.66),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    t.albumTrackCountText(album.value.length),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.66,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
           ),
         ],
@@ -1165,47 +1081,50 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                       ),
                     ),
                   )
-                : ListView.separated(
-                    itemCount: artists.length,
-                    separatorBuilder: (_, _) => Divider(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      height: 1,
-                    ),
-                    itemBuilder: (_, index) {
-                      final artist = artists[index];
-                      return Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {
-                            setState(() {
-                              _selectedArtist = artist;
-                            });
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: SizedBox(
-                            height: 56,
-                            child: Row(
-                              children: [
-                                const SizedBox(width: 8),
-                                Text(
-                                  artist,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
+                : MiddleClickAutoScrollView(
+                    builder: (context, controller) => ListView.separated(
+                      controller: controller,
+                      itemCount: artists.length,
+                      separatorBuilder: (_, _) => Divider(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        height: 1,
+                      ),
+                      itemBuilder: (_, index) {
+                        final artist = artists[index];
+                        return Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              setState(() {
+                                _selectedArtist = artist;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: SizedBox(
+                              height: 56,
+                              child: Row(
+                                children: [
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    artist,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
-                                ),
-                                const Spacer(),
-                                Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: Colors.white.withValues(alpha: 0.65),
-                                ),
-                                const SizedBox(width: 8),
-                              ],
+                                  const Spacer(),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: Colors.white.withValues(alpha: 0.65),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
           ),
         ],
@@ -1330,114 +1249,119 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                       ),
                     ),
                   )
-                : ListView.builder(
-                    itemCount: tracks.length,
-                    itemBuilder: (_, index) {
-                      final track = tracks[index];
-                      final active = playback.currentTrack?.id == track.id;
-                      final isFavorite = libraryCtrl.isFavorite(track);
-                      final duration = library.durationOf(track);
-                      final coverBytes = library.coverBytesOf(track);
+                : MiddleClickAutoScrollView(
+                    builder: (context, controller) => ListView.builder(
+                      controller: controller,
+                      itemCount: tracks.length,
+                      itemBuilder: (_, index) {
+                        final track = tracks[index];
+                        final active = playback.currentTrack?.id == track.id;
+                        final isFavorite = libraryCtrl.isFavorite(track);
+                        final duration = library.durationOf(track);
+                        final coverBytes = library.coverBytesOf(track);
 
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onSecondaryTapDown: (_) => _openTrackDetails(
-                            context: context,
-                            track: track,
-                            duration: duration,
-                            coverBytes: coverBytes,
-                          ),
-                          child: Material(
-                            color: active
-                                ? const Color(
-                                    0xFF39C0FF,
-                                  ).withValues(alpha: 0.16)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                            child: InkWell(
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onSecondaryTapDown: (_) => _openTrackDetails(
+                              context: context,
+                              track: track,
+                              duration: duration,
+                              coverBytes: coverBytes,
+                            ),
+                            child: Material(
+                              color: active
+                                  ? const Color(
+                                      0xFF39C0FF,
+                                    ).withValues(alpha: 0.16)
+                                  : Colors.transparent,
                               borderRadius: BorderRadius.circular(10),
-                              onTap: () =>
-                                  playbackCtrl.playFromPlaylist(track, tracks),
-                              child: SizedBox(
-                                height: 56,
-                                child: Row(
-                                  children: [
-                                    const SizedBox(width: 10),
-                                    SizedBox(
-                                      width: 52,
-                                      child: _TrackCover(
-                                        track: track,
-                                        isActive: active,
-                                        coverBytes: coverBytes,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      flex: 5,
-                                      child: Text(
-                                        track.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(10),
+                                onTap: () => playbackCtrl.playFromPlaylist(
+                                  track,
+                                  tracks,
+                                ),
+                                child: SizedBox(
+                                  height: 56,
+                                  child: Row(
+                                    children: [
+                                      const SizedBox(width: 10),
+                                      SizedBox(
+                                        width: 52,
+                                        child: _TrackCover(
+                                          track: track,
+                                          isActive: active,
+                                          coverBytes: coverBytes,
                                         ),
                                       ),
-                                    ),
-                                    Expanded(
-                                      flex: 3,
-                                      child: Text(
-                                        track.artist,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.75,
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        flex: 5,
+                                        child: Text(
+                                          track.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                       ),
-                                    ),
-                                    SizedBox(
-                                      width: 84,
-                                      child: Text(
-                                        _formatDuration(duration),
-                                        textAlign: TextAlign.right,
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.82,
+                                      Expanded(
+                                        flex: 3,
+                                        child: Text(
+                                          track.artist,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.75,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    IconButton(
-                                      tooltip: isFavorite
-                                          ? t.uncollect
-                                          : t.collect,
-                                      onPressed: () =>
-                                          libraryCtrl.toggleFavorite(track),
-                                      icon: Icon(
-                                        isFavorite
-                                            ? Icons.favorite_rounded
-                                            : Icons.favorite_border_rounded,
-                                        color: isFavorite
-                                            ? const Color(0xFF39C0FF)
-                                            : Colors.white.withValues(
-                                                alpha: 0.78,
-                                              ),
-                                        size: 18,
+                                      SizedBox(
+                                        width: 84,
+                                        child: Text(
+                                          _formatDuration(duration),
+                                          textAlign: TextAlign.right,
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.82,
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                  ],
+                                      const SizedBox(width: 4),
+                                      IconButton(
+                                        tooltip: isFavorite
+                                            ? t.uncollect
+                                            : t.collect,
+                                        onPressed: () =>
+                                            libraryCtrl.toggleFavorite(track),
+                                        icon: Icon(
+                                          isFavorite
+                                              ? Icons.favorite_rounded
+                                              : Icons.favorite_border_rounded,
+                                          color: isFavorite
+                                              ? const Color(0xFF39C0FF)
+                                              : Colors.white.withValues(
+                                                  alpha: 0.78,
+                                                ),
+                                          size: 18,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
           ),
         ],
@@ -1619,6 +1543,44 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     );
   }
 
+  Widget _buildReorderProxy(
+    Widget child,
+    Animation<double> animation, {
+    required double radius,
+  }) {
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (context, child) {
+        final progress = Curves.easeOutCubic.transform(animation.value);
+        final borderRadius = BorderRadius.circular(radius);
+
+        return Transform.scale(
+          scale: 1 + (0.01 * progress),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: borderRadius,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(
+                    alpha: 0.12 + (0.10 * progress),
+                  ),
+                  blurRadius: 18 + (8 * progress),
+                  offset: Offset(0, 8 + (3 * progress)),
+                ),
+              ],
+            ),
+            child: Material(
+              type: MaterialType.transparency,
+              borderRadius: borderRadius,
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _openSettings() {
     setState(() {
       _section = MainSection.settings;
@@ -1651,7 +1613,7 @@ class _SettingsPanel extends ConsumerWidget {
     final appSettingsController = ref.read(appSettingsProvider.notifier);
     final t = AppStrings(appSettings.language);
     final library = ref.watch(libraryProvider);
-    final controller = ref.read(libraryProvider.notifier);
+    final libraryController = ref.read(libraryProvider.notifier);
     final playback = ref.watch(playbackProvider);
     final playbackController = ref.read(playbackProvider.notifier);
     final audioDevices = playback.availableAudioOutputDevices;
@@ -1691,343 +1653,354 @@ class _SettingsPanel extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SettingsBlock(
-                    title: t.folderSection,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            FilledButton.icon(
-                              onPressed: library.isScanning
-                                  ? null
-                                  : controller.addMusicFolder,
-                              icon: const Icon(Icons.add_rounded),
-                              label: Text(t.addMusicFolder),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: library.isScanning
-                                  ? null
-                                  : controller.rescanAllFolders,
-                              icon: const Icon(Icons.refresh_rounded),
-                              label: Text(t.rescanAll),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        _SettingsFoldersCard(
-                          folders: library.libraryFolders,
-                          emptyText: t.noFolderConfigured,
-                          removeLabel: t.remove,
-                          onRemove: controller.removeMusicFolder,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _SettingsBlock(
-                    title: t.languageTitle,
-                    child: _GlassSelectField<AppLanguage>(
-                      value: appSettings.language,
-                      lowEffects: library.lowEffects,
-                      onChanged: (value) {
-                        appSettingsController.setLanguage(value);
-                      },
-                      items: AppLanguage.values
-                          .map(
-                            (lang) => _GlassSelectEntry<AppLanguage>(
-                              value: lang,
-                              label: t.languageLabel(lang),
-                            ),
-                          )
-                          .toList(growable: false),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _SettingsBlock(
-                    title: t.topBarDisplayTitle,
-                    child: Column(
-                      children: [
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            t.topBarIdleModeTitle,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.64),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        _GlassSelectField<TopBarIdleMode>(
-                          value: appSettings.topBarIdleMode,
-                          lowEffects: library.lowEffects,
-                          onChanged: (value) {
-                            appSettingsController.setTopBarIdleMode(value);
-                          },
-                          items: TopBarIdleMode.values
-                              .map(
-                                (mode) => _GlassSelectEntry<TopBarIdleMode>(
-                                  value: mode,
-                                  label: t.topBarIdleModeLabel(mode),
-                                ),
-                              )
-                              .toList(growable: false),
-                        ),
-                        const SizedBox(height: 10),
-                        _IdleTopBarTextField(
-                          initialValue: appSettings.topBarIdleText,
-                          label: t.topBarCustomTextTitle,
-                          hint: t.topBarCustomTextHint,
-                          onSubmitted: appSettingsController.setTopBarIdleText,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _SettingsBlock(
-                    title: t.audioOutputMode,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _GlassSelectField<AudioOutputMode>(
-                          key: ValueKey(
-                            'audio-mode-${playback.audioOutputMode.id}',
-                          ),
-                          value: playback.audioOutputMode,
-                          lowEffects: library.lowEffects,
-                          onChanged: (value) {
-                            playbackController.setAudioOutputMode(value);
-                          },
-                          items: AudioOutputMode.values
-                              .map(
-                                (mode) => _GlassSelectEntry<AudioOutputMode>(
-                                  value: mode,
-                                  label: t.outputModeLabel(mode),
-                                ),
-                              )
-                              .toList(growable: false),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          t.outputModeDescription(playback.audioOutputMode),
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.66),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _SettingsBlock(
-                    title: t.audioOutputDevice,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _GlassSelectField<String>(
-                          key: ValueKey(
-                            'audio-device-$selectedAudioDeviceId-${audioDevices.length}',
-                          ),
-                          value: selectedAudioDeviceId,
-                          lowEffects: library.lowEffects,
-                          onChanged: (value) {
-                            playbackController.setAudioOutputDevice(value);
-                          },
-                          items: audioDevices
-                              .map(
-                                (device) => _GlassSelectEntry<String>(
-                                  value: device.id,
-                                  label: t.audioDeviceLabel(
-                                    device.label,
-                                    isAuto: device.id == 'auto',
-                                  ),
-                                ),
-                              )
-                              .toList(growable: false),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          t.audioOutputDeviceHint,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.66),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _SettingsBlock(
-                    title: t.audioFade,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _SettingsToggleTile(
-                          title: t.audioFadeEnabled,
-                          subtitle: playback.fadeEnabled
-                              ? t.audioFadeHint
-                              : t.audioFadeDisabledHint,
-                          value: playback.fadeEnabled,
-                          onChanged: playbackController.setFadeEnabled,
-                        ),
-                        const SizedBox(height: 12),
-                        _SettingsDurationSlider(
-                          label: t.audioFadeDuration,
-                          valueLabel: t.audioFadeDurationValue(
-                            playback.fadeDuration,
-                          ),
-                          valueMs: playback.fadeDuration.inMilliseconds,
-                          enabled: playback.fadeEnabled,
-                          onChanged: (milliseconds) {
-                            playbackController.setFadeDuration(
-                              Duration(milliseconds: milliseconds),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _SettingsBlock(
-                    title: t.developerMode,
-                    child: Column(
-                      children: [
-                        SwitchListTile(
-                          value: playback.developerMode,
-                          onChanged: playbackController.setDeveloperMode,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(t.developerMode),
-                          subtitle: Text(t.developerModeHint),
-                        ),
-                        if (playback.developerMode) ...[
-                          const SizedBox(height: 6),
-                          Row(
+            child: MiddleClickAutoScrollView(
+              builder: (context, controller) => SingleChildScrollView(
+                controller: controller,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SettingsBlock(
+                      title: t.folderSection,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
                             children: [
-                              Text(
-                                '${t.playbackLogs} (${playback.debugLogs.length})',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.86),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const Spacer(),
-                              TextButton.icon(
-                                onPressed: playback.debugLogs.isEmpty
+                              FilledButton.icon(
+                                onPressed: library.isScanning
                                     ? null
-                                    : () async {
-                                        await Clipboard.setData(
-                                          ClipboardData(
-                                            text: playback.debugLogs.join('\n'),
-                                          ),
-                                        );
-                                        if (!context.mounted) return;
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(content: Text(t.logsCopied)),
-                                        );
-                                      },
-                                icon: const Icon(Icons.copy_rounded, size: 16),
-                                label: Text(t.copy),
+                                    : libraryController.addMusicFolder,
+                                icon: const Icon(Icons.add_rounded),
+                                label: Text(t.addMusicFolder),
                               ),
-                              const SizedBox(width: 4),
-                              TextButton.icon(
-                                onPressed: playback.debugLogs.isEmpty
+                              OutlinedButton.icon(
+                                onPressed: library.isScanning
                                     ? null
-                                    : playbackController.clearDebugLogs,
-                                icon: const Icon(
-                                  Icons.delete_sweep_rounded,
-                                  size: 16,
-                                ),
-                                label: Text(t.clear),
+                                    : libraryController.rescanAllFolders,
+                                icon: const Icon(Icons.refresh_rounded),
+                                label: Text(t.rescanAll),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          SizedBox(
-                            height: 160,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.22),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.10),
-                                ),
+                          const SizedBox(height: 12),
+                          _SettingsFoldersCard(
+                            folders: library.libraryFolders,
+                            emptyText: t.noFolderConfigured,
+                            removeLabel: t.remove,
+                            onRemove: libraryController.removeMusicFolder,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _SettingsBlock(
+                      title: t.languageTitle,
+                      child: _GlassSelectField<AppLanguage>(
+                        value: appSettings.language,
+                        lowEffects: library.lowEffects,
+                        onChanged: (value) {
+                          appSettingsController.setLanguage(value);
+                        },
+                        items: AppLanguage.values
+                            .map(
+                              (lang) => _GlassSelectEntry<AppLanguage>(
+                                value: lang,
+                                label: t.languageLabel(lang),
                               ),
-                              child: playback.debugLogs.isEmpty
-                                  ? Center(
-                                      child: Text(
-                                        t.noLogsHint,
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.62,
-                                          ),
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    )
-                                  : ListView.builder(
-                                      reverse: true,
-                                      itemCount: playback.debugLogs.length,
-                                      itemBuilder: (_, index) {
-                                        final line =
-                                            playback.debugLogs[playback
-                                                    .debugLogs
-                                                    .length -
-                                                1 -
-                                                index];
-                                        return Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 4,
-                                          ),
-                                          child: Text(
-                                            line,
-                                            style: TextStyle(
-                                              fontFamily: 'Consolas',
-                                              fontSize: 11,
-                                              height: 1.35,
-                                              color: Colors.white.withValues(
-                                                alpha: 0.84,
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
+                            )
+                            .toList(growable: false),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _SettingsBlock(
+                      title: t.topBarDisplayTitle,
+                      child: Column(
+                        children: [
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              t.topBarIdleModeTitle,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.64),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _GlassSelectField<TopBarIdleMode>(
+                            value: appSettings.topBarIdleMode,
+                            lowEffects: library.lowEffects,
+                            onChanged: (value) {
+                              appSettingsController.setTopBarIdleMode(value);
+                            },
+                            items: TopBarIdleMode.values
+                                .map(
+                                  (mode) => _GlassSelectEntry<TopBarIdleMode>(
+                                    value: mode,
+                                    label: t.topBarIdleModeLabel(mode),
+                                  ),
+                                )
+                                .toList(growable: false),
+                          ),
+                          const SizedBox(height: 10),
+                          _IdleTopBarTextField(
+                            initialValue: appSettings.topBarIdleText,
+                            label: t.topBarCustomTextTitle,
+                            hint: t.topBarCustomTextHint,
+                            onSubmitted:
+                                appSettingsController.setTopBarIdleText,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _SettingsBlock(
+                      title: t.audioOutputMode,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _GlassSelectField<AudioOutputMode>(
+                            key: ValueKey(
+                              'audio-mode-${playback.audioOutputMode.id}',
+                            ),
+                            value: playback.audioOutputMode,
+                            lowEffects: library.lowEffects,
+                            onChanged: (value) {
+                              playbackController.setAudioOutputMode(value);
+                            },
+                            items: AudioOutputMode.values
+                                .map(
+                                  (mode) => _GlassSelectEntry<AudioOutputMode>(
+                                    value: mode,
+                                    label: t.outputModeLabel(mode),
+                                  ),
+                                )
+                                .toList(growable: false),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            t.outputModeDescription(playback.audioOutputMode),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.66),
+                              fontSize: 12,
                             ),
                           ),
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  _SettingsBlock(
-                    title: t.updateCheckTitle,
-                    child: _SettingsUpdateBlock(
-                      currentVersion: appSettings.currentVersion,
-                      latestVersion: appSettings.latestReleaseVersion,
-                      status: appSettings.releaseUpdateStatus,
-                      errorMessage: appSettings.releaseUpdateError,
-                      onCheckUpdate: appSettingsController.checkForUpdates,
-                      onOpenUpdate: () async {
-                        final targetUrl =
-                            appSettings.latestInstallerUrl.isNotEmpty
-                            ? appSettings.latestInstallerUrl
-                            : appSettings.latestReleaseUrl;
-                        await _openExternalUrl(targetUrl);
-                      },
+                    const SizedBox(height: 14),
+                    _SettingsBlock(
+                      title: t.audioOutputDevice,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _GlassSelectField<String>(
+                            key: ValueKey(
+                              'audio-device-$selectedAudioDeviceId-${audioDevices.length}',
+                            ),
+                            value: selectedAudioDeviceId,
+                            lowEffects: library.lowEffects,
+                            onChanged: (value) {
+                              playbackController.setAudioOutputDevice(value);
+                            },
+                            items: audioDevices
+                                .map(
+                                  (device) => _GlassSelectEntry<String>(
+                                    value: device.id,
+                                    label: t.audioDeviceLabel(
+                                      device.label,
+                                      isAuto: device.id == 'auto',
+                                    ),
+                                  ),
+                                )
+                                .toList(growable: false),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            t.audioOutputDeviceHint,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.66),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 14),
+                    _SettingsBlock(
+                      title: t.audioFade,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SettingsToggleTile(
+                            title: t.audioFadeEnabled,
+                            subtitle: playback.fadeEnabled
+                                ? t.audioFadeHint
+                                : t.audioFadeDisabledHint,
+                            value: playback.fadeEnabled,
+                            onChanged: playbackController.setFadeEnabled,
+                          ),
+                          const SizedBox(height: 12),
+                          _SettingsDurationSlider(
+                            label: t.audioFadeDuration,
+                            valueLabel: t.audioFadeDurationValue(
+                              playback.fadeDuration,
+                            ),
+                            valueMs: playback.fadeDuration.inMilliseconds,
+                            enabled: playback.fadeEnabled,
+                            onChanged: (milliseconds) {
+                              playbackController.setFadeDuration(
+                                Duration(milliseconds: milliseconds),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _SettingsBlock(
+                      title: t.developerMode,
+                      child: Column(
+                        children: [
+                          SwitchListTile(
+                            value: playback.developerMode,
+                            onChanged: playbackController.setDeveloperMode,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(t.developerMode),
+                            subtitle: Text(t.developerModeHint),
+                          ),
+                          if (playback.developerMode) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Text(
+                                  '${t.playbackLogs} (${playback.debugLogs.length})',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.86),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const Spacer(),
+                                TextButton.icon(
+                                  onPressed: playback.debugLogs.isEmpty
+                                      ? null
+                                      : () async {
+                                          await Clipboard.setData(
+                                            ClipboardData(
+                                              text: playback.debugLogs.join(
+                                                '\n',
+                                              ),
+                                            ),
+                                          );
+                                          if (!context.mounted) return;
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(t.logsCopied),
+                                            ),
+                                          );
+                                        },
+                                  icon: const Icon(
+                                    Icons.copy_rounded,
+                                    size: 16,
+                                  ),
+                                  label: Text(t.copy),
+                                ),
+                                const SizedBox(width: 4),
+                                TextButton.icon(
+                                  onPressed: playback.debugLogs.isEmpty
+                                      ? null
+                                      : playbackController.clearDebugLogs,
+                                  icon: const Icon(
+                                    Icons.delete_sweep_rounded,
+                                    size: 16,
+                                  ),
+                                  label: Text(t.clear),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            SizedBox(
+                              height: 160,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.10),
+                                  ),
+                                ),
+                                child: playback.debugLogs.isEmpty
+                                    ? Center(
+                                        child: Text(
+                                          t.noLogsHint,
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.62,
+                                            ),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      )
+                                    : ListView.builder(
+                                        reverse: true,
+                                        itemCount: playback.debugLogs.length,
+                                        itemBuilder: (_, index) {
+                                          final line =
+                                              playback.debugLogs[playback
+                                                      .debugLogs
+                                                      .length -
+                                                  1 -
+                                                  index];
+                                          return Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 4,
+                                            ),
+                                            child: Text(
+                                              line,
+                                              style: TextStyle(
+                                                fontFamily: 'Consolas',
+                                                fontSize: 11,
+                                                height: 1.35,
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.84,
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _SettingsBlock(
+                      title: t.updateCheckTitle,
+                      child: _SettingsUpdateBlock(
+                        currentVersion: appSettings.currentVersion,
+                        latestVersion: appSettings.latestReleaseVersion,
+                        status: appSettings.releaseUpdateStatus,
+                        errorMessage: appSettings.releaseUpdateError,
+                        onCheckUpdate: appSettingsController.checkForUpdates,
+                        onOpenUpdate: () async {
+                          final targetUrl =
+                              appSettings.latestInstallerUrl.isNotEmpty
+                              ? appSettings.latestInstallerUrl
+                              : appSettings.latestReleaseUrl;
+                          await _openExternalUrl(targetUrl);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -2950,6 +2923,127 @@ class _NowPlayingInfo extends StatelessWidget {
     final h = d.inHours;
     if (h > 0) return '${h.toString().padLeft(2, '0')}:$m:$s';
     return '$m:$s';
+  }
+}
+
+class _PlaybackQueueTrackTile extends StatefulWidget {
+  const _PlaybackQueueTrackTile({
+    required this.track,
+    required this.index,
+    required this.isActive,
+    required this.coverBytes,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  final Track track;
+  final int index;
+  final bool isActive;
+  final Uint8List? coverBytes;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
+
+  @override
+  State<_PlaybackQueueTrackTile> createState() =>
+      _PlaybackQueueTrackTileState();
+}
+
+class _PlaybackQueueTrackTileState extends State<_PlaybackQueueTrackTile> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = widget.isActive;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: Material(
+        color: active
+            ? const Color(0xFF39C0FF).withValues(alpha: 0.18)
+            : Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: widget.onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  child: Text(
+                    '${widget.index + 1}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(
+                        alpha: active ? 0.94 : 0.54,
+                      ),
+                      fontSize: 12,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _TrackCover(
+                  track: widget.track,
+                  isActive: active,
+                  coverBytes: widget.coverBytes,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.track.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: active
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.track.artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.66),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  width: 40,
+                  child: IgnorePointer(
+                    ignoring: !_hovering,
+                    child: AnimatedOpacity(
+                      opacity: _hovering ? 1 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      child: IconButton(
+                        onPressed: widget.onRemove,
+                        icon: Icon(
+                          Icons.close_rounded,
+                          size: 18,
+                          color: Colors.redAccent.withValues(alpha: 0.92),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

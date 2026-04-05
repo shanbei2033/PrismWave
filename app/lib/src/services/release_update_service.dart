@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-const String kCurrentReleaseVersion = 'R011';
+const String kCurrentReleaseVersion = 'R020';
 
 class ReleaseUpdateInfo {
   const ReleaseUpdateInfo({
@@ -28,8 +28,14 @@ class ReleaseUpdateService {
     client.connectionTimeout = const Duration(seconds: 10);
     try {
       final request = await client.getUrl(Uri.parse(latestReleaseApiUrl));
-      request.headers.set(HttpHeaders.acceptHeader, 'application/vnd.github+json');
-      request.headers.set(HttpHeaders.userAgentHeader, 'PrismWave/$kCurrentReleaseVersion');
+      request.headers.set(
+        HttpHeaders.acceptHeader,
+        'application/vnd.github+json',
+      );
+      request.headers.set(
+        HttpHeaders.userAgentHeader,
+        'PrismWave/$kCurrentReleaseVersion',
+      );
       request.headers.set('X-GitHub-Api-Version', '2022-11-28');
 
       final response = await request.close();

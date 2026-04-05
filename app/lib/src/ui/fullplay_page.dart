@@ -18,6 +18,7 @@ import '../models/track.dart';
 import '../providers.dart';
 import '../state/library_state.dart';
 import '../state/playback_state.dart';
+import 'middle_click_autoscroll.dart';
 import 'window_top_bar.dart';
 
 class FullPlayPage extends ConsumerStatefulWidget {
@@ -179,7 +180,10 @@ class _FullPlayBody extends ConsumerWidget {
                 flex: 2,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final panelWidth = math.max(320.0, constraints.maxWidth - 12);
+                    final panelWidth = math.max(
+                      320.0,
+                      constraints.maxWidth - 12,
+                    );
                     final coverSide = (panelWidth * 0.72).clamp(240.0, 420.0);
                     final coverScale = playback.isPlaying ? 1.0 : 0.9;
 
@@ -193,8 +197,11 @@ class _FullPlayBody extends ConsumerWidget {
                             Center(
                               child: IconButton(
                                 tooltip: t.back,
-                                onPressed: () => Navigator.of(context).maybePop(),
-                                icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                                onPressed: () =>
+                                    Navigator.of(context).maybePop(),
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -323,9 +330,8 @@ class _FullPlayBody extends ConsumerWidget {
                                   child: SliderTheme(
                                     data: SliderTheme.of(context).copyWith(
                                       activeTrackColor: Colors.white,
-                                      inactiveTrackColor: Colors.white.withValues(
-                                        alpha: 0.24,
-                                      ),
+                                      inactiveTrackColor: Colors.white
+                                          .withValues(alpha: 0.24),
                                       thumbColor: Colors.white,
                                       overlayColor: Colors.white.withValues(
                                         alpha: 0.14,
@@ -338,7 +344,9 @@ class _FullPlayBody extends ConsumerWidget {
                                       max: safeDuration,
                                       onChanged: playback.hasTrack
                                           ? (value) => playbackCtrl.seekTo(
-                                              Duration(milliseconds: value.round()),
+                                              Duration(
+                                                milliseconds: value.round(),
+                                              ),
                                             )
                                           : null,
                                     ),
@@ -503,8 +511,8 @@ class _SlotLyricsPanelState extends State<_SlotLyricsPanel> {
     final spanMs = (nextTime - current.time).inMilliseconds;
     if (spanMs <= 0) return index < widget.currentIndex ? 1 : 0;
 
-    final elapsedMs =
-        (widget.currentPosition - current.time).inMilliseconds.toDouble();
+    final elapsedMs = (widget.currentPosition - current.time).inMilliseconds
+        .toDouble();
     final raw = (elapsedMs / spanMs).clamp(0.0, 1.0);
     return Curves.easeInOut.transform(raw);
   }
@@ -520,7 +528,8 @@ class _SlotLyricsPanelState extends State<_SlotLyricsPanel> {
       (total, line) => total + line.segments.length,
     );
     final mode = activeSegments > 0 ? 'timed-karaoke' : 'fallback-average';
-    final key = '$mode|$safeCurrent|$activeSegments|$karaokeLines|$totalSegments';
+    final key =
+        '$mode|$safeCurrent|$activeSegments|$karaokeLines|$totalSegments';
     if (_lastRenderDiagnosticKey == key) return;
     _lastRenderDiagnosticKey = key;
     widget.onRenderDiagnostic(
@@ -582,30 +591,31 @@ class _SlotLyricsPanelState extends State<_SlotLyricsPanel> {
         );
 
         return ScrollConfiguration(
-          behavior: ScrollConfiguration.of(context).copyWith(
-            scrollbars: false,
-          ),
-          child: ListView.builder(
+          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+          child: MiddleClickAutoScrollView(
             controller: _controller,
-            itemExtent: _itemExtent,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.symmetric(vertical: topPadding),
-            itemCount: widget.lyrics.length,
-            itemBuilder: (_, index) {
-              final active = index == safeCurrent;
-              final distance = (index - safeCurrent).abs();
-              return Center(
-                child: _SlotLyricText(
-                  key: ValueKey('slot-line-$index-$safeCurrent'),
-                  text: widget.lyrics[index].text,
-                  segments: widget.lyrics[index].segments,
-                  active: active,
-                  distance: distance,
-                  progress: active ? _lineProgress(index) : 0,
-                  currentPosition: widget.currentPosition,
-                ),
-              );
-            },
+            builder: (context, controller) => ListView.builder(
+              controller: controller,
+              itemExtent: _itemExtent,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.symmetric(vertical: topPadding),
+              itemCount: widget.lyrics.length,
+              itemBuilder: (_, index) {
+                final active = index == safeCurrent;
+                final distance = (index - safeCurrent).abs();
+                return Center(
+                  child: _SlotLyricText(
+                    key: ValueKey('slot-line-$index-$safeCurrent'),
+                    text: widget.lyrics[index].text,
+                    segments: widget.lyrics[index].segments,
+                    active: active,
+                    distance: distance,
+                    progress: active ? _lineProgress(index) : 0,
+                    currentPosition: widget.currentPosition,
+                  ),
+                );
+              },
+            ),
           ),
         );
       },
@@ -752,7 +762,9 @@ class _KaraokeLyricText extends StatelessWidget {
   }
 
   Widget _buildFallbackCharacterText() {
-    final segments = text.runes.map(String.fromCharCode).toList(growable: false);
+    final segments = text.runes
+        .map(String.fromCharCode)
+        .toList(growable: false);
     final paintableIndexes = <int>[];
     for (var i = 0; i < segments.length; i++) {
       if (segments[i].trim().isNotEmpty) {
@@ -760,8 +772,10 @@ class _KaraokeLyricText extends StatelessWidget {
       }
     }
 
-    final exactProgress =
-        (paintableIndexes.length * progress).clamp(0.0, paintableIndexes.length.toDouble());
+    final exactProgress = (paintableIndexes.length * progress).clamp(
+      0.0,
+      paintableIndexes.length.toDouble(),
+    );
     final highlightedCount = exactProgress.floor();
     final partialHighlight = exactProgress - highlightedCount;
     final highlightedIndexes = paintableIndexes.take(highlightedCount).toSet();
@@ -841,7 +855,8 @@ class _KaraokeLyricText extends StatelessWidget {
       return highlightStyle;
     }
 
-    final elapsedMs = (currentPosition - segment.start).inMilliseconds.toDouble();
+    final elapsedMs = (currentPosition - segment.start).inMilliseconds
+        .toDouble();
     final rawProgress = (elapsedMs / spanMs).clamp(0.0, 1.0);
     final partialColor = Color.lerp(
       baseColor,
@@ -892,7 +907,8 @@ class _LyricsQuickActions extends ConsumerStatefulWidget {
   final bool lowEffects;
 
   @override
-  ConsumerState<_LyricsQuickActions> createState() => _LyricsQuickActionsState();
+  ConsumerState<_LyricsQuickActions> createState() =>
+      _LyricsQuickActionsState();
 }
 
 class _LyricsQuickActionsState extends ConsumerState<_LyricsQuickActions> {
@@ -985,7 +1001,8 @@ class _LyricsQuickActionsState extends ConsumerState<_LyricsQuickActions> {
   Future<void> _openSearch() async {
     await showDialog<void>(
       context: context,
-      builder: (_) => _OnlineLyricsSearchDialog(track: widget.track, t: widget.t),
+      builder: (_) =>
+          _OnlineLyricsSearchDialog(track: widget.track, t: widget.t),
     );
   }
 
@@ -993,10 +1010,9 @@ class _LyricsQuickActionsState extends ConsumerState<_LyricsQuickActions> {
     final raw = _offsetController.text.trim();
     if (raw.isEmpty) {
       if (widget.initialOffsetSeconds != 0) {
-        await ref.read(libraryProvider.notifier).setLyricsOffsetSeconds(
-              widget.track,
-              0,
-            );
+        await ref
+            .read(libraryProvider.notifier)
+            .setLyricsOffsetSeconds(widget.track, 0);
       }
       if (mounted) {
         setState(() {
@@ -1026,10 +1042,9 @@ class _LyricsQuickActionsState extends ConsumerState<_LyricsQuickActions> {
     }
 
     final rounded = (parsed * 10).round() / 10.0;
-    await ref.read(libraryProvider.notifier).setLyricsOffsetSeconds(
-          widget.track,
-          rounded,
-        );
+    await ref
+        .read(libraryProvider.notifier)
+        .setLyricsOffsetSeconds(widget.track, rounded);
     if (!mounted) return;
     _syncingOffsetText = true;
     setState(() {
@@ -1046,8 +1061,7 @@ class _LyricsQuickActionsState extends ConsumerState<_LyricsQuickActions> {
   Widget build(BuildContext context) {
     final shouldReveal = _hovering || _expanded || _offsetFocusNode.hasFocus;
     const editorWidth = 64.0;
-    final editorBottom =
-        _buttonSize + _buttonGap + ((_buttonSize - 42) / 2);
+    final editorBottom = _buttonSize + _buttonGap + ((_buttonSize - 42) / 2);
     final editorRight = _buttonSize + 12;
 
     return MouseRegion(
@@ -1136,7 +1150,9 @@ class _LyricsQuickActionsState extends ConsumerState<_LyricsQuickActions> {
                               },
                               child: _expanded
                                   ? Column(
-                                      key: const ValueKey('lyrics-tools-expanded'),
+                                      key: const ValueKey(
+                                        'lyrics-tools-expanded',
+                                      ),
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         _buildActionButton(
@@ -1148,8 +1164,7 @@ class _LyricsQuickActionsState extends ConsumerState<_LyricsQuickActions> {
                                                 : _onlineLyricsSvg,
                                             width: 18,
                                             height: 18,
-                                            colorFilter:
-                                                const ColorFilter.mode(
+                                            colorFilter: const ColorFilter.mode(
                                               Colors.white,
                                               BlendMode.srcIn,
                                             ),
@@ -1164,8 +1179,7 @@ class _LyricsQuickActionsState extends ConsumerState<_LyricsQuickActions> {
                                             _searchLyricsSvg,
                                             width: 18,
                                             height: 18,
-                                            colorFilter:
-                                                const ColorFilter.mode(
+                                            colorFilter: const ColorFilter.mode(
                                               Colors.white,
                                               BlendMode.srcIn,
                                             ),
@@ -1187,7 +1201,9 @@ class _LyricsQuickActionsState extends ConsumerState<_LyricsQuickActions> {
                                             });
                                             if (_showOffsetEditor) {
                                               await Future<void>.delayed(
-                                                const Duration(milliseconds: 40),
+                                                const Duration(
+                                                  milliseconds: 40,
+                                                ),
                                               );
                                               if (mounted) {
                                                 _offsetFocusNode.requestFocus();
@@ -1430,10 +1446,9 @@ class _CoverSearchDialogState extends ConsumerState<_CoverSearchDialog> {
       _error = null;
     });
 
-    final success = await ref.read(libraryProvider.notifier).applyCustomCoverSelection(
-          widget.track,
-          result,
-        );
+    final success = await ref
+        .read(libraryProvider.notifier)
+        .applyCustomCoverSelection(widget.track, result);
 
     if (!mounted) return;
     final nextState = ref.read(libraryProvider);
@@ -1464,9 +1479,7 @@ class _CoverSearchDialogState extends ConsumerState<_CoverSearchDialog> {
             decoration: BoxDecoration(
               color: const Color(0xFF0B1220).withValues(alpha: 0.22),
               borderRadius: BorderRadius.circular(26),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.18),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.18),
@@ -1701,10 +1714,7 @@ class _CoverSearchCardState extends State<_CoverSearchCard> {
 }
 
 class _OnlineLyricsSearchDialog extends ConsumerStatefulWidget {
-  const _OnlineLyricsSearchDialog({
-    required this.track,
-    required this.t,
-  });
+  const _OnlineLyricsSearchDialog({required this.track, required this.t});
 
   final Track track;
   final AppStrings t;
@@ -1747,13 +1757,19 @@ class _OnlineLyricsSearchDialogState
       final results = await ref
           .read(libraryProvider.notifier)
           .searchOnlineLyrics(widget.track, query);
-      final qqCount = results.where((item) => item.provider == 'qqmusic').length;
-      final lrclibCount = results.where((item) => item.provider == 'lrclib').length;
+      final qqCount = results
+          .where((item) => item.provider == 'qqmusic')
+          .length;
+      final lrclibCount = results
+          .where((item) => item.provider == 'lrclib')
+          .length;
       final timedCount = results.where((item) => item.hasTimedSegments).length;
-      ref.read(playbackProvider.notifier).appendDeveloperLog(
-        'lyrics.search -> query="$query", total=${results.length}, '
-        'qq=$qqCount, lrclib=$lrclibCount, timed=$timedCount',
-      );
+      ref
+          .read(playbackProvider.notifier)
+          .appendDeveloperLog(
+            'lyrics.search -> query="$query", total=${results.length}, '
+            'qq=$qqCount, lrclib=$lrclibCount, timed=$timedCount',
+          );
       if (!mounted) return;
       setState(() {
         _hasSearched = true;
@@ -1810,9 +1826,7 @@ class _OnlineLyricsSearchDialogState
             decoration: BoxDecoration(
               color: const Color(0xFF0B1220).withValues(alpha: 0.22),
               borderRadius: BorderRadius.circular(26),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.18),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.18),
@@ -1868,7 +1882,10 @@ class _OnlineLyricsSearchDialogState
                   const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
                       color: Colors.white.withValues(alpha: 0.05),
@@ -1899,7 +1916,8 @@ class _OnlineLyricsSearchDialogState
                             _LyricsStatusChip(label: currentStatusLabel),
                             _LyricsStatusChip(
                               label: karaokeLabel,
-                              highlighted: currentDocument?.hasTimedSegments == true,
+                              highlighted:
+                                  currentDocument?.hasTimedSegments == true,
                             ),
                           ],
                         ),
@@ -2000,7 +2018,6 @@ class _OnlineLyricsSearchDialogState
     }
     return '$size B';
   }
-
 }
 
 class _LyricsStatusChip extends StatelessWidget {
@@ -2138,10 +2155,7 @@ class _PlaybackModeButton extends StatelessWidget {
             width: 18,
             height: 18,
             semanticsLabel: tooltip,
-            colorFilter: const ColorFilter.mode(
-              Colors.white,
-              BlendMode.srcIn,
-            ),
+            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
           ),
         ),
       ),

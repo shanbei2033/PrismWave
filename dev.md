@@ -5,7 +5,7 @@
 ## 1. 项目定位
 
 - 项目名称：PrismWave
-- 当前正式版本：`R011`
+- 当前正式版本：`R020`
 - GitHub 仓库：[https://github.com/shanbei2033/PrismWave](https://github.com/shanbei2033/PrismWave)
 - 主要平台：Windows 桌面
 - 当前核心定位：本地音乐播放器 + Windows 桌面体验 + 玻璃拟态 / Acrylic UI + 歌词与音频输出控制
@@ -34,7 +34,7 @@
 
 - `memory.md` 中部分内容仍停留在 `R010`
 - `README.md` 仍将项目描述为“first usable demo version”
-- 实际代码中的版本、安装器和更新逻辑已经前进到 `R011`
+- 实际代码中的版本、安装器和更新逻辑已经前进到 `R020`
 
 ## 3. 当前版本现状
 
@@ -42,29 +42,29 @@
 
 项目目前同时存在两套版本表达：
 
-- 对外发布版本：`R011`
-- Flutter 包版本：`11.0.0+11`
+- 对外发布版本：`R020`
+- Flutter 包版本：`20.0.0+20`
 
 这两者并不冲突，当前用法是：
 
-- GitHub Release / 安装器 / 更新检查：使用 `R011`
-- Flutter `pubspec.yaml` / 平台构建版本：使用 `11.0.0+11`
+- GitHub Release / 安装器 / 更新检查：使用 `R020`
+- Flutter `pubspec.yaml` / 平台构建版本：使用 `20.0.0+20`
 
 ### 3.2 当前代码中的权威版本来源
 
 - `app/lib/src/services/release_update_service.dart`
-  - `kCurrentReleaseVersion = 'R011'`
+  - `kCurrentReleaseVersion = 'R020'`
 - `app/pubspec.yaml`
-  - `version: 11.0.0+11`
+  - `version: 20.0.0+20`
 - `installer/PrismWaveSetup.iss`
-  - `#define MyAppVersion "R011"`
+  - `#define MyAppVersion "R020"`
 
 ### 3.3 安装器现状
 
-当前 Inno Setup 脚本已按 `R011` 配置，输出文件名为：
+当前 Inno Setup 脚本已按 `R020` 配置，输出文件名为：
 
 ```text
-dist/PrismWave-Setup-R011.exe
+dist/PrismWave-Setup-R020.exe
 ```
 
 安装器默认路径规则：
@@ -121,7 +121,7 @@ dist/PrismWave-Setup-R011.exe
 
 ### 3.5 命名与文案遗留现状
 
-虽然当前版本已经按 `R011` 正式版维护，但代码中仍保留一些历史命名：
+虽然当前版本已经按 `R020` 正式版维护，但代码中仍保留一些历史命名：
 
 - Flutter 包名仍为 `prismwave_demo`
 - Windows runner 构建出的源可执行文件仍叫 `prismwave_demo.exe`
@@ -976,8 +976,8 @@ FullPlay 页面中歌词面板实现了两种高亮方式：
 
 当前版本比较规则支持：
 
-- `R011`
-- `R011_fix1`
+- `R020`
+- `R020_fix1`
 
 ## 16. UI 结构
 
@@ -1297,7 +1297,7 @@ cd app
 
 当前已确认的不一致项包括：
 
-- 正式版本不是 `R010`，而是 `R011`
+- 正式版本不是 `R010`，而是 `R020`
 - 安装器默认回退路径不是 `C:\Program Files\PrismWave`，而是 `C:\PrismWave`
 - README 里“demo 版本”的表述已经落后
 - README 中提到的 `step.md` 当前仓库并不存在
@@ -1365,5 +1365,5 @@ cd app
 最后更新说明：
 
 - 本文档基于当前仓库代码状态整理
-- 当前正式版本按 `R011` 维护
+- 当前正式版本按 `R020` 维护
 - 仓库地址按 `https://github.com/shanbei2033/PrismWave` 维护

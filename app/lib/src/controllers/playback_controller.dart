@@ -563,6 +563,14 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     await _playFromContext(track, libraryTracks);
   }
 
+  Future<void> playFromCurrentQueue(Track track) async {
+    final index = state.currentPlaylist.indexWhere(
+      (item) => item.id == track.id,
+    );
+    if (index < 0) return;
+    await _playIndex(index);
+  }
+
   Future<void> _playFromContext(Track track, List<Track> playlist) async {
     if (playlist.isEmpty) return;
     if (!_isPlayableInDemo(track.path)) {
@@ -593,8 +601,14 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       return;
     }
 
+    final rotatedPlaylist = _rotatePlaylistToSelectedFirst(
+      playablePlaylist,
+      startIndex: index,
+    );
+
     _debug(
       'playFromContext -> selectedIndex=$index, playlistLength=${playablePlaylist.length}, '
+      'queueStartsWith="${rotatedPlaylist.first.title}", '
       'track="${track.title}", ext=${p.extension(track.path).toLowerCase()}, '
       'outputMode=${state.audioOutputMode.name}',
       force: true,
@@ -602,9 +616,9 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
     final token = _newSession();
     state = state.copyWith(
-      currentPlaylist: playablePlaylist,
-      currentTrack: playablePlaylist[index],
-      currentIndex: index,
+      currentPlaylist: rotatedPlaylist,
+      currentTrack: rotatedPlaylist.first,
+      currentIndex: 0,
       currentTime: Duration.zero,
       duration: Duration.zero,
       isLoading: true,
@@ -613,12 +627,24 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     await _syncNativeLoopMode();
 
     await _loadPlaylistAndPlay(
-      playlist: playablePlaylist,
-      index: index,
+      playlist: rotatedPlaylist,
+      index: 0,
       expectedToken: token,
       errorPrefix: 'Play failed',
       markAutoAdvancedTrack: false,
     );
+  }
+
+  List<Track> _rotatePlaylistToSelectedFirst(
+    List<Track> playlist, {
+    required int startIndex,
+  }) {
+    if (playlist.isEmpty) return const [];
+    if (startIndex <= 0 || startIndex >= playlist.length) {
+      return List<Track>.from(playlist, growable: false);
+    }
+
+    return <Track>[...playlist.skip(startIndex), ...playlist.take(startIndex)];
   }
 
   Future<void> togglePlayPause() async {

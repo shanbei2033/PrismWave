@@ -8,6 +8,9 @@ Thumbs.db
 backups/
 *.log
 *.tmp
+/*.md
+!/README.md
+!/README_zh.md
 release/
 release_test_install/
 dist/

@@ -46,6 +46,9 @@ class _HitsTransitionPageState extends ConsumerState<HitsTransitionPage>
   // --- Cached unavailable exit animation ---
   late final Animation<double> _unavailExitAnim;
 
+  // --- Cached merged listenable (created once, not per-build) ---
+  late final Listenable _mergedAnimation;
+
   // --- Cached decorations (not rebuilt per-frame) ---
   static final _glowDecoration = BoxDecoration(
     gradient: RadialGradient(
@@ -76,11 +79,11 @@ class _HitsTransitionPageState extends ConsumerState<HitsTransitionPage>
         if (status == AnimationStatus.completed && !_entranceCompleted) {
           if (mounted) {
             setState(() => _entranceCompleted = true);
+            _breathing.repeat(reverse: true);
+            _maybeScheduleNavigation();
           } else {
             _entranceCompleted = true;
           }
-          _breathing.repeat(reverse: true);
-          _maybeScheduleNavigation();
         }
       });
 
@@ -99,6 +102,7 @@ class _HitsTransitionPageState extends ConsumerState<HitsTransitionPage>
       });
 
     // Pre-build all curved animations once.
+    _mergedAnimation = Listenable.merge([_entrance, _breathing, _exit]);
     _hAnim = CurvedAnimation(
       parent: _entrance,
       curve: const Interval(0.00, 0.34, curve: Curves.easeOutCubic),
@@ -253,8 +257,9 @@ class _HitsTransitionPageState extends ConsumerState<HitsTransitionPage>
         matchedTrack != null &&
         (library.coverBytesOf(matchedTrack)?.isNotEmpty ?? false);
     final localCoverPath = matchedTrack?.coverPath ?? '';
-    final hasLocalCoverPath =
-        localCoverPath.trim().isNotEmpty && File(localCoverPath).existsSync();
+    // Avoid File.existsSync() on UI thread — just check if path is set.
+    // Image.file will handle missing files via errorBuilder.
+    final hasLocalCoverPath = localCoverPath.trim().isNotEmpty;
     if (hasLocalCoverBytes || hasLocalCoverPath) return true;
     if (hits.currentCoverBytes?.isNotEmpty ?? false) return true;
     return !hits.isCoverLoading;
@@ -299,7 +304,13 @@ class _HitsTransitionPageState extends ConsumerState<HitsTransitionPage>
       playback: ref.read(playbackProvider),
       library: ref.read(libraryProvider),
     );
-    final target = effectiveTarget ?? _HitsTransitionTarget.available;
+    // If readiness checks haven't passed yet, don't navigate.
+    if (effectiveTarget == null) {
+      _navigated = false;
+      _exiting = false;
+      return;
+    }
+    final target = effectiveTarget;
 
     final route = switch (target) {
       _HitsTransitionTarget.unavailable => PageRouteBuilder<void>(
@@ -312,11 +323,9 @@ class _HitsTransitionPageState extends ConsumerState<HitsTransitionPage>
           reverseTransitionDuration: const Duration(milliseconds: 320),
           pageBuilder: (_, _, _) => const HitsFullPlayPage(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            final curved = CurvedAnimation(
-              parent: animation,
+            final curved = animation.drive(CurveTween(
               curve: Curves.easeOutCubic,
-              reverseCurve: Curves.easeInOutCubic,
-            );
+            ));
             return FadeTransition(
               opacity: curved,
               child: SlideTransition(
@@ -380,11 +389,7 @@ class _HitsTransitionPageState extends ConsumerState<HitsTransitionPage>
                 coverBytes: coverBytes,
               ),
               AnimatedBuilder(
-                animation: Listenable.merge([
-                  _entrance,
-                  _breathing,
-                  _exit,
-                ]),
+                animation: _mergedAnimation,
                 builder: (context, _) {
                   // Read cached animation values — no allocations.
                   final hVal = _hAnim.value;
@@ -624,14 +629,11 @@ class _TransitionCoverImage extends StatelessWidget {
         errorBuilder: (_, _, _) => _fileImageOrPlaceholder(),
       );
     }
-    if (coverPath != null && File(coverPath!).existsSync()) {
-      return _fileImageOrPlaceholder();
-    }
-    return _placeholder();
+    return _fileImageOrPlaceholder();
   }
 
   Widget _fileImageOrPlaceholder() {
-    if (coverPath != null && File(coverPath!).existsSync()) {
+    if (coverPath != null && coverPath!.isNotEmpty) {
       return Image.file(
         File(coverPath!),
         fit: fit,

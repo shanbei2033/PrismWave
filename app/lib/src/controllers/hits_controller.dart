@@ -187,6 +187,7 @@ class HitsController extends StateNotifier<HitsState> {
   Future<void> _refreshManifestInBackground() async {
     try {
       final freshBundle = await _manifestService.loadActiveBundle();
+      if (_disposed) return;
       if (!freshBundle.usedCache) {
         await _applyBundle(freshBundle);
       }
@@ -552,6 +553,11 @@ class HitsController extends StateNotifier<HitsState> {
           );
 
     if (_disposed) return;
+    if (requestToken != _playbackResolutionRequestToken) return;
+    if (state.currentScheduleTrack?.stationTrackId !=
+        scheduleTrack.stationTrackId) {
+      return;
+    }
     final resolvedTrack = resolved == null
         ? null
         : _buildHitsPlaybackTrack(
@@ -622,10 +628,12 @@ class HitsController extends StateNotifier<HitsState> {
     required HitsScheduleTrack scheduleTrack,
     required HitsResolvedAudioSource source,
   }) async {
+    if (_disposed) return;
     final playbackUrl = await _mediaCacheService.prefetchAudio(
       track: scheduleTrack,
       source: source,
     );
+    if (_disposed) return;
     if (playbackUrl != null) {
       _playbackController.appendDeveloperLog(
         'hits.cache.audio -> ${scheduleTrack.stationTrackId}',
@@ -774,13 +782,14 @@ class HitsController extends StateNotifier<HitsState> {
   }
 
   Future<void> _prefetchTrackAssets(HitsScheduleTrack scheduleTrack) async {
+    if (_disposed) return;
     unawaited(_prefetchTrackCover(scheduleTrack));
     unawaited(_prefetchTrackLyrics(scheduleTrack));
 
     final immediateSource = _resolveImmediatePlaybackSource(scheduleTrack);
     final source =
         immediateSource ?? await _audioResolverService.resolveTrack(scheduleTrack);
-    if (source == null) {
+    if (_disposed || source == null) {
       return;
     }
 
@@ -788,6 +797,7 @@ class HitsController extends StateNotifier<HitsState> {
       track: scheduleTrack,
       source: source,
     );
+    if (_disposed) return;
     if (playbackUrl != null) {
       _playbackController.appendDeveloperLog(
         'hits.prefetch.ready -> ${scheduleTrack.stationTrackId}',
@@ -799,10 +809,12 @@ class HitsController extends StateNotifier<HitsState> {
     HitsScheduleTrack scheduleTrack, {
     HitsResolvedAudioSource? source,
   }) async {
+    if (_disposed) return;
     final bytes = await _loadBestCoverBytes(
       scheduleTrack: scheduleTrack,
       source: source,
     );
+    if (_disposed) return;
     if (bytes != null && bytes.isNotEmpty) {
       _playbackController.appendDeveloperLog(
         'hits.cache.cover -> ${scheduleTrack.stationTrackId}',
@@ -811,9 +823,11 @@ class HitsController extends StateNotifier<HitsState> {
   }
 
   Future<void> _prefetchTrackLyrics(HitsScheduleTrack scheduleTrack) async {
+    if (_disposed) return;
     final document = await _resolveOnlineLyricsDocumentForScheduleTrack(
       scheduleTrack,
     );
+    if (_disposed) return;
     if (document != null && !document.isEmpty) {
       _playbackController.appendDeveloperLog(
         'hits.cache.lyrics -> ${scheduleTrack.stationTrackId}',
@@ -921,6 +935,10 @@ class HitsController extends StateNotifier<HitsState> {
         return;
       }
 
+      // Evict stale failure entries (older than 5 minutes).
+      _recentlyFailedTrackIds.removeWhere((_, failedAt) =>
+          nowUtc.difference(failedAt) > const Duration(minutes: 5));
+
       // Skip tracks whose playback source recently failed (e.g. bad URL
       // that causes the player to complete within seconds).
       if (_recentlyFailedTrackIds.containsKey(playbackTrack.id)) {
@@ -1000,10 +1018,12 @@ class HitsController extends StateNotifier<HitsState> {
     }
 
     await _playbackController.stopAndClear(useFade: true);
+    if (_disposed) return;
     _syncPlaybackFlagsInState();
   }
 
   void _syncPlaybackFlagsInState({bool? userPaused}) {
+    if (_disposed) return;
     state = state.copyWith(
       isSessionActive: true,
       isPlaying: _isHitsPlaybackActive(),
@@ -1193,6 +1213,6 @@ class HitsController extends StateNotifier<HitsState> {
     // Restore playback after super.dispose() so the StateNotifier is marked
     // disposed before the async work runs.  The _disposed flag prevents any
     // stale async callbacks from touching this controller's state.
-    unawaited(_restorePreviousPlayback());
+    unawaited(_restorePreviousPlayback().catchError((_) {}));
   }
 }

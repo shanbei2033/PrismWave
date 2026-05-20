@@ -940,6 +940,8 @@ class HitsAudioResolverService {
       return const <Map<String, dynamic>>[];
     } on FormatException {
       return const <Map<String, dynamic>>[];
+    } catch (_) {
+      return const <Map<String, dynamic>>[];
     }
   }
 
@@ -2727,7 +2729,13 @@ class HitsAudioResolverService {
     final pending = futures.toList(growable: true);
     while (pending.isNotEmpty) {
       final wrapped = pending
-          .map((future) async => (future: future, value: await future))
+          .map((future) async {
+            try {
+              return (future: future, value: await future);
+            } catch (_) {
+              return (future: future, value: null as T?);
+            }
+          })
           .toList(growable: false);
       final settled = await Future.any(wrapped);
       pending.remove(settled.future);

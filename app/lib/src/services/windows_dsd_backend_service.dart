@@ -24,6 +24,7 @@ class WindowsDsdBackendService {
   BassFfiBindings? _bindings;
   HStream _streamHandle = 0;
   bool _isPlaying = false;
+  bool _completedFired = false;
   bool _isInitialized = false;
   bool _usingRawDsd = false;
   Duration _duration = Duration.zero;
@@ -268,7 +269,7 @@ class WindowsDsdBackendService {
     _pollTimer = null;
     _disposeCurrentStream();
     if (_bindings != null && _isInitialized) {
-      _bindings!.bassAsioFree();
+      // _disposeCurrentStream already called bassAsioFree when a stream was active.
       _bindings!.bassFree();
     }
     _isInitialized = false;
@@ -342,6 +343,7 @@ class WindowsDsdBackendService {
     }
     _streamHandle = 0;
     _isPlaying = false;
+    _completedFired = false;
     _usingRawDsd = false;
     _duration = Duration.zero;
     _position = Duration.zero;
@@ -416,7 +418,10 @@ class WindowsDsdBackendService {
       }
 
       if (_duration > Duration.zero && _position >= _duration) {
-        _completedController.add(null);
+        if (!_completedFired) {
+          _completedFired = true;
+          _completedController.add(null);
+        }
       }
     });
   }

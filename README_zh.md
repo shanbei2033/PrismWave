@@ -4,36 +4,35 @@
 
 PrismWave 是一个基于 Flutter 开发的 Windows 本地音乐播放器。
 
-这个仓库目前包含第一个可用的 Demo 版本。当前构建重点打通了桌面端体验、音乐库结构、播放流程、输出模式以及歌词显示等核心链路。
+## 功能
 
-## 当前功能
-
-- 本地音乐库扫描
-- 音乐库 / 专辑 / 艺术家 / 我最爱 视图
-- 搜索与收藏管理
-- 底部播放栏
-- 带同步歌词的 Full Play 页面
+- 本地音乐库扫描与文件夹管理
+- 音乐库 / 专辑 / 艺术家 / 我最爱 视图，支持拖拽排序
+- 底部播放栏 + 全屏播放页
+- 播放队列，支持拖拽排序
 - 播放模式：列表循环、单曲循环、随机播放
 - 音频输出模式：兼容模式、WASAPI 共享、WASAPI 独占
+- 歌词：本地歌词、在线搜索与缓存、逐字歌词、QQ QRC 解码
+- HITS 广播模式：基于节目单的在线播放，9 个音源 provider，封面与歌词缓存，预加载
+- Windows DSD 后端（BASS/BASSDSD/BASSASIO FFI）
 - 开发者模式：实时播放日志窗口与本地日志文件
 
 ## 技术栈
 
-- Flutter
+- Flutter (3.29.3)
 - Riverpod
-- just_audio
-- media_kit / MPV
+- just_audio + just_audio_media_kit (media_kit / MPV)
+- BASS / BASSDSD / BASSASIO（DSD 播放）
 - Windows Desktop
 
 ## 项目结构
 
 ```text
 PrismWave/
-  app/               Flutter 应用
-  native/rust_core/  预留的 Rust 音频核心工作区
-  backups/           本地备份
-  dev.md             产品与架构说明
-  step.md            开发流程记录
+  app/                   Flutter 应用
+  native/windows_dsd/    BASS/BASSDSD/BASSASIO 原生运行库
+  installer/             Inno Setup 安装包脚本
+  tools/flutter/         内置 Flutter SDK（已 gitignore）
 ```
 
 ## 运行
@@ -69,7 +68,7 @@ app/build/windows/x64/runner/Release/prismwave_demo.exe
 
 ## 音频说明
 
-当前 Demo 使用 `just_audio + media_kit + MPV` 作为播放后端。
+播放后端为 `just_audio + media_kit + MPV`。
 
 Windows 下可用的输出模式：
 
@@ -77,7 +76,14 @@ Windows 下可用的输出模式：
 - WASAPI 共享
 - WASAPI 独占
 
-曲目切换行为由应用层控制，依据当前播放列表上下文、当前索引以及播放模式决定下一首逻辑。
+## HITS 模式
+
+HITS 是一个广播电台模式，按节目单播放在线内容：
+
+- 从 `prismwave-hits` 仓库拉取节目单
+- 9 个音源 provider 解析音频（B 站、YouTube、Audius、网易云、酷我、咪咕、QQ 音乐、酷狗）
+- 封面、歌词、音频本地缓存
+- 后台预加载即将播放的曲目
 
 ## 开发者模式
 
@@ -86,8 +92,6 @@ Windows 下可用的输出模式：
 ```text
 C:\Users\<你的用户名>\AppData\Local\PrismWave\logs\
 ```
-
-这些日志主要用于排查播放错误、输出模式诊断以及自动切换相关问题。
 
 ## 鸣谢
 

@@ -4,6 +4,9 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Claude Code local settings
+.claude/
+
 # Local workflow files
 backups/
 *.log
@@ -21,6 +24,7 @@ dist/
 .fake_android_sdk/
 .pub-cache/
 .tmp/
+*.zip
 
 # Flutter / Dart
 app/.dart_tool/
@@ -39,6 +43,11 @@ native/rust_core/target/
 
 # Bundled local SDK / tools
 tools/flutter/
+.sdk/
+
+# External repos / separate projects
+prismwave-hits/
+app_android/
 
 # Local app logs
 PrismWave/

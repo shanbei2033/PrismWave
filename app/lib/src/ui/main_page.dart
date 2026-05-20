@@ -14,6 +14,7 @@ import '../i18n/app_strings.dart';
 import '../models/audio_file_details.dart';
 import '../models/app_language.dart';
 import '../models/audio_output_mode.dart';
+import '../models/playback_backend_kind.dart';
 import '../models/playback_mode.dart';
 import '../models/release_update_status.dart';
 import '../models/top_bar_idle_mode.dart';
@@ -24,6 +25,8 @@ import '../state/library_state.dart';
 import '../state/playback_state.dart';
 import 'fullplay_page.dart';
 import 'glass_panel.dart';
+import 'hits_availability.dart';
+import 'hits_transition_page.dart';
 import 'middle_click_autoscroll.dart';
 import 'window_top_bar.dart';
 
@@ -361,24 +364,6 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
               ),
             ),
-            IconButton(
-              tooltip: t.settings,
-              onPressed: _openSettings,
-              icon: SvgPicture.asset(
-                'assets/icons/settings.svg',
-                width: 19,
-                height: 19,
-                colorFilter: const ColorFilter.mode(
-                  Color(0xFFB9DEFF),
-                  BlendMode.srcIn,
-                ),
-              ),
-              style: IconButton.styleFrom(
-                backgroundColor: _section == MainSection.settings
-                    ? Colors.white.withValues(alpha: 0.10)
-                    : Colors.transparent,
-              ),
-            ),
           ],
         ),
         const SizedBox(height: 18),
@@ -405,20 +390,93 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
           icon: Icons.favorite_rounded,
           label: t.favorites,
         ),
+        const SizedBox(height: 8),
+        _buildHitsNavButton(t),
         const Spacer(),
-        Text(
-          '${t.folders}: ${library.libraryFolders.length}',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.70)),
-        ),
-        Text(
-          '${t.tracks}: ${library.tracks.length}',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.70)),
-        ),
-        Text(
-          '${t.favoriteCountLabel}: ${library.favoritePaths.length}',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.70)),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${t.folders}: ${library.libraryFolders.length}',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.70),
+                    ),
+                  ),
+                  Text(
+                    '${t.tracks}: ${library.tracks.length}',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.70),
+                    ),
+                  ),
+                  Text(
+                    '${t.favoriteCountLabel}: ${library.favoritePaths.length}',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.70),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            _buildSettingsActionButton(t),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _buildHitsNavButton(AppStrings t) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: _openHitsTransition,
+        child: SizedBox(
+          height: 44,
+          child: Row(
+            children: [
+              const SizedBox(width: 12),
+              SvgPicture.asset(
+                'assets/icons/hits.svg',
+                width: 20,
+                height: 20,
+                colorFilter: ColorFilter.mode(
+                  Colors.white.withValues(alpha: 0.94),
+                  BlendMode.srcIn,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'HITS',
+                style: TextStyle(fontSize: 15),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsActionButton(AppStrings t) {
+    return IconButton(
+      tooltip: t.settings,
+      onPressed: _openSettings,
+      icon: SvgPicture.asset(
+        'assets/icons/settings.svg',
+        width: 19,
+        height: 19,
+        colorFilter: const ColorFilter.mode(Color(0xFFB9DEFF), BlendMode.srcIn),
+      ),
+      style: IconButton.styleFrom(
+        backgroundColor: _section == MainSection.settings
+            ? Colors.white.withValues(alpha: 0.10)
+            : Colors.transparent,
+      ),
     );
   }
 
@@ -977,8 +1035,13 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                           ),
                       itemBuilder: (_, index) {
                         final album = albums[index];
-                        final firstTrack = album.value.first;
-                        final coverBytes = library.coverBytesOf(firstTrack);
+                        final representativeTrack = _representativeCoverTrack(
+                          library,
+                          album.value,
+                        );
+                        final coverBytes = library.coverBytesOf(
+                          representativeTrack,
+                        );
 
                         return Material(
                           color: Colors.white.withValues(alpha: 0.04),
@@ -999,7 +1062,8 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(10),
                                       child: _CoverImage(
-                                        coverPath: firstTrack.coverPath,
+                                        coverPath:
+                                            representativeTrack.coverPath,
                                         coverBytes: coverBytes,
                                       ),
                                     ),
@@ -1587,6 +1651,56 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     });
   }
 
+  Future<void> _openHitsTransition() async {
+    final availabilityFuture = HitsAvailabilityResolver.resolve();
+    final track = ref.read(playbackProvider).currentTrack;
+    if (track != null) {
+      await ref.read(libraryProvider.notifier).ensureLyricsLoaded(track);
+    }
+    if (!mounted) return;
+    await ref.read(playbackProvider.notifier).setAudioOutputMode(
+      AudioOutputMode.wasapiShared,
+    );
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 480),
+        reverseTransitionDuration: const Duration(milliseconds: 340),
+        pageBuilder: (_, _, _) =>
+            HitsTransitionPage(availabilityFuture: availabilityFuture),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
+          return AnimatedBuilder(
+            animation: curved,
+            builder: (context, _) {
+              final progress = curved.value;
+              return ImageFiltered(
+                imageFilter: ImageFilter.blur(
+                  sigmaX: (1.0 - progress) * 18,
+                  sigmaY: (1.0 - progress) * 4,
+                ),
+                child: Transform.translate(
+                  offset: Offset(
+                    (1.0 - progress) * MediaQuery.of(context).size.width * 0.42,
+                    0,
+                  ),
+                  child: Opacity(
+                    opacity: progress.clamp(0.0, 1.0),
+                    child: child,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
   String _formatDuration(Duration? duration) {
     if (duration == null || duration <= Duration.zero) {
       return '--:--';
@@ -1600,15 +1714,46 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     }
     return '$minutes:$seconds';
   }
+
+  Track _representativeCoverTrack(LibraryState library, List<Track> tracks) {
+    for (final track in tracks) {
+      final coverBytes = library.coverBytesOf(track);
+      if (coverBytes != null && coverBytes.isNotEmpty) {
+        return track;
+      }
+      final coverPath = track.coverPath?.trim() ?? '';
+      if (coverPath.isNotEmpty && File(coverPath).existsSync()) {
+        return track;
+      }
+    }
+    return tracks.first;
+  }
 }
 
-class _SettingsPanel extends ConsumerWidget {
+bool _looksLikeDsdTrack(Track? track) {
+  if (track == null || track.isRemote) {
+    return false;
+  }
+  final lowerPath = track.path.toLowerCase();
+  return lowerPath.endsWith('.dsf') || lowerPath.endsWith('.dff');
+}
+
+enum _SettingsCategory { basic, playback }
+
+class _SettingsPanel extends ConsumerStatefulWidget {
   const _SettingsPanel({required this.onClose});
 
   final VoidCallback onClose;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SettingsPanel> createState() => _SettingsPanelState();
+}
+
+class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
+  _SettingsCategory _selectedCategory = _SettingsCategory.basic;
+
+  @override
+  Widget build(BuildContext context) {
     final appSettings = ref.watch(appSettingsProvider);
     final appSettingsController = ref.read(appSettingsProvider.notifier);
     final t = AppStrings(appSettings.language);
@@ -1621,6 +1766,30 @@ class _SettingsPanel extends ConsumerWidget {
         audioDevices.any((device) => device.id == playback.audioOutputDeviceId)
         ? playback.audioOutputDeviceId
         : audioDevices.first.id;
+    final dsdDevices = playback.availableWindowsDsdDevices;
+    final selectedWindowsDsdDeviceId =
+        playback.selectedWindowsDsdDeviceId == 'auto' ||
+            dsdDevices.any(
+              (device) =>
+                  device.id.toString() == playback.selectedWindowsDsdDeviceId,
+            )
+        ? playback.selectedWindowsDsdDeviceId
+        : 'auto';
+    final currentTrackIsDsd = _looksLikeDsdTrack(playback.currentTrack);
+    final dsdBackendSummary =
+        playback.backendKind == PlaybackBackendKind.windowsDsd
+        ? t.windowsDsdBackendActive
+        : currentTrackIsDsd &&
+              (playback.windowsDsdFallbackReason?.trim().isNotEmpty ?? false)
+        ? t.windowsDsdBackendFallback
+        : t.windowsDsdBackendIdle;
+    final dsdRuntimeSummary = playback.windowsDsdAvailable
+        ? t.windowsDsdRuntimeReady
+        : t.windowsDsdRuntimeMissing;
+    final dsdDeviceSummary = dsdDevices.isEmpty
+        ? t.windowsDsdNoDevice
+        : t.windowsDsdDeviceCountValue(dsdDevices.length);
+    final dsdFallbackReason = playback.windowsDsdFallbackReason?.trim();
 
     return GlassPanel(
       lowEffects: library.lowEffects,
@@ -1631,7 +1800,7 @@ class _SettingsPanel extends ConsumerWidget {
             children: [
               IconButton(
                 tooltip: t.back,
-                onPressed: onClose,
+                onPressed: widget.onClose,
                 icon: const Icon(Icons.arrow_back_rounded),
               ),
               const SizedBox(width: 6),
@@ -1651,360 +1820,612 @@ class _SettingsPanel extends ConsumerWidget {
                 ),
             ],
           ),
+          const SizedBox(height: 12),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 260),
+            child: _SettingsCategoryTabs(
+              selectedCategory: _selectedCategory,
+              onChanged: (value) {
+                if (_selectedCategory == value) return;
+                setState(() {
+                  _selectedCategory = value;
+                });
+              },
+              t: t,
+            ),
+          ),
           const SizedBox(height: 16),
           Expanded(
             child: MiddleClickAutoScrollView(
               builder: (context, controller) => SingleChildScrollView(
+                key: ValueKey(_selectedCategory),
                 controller: controller,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SettingsBlock(
-                      title: t.folderSection,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              FilledButton.icon(
-                                onPressed: library.isScanning
-                                    ? null
-                                    : libraryController.addMusicFolder,
-                                icon: const Icon(Icons.add_rounded),
-                                label: Text(t.addMusicFolder),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: library.isScanning
-                                    ? null
-                                    : libraryController.rescanAllFolders,
-                                icon: const Icon(Icons.refresh_rounded),
-                                label: Text(t.rescanAll),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          _SettingsFoldersCard(
-                            folders: library.libraryFolders,
-                            emptyText: t.noFolderConfigured,
-                            removeLabel: t.remove,
-                            onRemove: libraryController.removeMusicFolder,
-                          ),
-                        ],
+                    if (_selectedCategory == _SettingsCategory.basic) ...[
+                      _SettingsBlock(
+                        title: t.folderSection,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                FilledButton.icon(
+                                  onPressed: library.isScanning
+                                      ? null
+                                      : libraryController.addMusicFolder,
+                                  icon: const Icon(Icons.add_rounded),
+                                  label: Text(t.addMusicFolder),
+                                ),
+                                OutlinedButton.icon(
+                                  onPressed: library.isScanning
+                                      ? null
+                                      : libraryController.rescanAllFolders,
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  label: Text(t.rescanAll),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            _SettingsFoldersCard(
+                              folders: library.libraryFolders,
+                              emptyText: t.noFolderConfigured,
+                              removeLabel: t.remove,
+                              onRemove: libraryController.removeMusicFolder,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    _SettingsBlock(
-                      title: t.languageTitle,
-                      child: _GlassSelectField<AppLanguage>(
-                        value: appSettings.language,
-                        lowEffects: library.lowEffects,
-                        onChanged: (value) {
-                          appSettingsController.setLanguage(value);
-                        },
-                        items: AppLanguage.values
-                            .map(
-                              (lang) => _GlassSelectEntry<AppLanguage>(
-                                value: lang,
-                                label: t.languageLabel(lang),
-                              ),
-                            )
-                            .toList(growable: false),
+                      const SizedBox(height: 14),
+                      _SettingsBlock(
+                        title: t.languageTitle,
+                        child: _GlassSelectField<AppLanguage>(
+                          value: appSettings.language,
+                          lowEffects: library.lowEffects,
+                          onChanged: (value) {
+                            appSettingsController.setLanguage(value);
+                          },
+                          items: AppLanguage.values
+                              .map(
+                                (lang) => _GlassSelectEntry<AppLanguage>(
+                                  value: lang,
+                                  label: t.languageLabel(lang),
+                                ),
+                              )
+                              .toList(growable: false),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    _SettingsBlock(
-                      title: t.topBarDisplayTitle,
-                      child: Column(
-                        children: [
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              t.topBarIdleModeTitle,
+                      const SizedBox(height: 14),
+                      _SettingsBlock(
+                        title: t.topBarDisplayTitle,
+                        child: Column(
+                          children: [
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                t.topBarIdleModeTitle,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.64),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _GlassSelectField<TopBarIdleMode>(
+                              value: appSettings.topBarIdleMode,
+                              lowEffects: library.lowEffects,
+                              onChanged: (value) {
+                                appSettingsController.setTopBarIdleMode(value);
+                              },
+                              items: TopBarIdleMode.values
+                                  .map(
+                                    (mode) => _GlassSelectEntry<TopBarIdleMode>(
+                                      value: mode,
+                                      label: t.topBarIdleModeLabel(mode),
+                                    ),
+                                  )
+                                  .toList(growable: false),
+                            ),
+                            const SizedBox(height: 10),
+                            _IdleTopBarTextField(
+                              initialValue: appSettings.topBarIdleText,
+                              label: t.topBarCustomTextTitle,
+                              hint: t.topBarCustomTextHint,
+                              onSubmitted:
+                                  appSettingsController.setTopBarIdleText,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                    if (_selectedCategory == _SettingsCategory.playback) ...[
+                      _SettingsBlock(
+                        title: t.audioOutputMode,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _GlassSelectField<AudioOutputMode>(
+                              key: ValueKey(
+                                'audio-mode-${playback.audioOutputMode.id}',
+                              ),
+                              value: playback.audioOutputMode,
+                              lowEffects: library.lowEffects,
+                              onChanged: (value) {
+                                playbackController.setAudioOutputMode(value);
+                              },
+                              items: AudioOutputMode.values
+                                  .map(
+                                    (mode) =>
+                                        _GlassSelectEntry<AudioOutputMode>(
+                                          value: mode,
+                                          label: t.outputModeLabel(mode),
+                                        ),
+                                  )
+                                  .toList(growable: false),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              t.outputModeDescription(playback.audioOutputMode),
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.64),
+                                color: Colors.white.withValues(alpha: 0.66),
                                 fontSize: 12,
-                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          _GlassSelectField<TopBarIdleMode>(
-                            value: appSettings.topBarIdleMode,
-                            lowEffects: library.lowEffects,
-                            onChanged: (value) {
-                              appSettingsController.setTopBarIdleMode(value);
-                            },
-                            items: TopBarIdleMode.values
-                                .map(
-                                  (mode) => _GlassSelectEntry<TopBarIdleMode>(
-                                    value: mode,
-                                    label: t.topBarIdleModeLabel(mode),
-                                  ),
-                                )
-                                .toList(growable: false),
-                          ),
-                          const SizedBox(height: 10),
-                          _IdleTopBarTextField(
-                            initialValue: appSettings.topBarIdleText,
-                            label: t.topBarCustomTextTitle,
-                            hint: t.topBarCustomTextHint,
-                            onSubmitted:
-                                appSettingsController.setTopBarIdleText,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    _SettingsBlock(
-                      title: t.audioOutputMode,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _GlassSelectField<AudioOutputMode>(
-                            key: ValueKey(
-                              'audio-mode-${playback.audioOutputMode.id}',
+                      const SizedBox(height: 14),
+                      _SettingsBlock(
+                        title: t.audioOutputDevice,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _GlassSelectField<String>(
+                              key: ValueKey(
+                                'audio-device-$selectedAudioDeviceId-${audioDevices.length}',
+                              ),
+                              value: selectedAudioDeviceId,
+                              lowEffects: library.lowEffects,
+                              onChanged: (value) {
+                                playbackController.setAudioOutputDevice(value);
+                              },
+                              items: audioDevices
+                                  .map(
+                                    (device) => _GlassSelectEntry<String>(
+                                      value: device.id,
+                                      label: t.audioDeviceLabel(
+                                        device.label,
+                                        isAuto: device.id == 'auto',
+                                      ),
+                                    ),
+                                  )
+                                  .toList(growable: false),
                             ),
-                            value: playback.audioOutputMode,
-                            lowEffects: library.lowEffects,
-                            onChanged: (value) {
-                              playbackController.setAudioOutputMode(value);
-                            },
-                            items: AudioOutputMode.values
-                                .map(
-                                  (mode) => _GlassSelectEntry<AudioOutputMode>(
-                                    value: mode,
-                                    label: t.outputModeLabel(mode),
-                                  ),
-                                )
-                                .toList(growable: false),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            t.outputModeDescription(playback.audioOutputMode),
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.66),
-                              fontSize: 12,
+                            const SizedBox(height: 8),
+                            Text(
+                              t.audioOutputDeviceHint,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.66),
+                                fontSize: 12,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    _SettingsBlock(
-                      title: t.audioOutputDevice,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _GlassSelectField<String>(
-                            key: ValueKey(
-                              'audio-device-$selectedAudioDeviceId-${audioDevices.length}',
-                            ),
-                            value: selectedAudioDeviceId,
-                            lowEffects: library.lowEffects,
-                            onChanged: (value) {
-                              playbackController.setAudioOutputDevice(value);
-                            },
-                            items: audioDevices
-                                .map(
+                      const SizedBox(height: 14),
+                      _SettingsBlock(
+                        title: t.windowsDsdDevice,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _GlassSelectField<String>(
+                              key: ValueKey(
+                                'windows-dsd-device-$selectedWindowsDsdDeviceId-${dsdDevices.length}',
+                              ),
+                              value: selectedWindowsDsdDeviceId,
+                              lowEffects: library.lowEffects,
+                              onChanged: (value) {
+                                if (dsdDevices.isEmpty && value != 'auto') {
+                                  return;
+                                }
+                                playbackController.setWindowsDsdDevice(value);
+                              },
+                              items: <_GlassSelectEntry<String>>[
+                                _GlassSelectEntry<String>(
+                                  value: 'auto',
+                                  label: t.windowsDsdDeviceLabel(
+                                    t.defaultAudioDevice,
+                                    isAuto: true,
+                                    supportsNativeDsd: false,
+                                  ),
+                                ),
+                                ...dsdDevices.map(
                                   (device) => _GlassSelectEntry<String>(
-                                    value: device.id,
-                                    label: t.audioDeviceLabel(
-                                      device.label,
-                                      isAuto: device.id == 'auto',
+                                    value: device.id.toString(),
+                                    label: t.windowsDsdDeviceLabel(
+                                      device.name,
+                                      isAuto: false,
+                                      supportsNativeDsd:
+                                          device.supportsNativeDsd,
                                     ),
                                   ),
-                                )
-                                .toList(growable: false),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            t.audioOutputDeviceHint,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.66),
-                              fontSize: 12,
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _SettingsBlock(
-                      title: t.audioFade,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _SettingsToggleTile(
-                            title: t.audioFadeEnabled,
-                            subtitle: playback.fadeEnabled
-                                ? t.audioFadeHint
-                                : t.audioFadeDisabledHint,
-                            value: playback.fadeEnabled,
-                            onChanged: playbackController.setFadeEnabled,
-                          ),
-                          const SizedBox(height: 12),
-                          _SettingsDurationSlider(
-                            label: t.audioFadeDuration,
-                            valueLabel: t.audioFadeDurationValue(
-                              playback.fadeDuration,
+                            const SizedBox(height: 8),
+                            Text(
+                              dsdDevices.isEmpty
+                                  ? t.windowsDsdUnavailableHint
+                                  : t.windowsDsdDeviceHint,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.66),
+                                fontSize: 12,
+                              ),
                             ),
-                            valueMs: playback.fadeDuration.inMilliseconds,
-                            enabled: playback.fadeEnabled,
-                            onChanged: (milliseconds) {
-                              playbackController.setFadeDuration(
-                                Duration(milliseconds: milliseconds),
-                              );
-                            },
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    _SettingsBlock(
-                      title: t.developerMode,
-                      child: Column(
-                        children: [
-                          SwitchListTile(
-                            value: playback.developerMode,
-                            onChanged: playbackController.setDeveloperMode,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(t.developerMode),
-                            subtitle: Text(t.developerModeHint),
-                          ),
-                          if (playback.developerMode) ...[
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
+                      const SizedBox(height: 14),
+                      _SettingsBlock(
+                        title: t.windowsDsdStatus,
+                        child: Column(
+                          children: [
+                            _SettingsInfoRow(
+                              label: t.windowsDsdRuntimeStatus,
+                              value: dsdRuntimeSummary,
+                            ),
+                            const SizedBox(height: 10),
+                            _SettingsInfoRow(
+                              label: t.windowsDsdDeviceCountLabel,
+                              value: dsdDeviceSummary,
+                            ),
+                            const SizedBox(height: 10),
+                            _SettingsInfoRow(
+                              label: t.windowsDsdCurrentBackend,
+                              value: dsdBackendSummary,
+                            ),
+                            if ((playback.windowsDsdOutputModeLabel ?? '')
+                                .isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              _SettingsInfoRow(
+                                label: t.windowsDsdOutputModeStatus,
+                                value: playback.windowsDsdOutputModeLabel!,
+                              ),
+                            ],
+                            if ((playback.windowsDsdActiveDeviceName ?? '')
+                                .isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              _SettingsInfoRow(
+                                label: t.windowsDsdActiveDevice,
+                                value: playback.windowsDsdActiveDeviceName!,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (_selectedCategory == _SettingsCategory.basic) ...[
+                      _SettingsBlock(
+                        title: t.audioFade,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _SettingsToggleTile(
+                              title: t.audioFadeEnabled,
+                              subtitle: playback.fadeEnabled
+                                  ? t.audioFadeHint
+                                  : t.audioFadeDisabledHint,
+                              value: playback.fadeEnabled,
+                              onChanged: playbackController.setFadeEnabled,
+                            ),
+                            const SizedBox(height: 12),
+                            _SettingsDurationSlider(
+                              label: t.audioFadeDuration,
+                              valueLabel: t.audioFadeDurationValue(
+                                playback.fadeDuration,
+                              ),
+                              valueMs: playback.fadeDuration.inMilliseconds,
+                              enabled: playback.fadeEnabled,
+                              onChanged: (milliseconds) {
+                                playbackController.setFadeDuration(
+                                  Duration(milliseconds: milliseconds),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _SettingsBlock(
+                        title: t.developerMode,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SwitchListTile(
+                              value: playback.developerMode,
+                              onChanged: playbackController.setDeveloperMode,
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(t.developerMode),
+                              subtitle: Text(t.developerModeHint),
+                            ),
+                            if (playback.developerMode) ...[
+                              if (currentTrackIsDsd ||
+                                  playback.backendKind ==
+                                      PlaybackBackendKind.windowsDsd ||
+                                  (dsdFallbackReason != null &&
+                                      dsdFallbackReason.isNotEmpty)) ...[
+                                const SizedBox(height: 4),
                                 Text(
-                                  '${t.playbackLogs} (${playback.debugLogs.length})',
+                                  t.windowsDsdStatus,
                                   style: TextStyle(
                                     color: Colors.white.withValues(alpha: 0.86),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                const Spacer(),
-                                TextButton.icon(
-                                  onPressed: playback.debugLogs.isEmpty
-                                      ? null
-                                      : () async {
-                                          await Clipboard.setData(
-                                            ClipboardData(
-                                              text: playback.debugLogs.join(
-                                                '\n',
-                                              ),
-                                            ),
-                                          );
-                                          if (!context.mounted) return;
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(t.logsCopied),
-                                            ),
-                                          );
-                                        },
-                                  icon: const Icon(
-                                    Icons.copy_rounded,
-                                    size: 16,
-                                  ),
-                                  label: Text(t.copy),
+                                const SizedBox(height: 10),
+                                _SettingsInfoRow(
+                                  label: t.windowsDsdCurrentBackend,
+                                  value: dsdBackendSummary,
                                 ),
-                                const SizedBox(width: 4),
-                                TextButton.icon(
-                                  onPressed: playback.debugLogs.isEmpty
-                                      ? null
-                                      : playbackController.clearDebugLogs,
-                                  icon: const Icon(
-                                    Icons.delete_sweep_rounded,
-                                    size: 16,
+                                if ((playback.windowsDsdOutputModeLabel ?? '')
+                                    .isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  _SettingsInfoRow(
+                                    label: t.windowsDsdOutputModeStatus,
+                                    value: playback.windowsDsdOutputModeLabel!,
                                   ),
-                                  label: Text(t.clear),
-                                ),
+                                ],
+                                if ((playback.windowsDsdActiveDeviceName ?? '')
+                                    .isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  _SettingsInfoRow(
+                                    label: t.windowsDsdActiveDevice,
+                                    value: playback.windowsDsdActiveDeviceName!,
+                                  ),
+                                ],
+                                if (dsdFallbackReason != null &&
+                                    dsdFallbackReason.isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  _SettingsInfoRow(
+                                    label: t.windowsDsdFallbackReason,
+                                    value: dsdFallbackReason,
+                                    multiline: true,
+                                  ),
+                                ],
+                                const SizedBox(height: 14),
                               ],
-                            ),
-                            const SizedBox(height: 6),
-                            SizedBox(
-                              height: 160,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.22),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.10),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Text(
+                                    '${t.playbackLogs} (${playback.debugLogs.length})',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.86,
+                                      ),
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
-                                ),
-                                child: playback.debugLogs.isEmpty
-                                    ? Center(
-                                        child: Text(
-                                          t.noLogsHint,
-                                          style: TextStyle(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.62,
-                                            ),
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      )
-                                    : ListView.builder(
-                                        reverse: true,
-                                        itemCount: playback.debugLogs.length,
-                                        itemBuilder: (_, index) {
-                                          final line =
-                                              playback.debugLogs[playback
-                                                      .debugLogs
-                                                      .length -
-                                                  1 -
-                                                  index];
-                                          return Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 4,
-                                            ),
-                                            child: Text(
-                                              line,
-                                              style: TextStyle(
-                                                fontFamily: 'Consolas',
-                                                fontSize: 11,
-                                                height: 1.35,
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.84,
+                                  const Spacer(),
+                                  TextButton.icon(
+                                    onPressed: playback.debugLogs.isEmpty
+                                        ? null
+                                        : () async {
+                                            await Clipboard.setData(
+                                              ClipboardData(
+                                                text: playback.debugLogs.join(
+                                                  '\n',
                                                 ),
                                               ),
-                                            ),
-                                          );
-                                        },
-                                      ),
+                                            );
+                                            if (!context.mounted) return;
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(t.logsCopied),
+                                              ),
+                                            );
+                                          },
+                                    icon: const Icon(
+                                      Icons.copy_rounded,
+                                      size: 16,
+                                    ),
+                                    label: Text(t.copy),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  TextButton.icon(
+                                    onPressed: playback.debugLogs.isEmpty
+                                        ? null
+                                        : playbackController.clearDebugLogs,
+                                    icon: const Icon(
+                                      Icons.delete_sweep_rounded,
+                                      size: 16,
+                                    ),
+                                    label: Text(t.clear),
+                                  ),
+                                ],
                               ),
-                            ),
+                              const SizedBox(height: 6),
+                              SizedBox(
+                                height: 160,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.22),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.10,
+                                      ),
+                                    ),
+                                  ),
+                                  child: playback.debugLogs.isEmpty
+                                      ? Center(
+                                          child: Text(
+                                            t.noLogsHint,
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.62,
+                                              ),
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        )
+                                      : ListView.builder(
+                                          reverse: true,
+                                          itemCount: playback.debugLogs.length,
+                                          itemBuilder: (_, index) {
+                                            final line =
+                                                playback.debugLogs[playback
+                                                        .debugLogs
+                                                        .length -
+                                                    1 -
+                                                    index];
+                                            return Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 4,
+                                                  ),
+                                              child: Text(
+                                                line,
+                                                style: TextStyle(
+                                                  fontFamily: 'Consolas',
+                                                  fontSize: 11,
+                                                  height: 1.35,
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.84),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    _SettingsBlock(
-                      title: t.updateCheckTitle,
-                      child: _SettingsUpdateBlock(
-                        currentVersion: appSettings.currentVersion,
-                        latestVersion: appSettings.latestReleaseVersion,
-                        status: appSettings.releaseUpdateStatus,
-                        errorMessage: appSettings.releaseUpdateError,
-                        onCheckUpdate: appSettingsController.checkForUpdates,
-                        onOpenUpdate: () async {
-                          final targetUrl =
-                              appSettings.latestInstallerUrl.isNotEmpty
-                              ? appSettings.latestInstallerUrl
-                              : appSettings.latestReleaseUrl;
-                          await _openExternalUrl(targetUrl);
-                        },
+                      const SizedBox(height: 14),
+                      _SettingsBlock(
+                        title: t.updateCheckTitle,
+                        child: _SettingsUpdateBlock(
+                          currentVersion: appSettings.currentVersion,
+                          latestVersion: appSettings.latestReleaseVersion,
+                          status: appSettings.releaseUpdateStatus,
+                          errorMessage: appSettings.releaseUpdateError,
+                          onCheckUpdate: appSettingsController.checkForUpdates,
+                          onOpenUpdate: () async {
+                            final targetUrl =
+                                appSettings.latestInstallerUrl.isNotEmpty
+                                ? appSettings.latestInstallerUrl
+                                : appSettings.latestReleaseUrl;
+                            await _openExternalUrl(targetUrl);
+                          },
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SettingsCategoryTabs extends StatelessWidget {
+  const _SettingsCategoryTabs({
+    required this.selectedCategory,
+    required this.onChanged,
+    required this.t,
+  });
+
+  final _SettingsCategory selectedCategory;
+  final ValueChanged<_SettingsCategory> onChanged;
+  final AppStrings t;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _SettingsCategoryButton(
+              label: t.settingsBasicTab,
+              selected: selectedCategory == _SettingsCategory.basic,
+              onTap: () => onChanged(_SettingsCategory.basic),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _SettingsCategoryButton(
+              label: t.settingsPlaybackTab,
+              selected: selectedCategory == _SettingsCategory.playback,
+              onTap: () => onChanged(_SettingsCategory.playback),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsCategoryButton extends StatelessWidget {
+  const _SettingsCategoryButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            color: selected
+                ? Colors.white.withValues(alpha: 0.16)
+                : Colors.transparent,
+            border: Border.all(
+              color: selected
+                  ? Colors.white.withValues(alpha: 0.18)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: selected ? 0.96 : 0.72),
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -2040,6 +2461,59 @@ class _SettingsBlock extends StatelessWidget {
           child,
         ],
       ),
+    );
+  }
+}
+
+class _SettingsInfoRow extends StatelessWidget {
+  const _SettingsInfoRow({
+    required this.label,
+    required this.value,
+    this.multiline = false,
+  });
+
+  final String label;
+  final String value;
+  final bool multiline;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelStyle = TextStyle(
+      color: Colors.white.withValues(alpha: 0.60),
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+    );
+    final valueStyle = TextStyle(
+      color: Colors.white.withValues(alpha: 0.92),
+      fontSize: 12.5,
+      fontWeight: FontWeight.w600,
+    );
+
+    if (multiline) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: labelStyle),
+          const SizedBox(height: 4),
+          Text(value, style: valueStyle),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: Text(label, style: labelStyle)),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: valueStyle,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -3060,10 +3534,17 @@ class _CoverImage extends StatelessWidget {
         coverBytes!,
         fit: BoxFit.cover,
         gaplessPlayback: true,
-        errorBuilder: (_, _, _) => _placeholder(),
+        errorBuilder: (_, _, _) => _fileImageOrPlaceholder(),
       );
     }
 
+    if (coverPath != null && File(coverPath!).existsSync()) {
+      return _fileImageOrPlaceholder();
+    }
+    return _placeholder();
+  }
+
+  Widget _fileImageOrPlaceholder() {
     if (coverPath != null && File(coverPath!).existsSync()) {
       return Image.file(
         File(coverPath!),

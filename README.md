@@ -4,36 +4,35 @@
 
 PrismWave is a Windows local music player built with Flutter.
 
-This repository contains the first usable demo version. The current build focuses on getting the desktop experience, library structure, playback flow, output modes, and lyrics view working end to end.
+## Features
 
-## Current features
-
-- Local library scan
-- Library / Albums / Artists / Favorites views
-- Search and favorite management
-- Bottom playback bar
-- Full Play page with synced embedded lyrics
-- Playback modes: list, single repeat, shuffle
+- Local music library scan with folder management
+- Library / Albums / Artists / Favorites views with drag-to-reorder
+- Bottom playback bar + full-screen play page
+- Playback queue with drag-to-reorder
+- Playback modes: list loop, single repeat, shuffle
 - Audio output modes: compatibility, WASAPI shared, WASAPI exclusive
-- Developer mode with live playback logs and local log files
+- Lyrics: local, online search & cache, word-by-word, QQ QRC decode
+- HITS radio mode: schedule-based online playback with 9 audio providers, cover & lyrics caching, prefetch
+- Windows DSD backend via BASS/BASSDSD/BASSASIO FFI
+- Developer mode with live playback logs
 
 ## Stack
 
-- Flutter
+- Flutter (3.29.3)
 - Riverpod
-- just_audio
-- media_kit / MPV
+- just_audio + just_audio_media_kit (media_kit / MPV)
+- BASS / BASSDSD / BASSASIO (DSD playback)
 - Windows desktop
 
 ## Project layout
 
 ```text
 PrismWave/
-  app/               Flutter application
-  native/rust_core/  Reserved Rust audio core workspace
-  backups/           Local backups
-  dev.md             Product and architecture notes
-  step.md            Development workflow
+  app/                   Flutter application
+  native/windows_dsd/    BASS/BASSDSD/BASSASIO native libraries
+  installer/             Inno Setup installer script
+  tools/flutter/         Bundled Flutter SDK (gitignored)
 ```
 
 ## Run
@@ -69,7 +68,7 @@ app/build/windows/x64/runner/Release/prismwave_demo.exe
 
 ## Audio notes
 
-The current demo uses `just_audio + media_kit + MPV` as the playback backend.
+The playback backend is `just_audio + media_kit + MPV`.
 
 Available output modes on Windows:
 
@@ -77,7 +76,14 @@ Available output modes on Windows:
 - WASAPI Shared
 - WASAPI Exclusive
 
-Track switching behavior is controlled by the app layer using the current playlist context, current index, and playback mode.
+## HITS mode
+
+HITS is a radio-style mode that plays scheduled online content:
+
+- Pulls schedule from the `prismwave-hits` repository
+- Resolves audio from 9 providers (Bilibili, YouTube, Audius, NetEase, Kuwo, Migu, QQ Music, Kugou)
+- Caches covers, lyrics, and audio locally
+- Prefetches upcoming tracks in the background
 
 ## Developer mode
 
@@ -86,8 +92,6 @@ When developer mode is enabled, PrismWave opens a live log window and writes pla
 ```text
 C:\Users\<YourUser>\AppData\Local\PrismWave\logs\
 ```
-
-This is mainly used for playback errors, output mode diagnostics, and auto-switch debugging.
 
 ## Acknowledgements
 

@@ -1,4 +1,5 @@
 import 'package:just_audio/just_audio.dart';
+import 'package:path/path.dart' as p;
 
 import '../models/track.dart';
 
@@ -18,13 +19,18 @@ Future<void> resolveTrackDurations(
   try {
     for (final track in tracks) {
       try {
+        final extension = p.extension(track.path).toLowerCase();
+        final effectiveTimeout =
+            (extension == '.dsf' || extension == '.dff')
+                ? const Duration(seconds: 12)
+                : perFileTimeout;
         final duration = await player
             .setFilePath(
               track.path,
               initialPosition: Duration.zero,
               preload: true,
             )
-            .timeout(perFileTimeout);
+            .timeout(effectiveTimeout);
         if (duration != null && duration > Duration.zero) {
           batch[track.path] = duration;
         }

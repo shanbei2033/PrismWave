@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
@@ -12,14 +13,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../domain/playback_strategy.dart';
 import '../models/audio_output_device.dart';
 import '../models/audio_output_mode.dart';
+import '../models/playback_backend_kind.dart';
 import '../models/playback_mode.dart';
 import '../models/track.dart';
+import '../services/windows_dsd_backend_service.dart';
 import '../state/playback_state.dart';
 
 class PlaybackController extends StateNotifier<PlaybackState> {
   PlaybackController() : super(const PlaybackState()) {
     JustAudioMediaKit.nativeAudioRouteLogger = (message) {
-      _debug('native.output => $message', force: true);
+      _debug('native.output => $message');
     };
     JustAudioMediaKit.nativeAudioDevicesListener = _handleNativeAudioDevices;
     JustAudioMediaKit.nativeSelectedAudioDeviceListener =
@@ -28,6 +31,8 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     _applyAudioOutputModeToBackend(state.audioOutputMode);
     _initializeAudioDeviceProbe();
     _initializePlayer();
+    _bindWindowsDsdBackendEvents();
+    unawaited(_refreshWindowsDsdDevices());
     unawaited(_loadDeveloperMode());
     unawaited(_loadAudioRoutePreferences());
     unawaited(_loadFadePreferences());
@@ -35,6 +40,8 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
   late AudioPlayer _player;
   late final media_kit.Player _audioDeviceProbe;
+  final WindowsDsdBackendService _windowsDsdBackend =
+      WindowsDsdBackendService();
   final Random _random = Random();
 
   static const Set<String> _demoPlayableExtensions = {
@@ -45,10 +52,14 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     '.aac',
     '.m4a',
     '.mp4',
+    '.dsf',
+    '.dff',
   };
+  static const Set<String> _remotePlayableSchemes = {'http', 'https', 'file'};
 
   static const String _prefDeveloperMode = 'debug.playbackDeveloperMode';
   static const String _prefAudioOutputDevice = 'audio.outputDevice';
+  static const String _prefWindowsDsdDevice = 'audio.windowsDsdDevice';
   static const String _prefFadeEnabled = 'audio.fadeEnabled';
   static const String _prefFadeDurationMs = 'audio.fadeDurationMs';
   static const int _maxDebugLogs = 500;
@@ -65,6 +76,9 @@ class PlaybackController extends StateNotifier<PlaybackState> {
   StreamSubscription<PlayerException>? _errorSub;
   StreamSubscription<List<media_kit.AudioDevice>>? _probeAudioDevicesSub;
   StreamSubscription<media_kit.AudioDevice>? _probeAudioDeviceSub;
+  StreamSubscription<Duration>? _windowsDsdPositionSub;
+  StreamSubscription<bool>? _windowsDsdPlayingSub;
+  StreamSubscription<void>? _windowsDsdCompletedSub;
   String? _developerLogFilePath;
   String? _developerConsoleControlFilePath;
   bool _developerConsoleSpawned = false;
@@ -83,9 +97,16 @@ class PlaybackController extends StateNotifier<PlaybackState> {
   bool? _lastPlayingState;
 
   void _initializePlayer() {
+    JustAudioMediaKit.nativeMpvProperties = const {
+      'cache-secs': '12',
+      'cache-on-disk': 'no',
+      'audio-buffer': '0.5',
+    };
     _player = AudioPlayer();
     _bindPlayerEvents();
-    _player.setVolume(state.volume);
+    _player.setVolume(
+      _effectiveOutputVolumeForTrack(state.currentTrack, state.volume),
+    );
     _syncKnownAudioDevicesFromBackend();
     unawaited(_syncNativeLoopMode());
   }
@@ -133,14 +154,58 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     );
   }
 
+  Future<void> _refreshWindowsDsdDevices() async {
+    final prefs = await SharedPreferences.getInstance();
+    final restoredDeviceId =
+        prefs.getString(_prefWindowsDsdDevice)?.trim().isNotEmpty == true
+        ? prefs.getString(_prefWindowsDsdDevice)!.trim()
+        : 'auto';
+
+    final runtimeAvailable = await _windowsDsdBackend.ensureInitialized();
+    final devices = await _windowsDsdBackend.listAvailableDevices();
+    final hasSelected =
+        restoredDeviceId == 'auto' ||
+        devices.any((device) => device.id.toString() == restoredDeviceId);
+
+    state = state.copyWith(
+      windowsDsdAvailable: runtimeAvailable,
+      selectedWindowsDsdDeviceId: hasSelected ? restoredDeviceId : 'auto',
+      availableWindowsDsdDevices: devices,
+    );
+
+    if (!hasSelected && restoredDeviceId != 'auto') {
+      await prefs.setString(_prefWindowsDsdDevice, 'auto');
+    }
+  }
+
+  Future<void> setWindowsDsdDevice(String deviceId) async {
+    final normalized = deviceId.trim().isEmpty ? 'auto' : deviceId.trim();
+    if (normalized == state.selectedWindowsDsdDeviceId) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefWindowsDsdDevice, normalized);
+      return;
+    }
+
+    state = state.copyWith(selectedWindowsDsdDeviceId: normalized);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefWindowsDsdDevice, normalized);
+  }
+
   Future<void> _loadDeveloperMode() async {
     final prefs = await SharedPreferences.getInstance();
     final enabled = prefs.getBool(_prefDeveloperMode) ?? false;
+    if (enabled && kReleaseMode) {
+      await prefs.setBool(_prefDeveloperMode, false);
+      if (state.developerMode) {
+        state = state.copyWith(developerMode: false);
+      }
+      return;
+    }
     if (enabled != state.developerMode) {
       state = state.copyWith(developerMode: enabled);
     }
     if (enabled) {
-      await _enableDeveloperOutputs(openConsole: true);
+      await _enableDeveloperOutputs(openConsole: !kReleaseMode);
       _debug('Developer mode restored from settings.', force: true);
     }
   }
@@ -173,7 +238,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       state = state.copyWith(developerMode: true);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_prefDeveloperMode, true);
-      await _enableDeveloperOutputs(openConsole: true);
+      await _enableDeveloperOutputs(openConsole: !kReleaseMode);
       _debug('Developer mode enabled by user.', force: true);
       return;
     }
@@ -284,9 +349,9 @@ class PlaybackController extends StateNotifier<PlaybackState> {
   void _applyAudioOutputModeToBackend(AudioOutputMode mode) {
     switch (mode) {
       case AudioOutputMode.compatibility:
-        JustAudioMediaKit.preferWasapi = false;
+        JustAudioMediaKit.preferWasapi = true;
         JustAudioMediaKit.preferWasapiExclusive = false;
-        JustAudioMediaKit.fallbackToWasapiShared = false;
+        JustAudioMediaKit.fallbackToWasapiShared = true;
         return;
       case AudioOutputMode.wasapiShared:
         JustAudioMediaKit.preferWasapi = true;
@@ -372,8 +437,8 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     );
 
     try {
-      await _player.setFilePath(
-        track.path,
+      await _loadTrackSource(
+        track,
         initialPosition: restorePosition,
         preload: true,
       );
@@ -382,8 +447,10 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       if (!_isSessionActive(token)) return;
 
       if (forcePlay || wasPlaying) {
+        await _setPlayerVolumeSafelyForTrack(state.volume, track: track);
         await _player.play();
       } else {
+        await _setPlayerVolumeSafelyForTrack(state.volume, track: track);
         await _player.pause();
       }
       if (!_isSessionActive(token)) return;
@@ -442,7 +509,10 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     _initializePlayer();
     if (!_isSessionActive(expectedToken)) return;
 
-    await _player.setVolume(state.volume);
+    await _setPlayerVolumeSafelyForTrack(
+      state.volume,
+      track: state.currentTrack,
+    );
     await _syncNativeLoopMode();
     _debug('exclusive handoff -> fresh player ready.', force: true);
   }
@@ -571,18 +641,181 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     await _playIndex(index);
   }
 
-  Future<void> _playFromContext(Track track, List<Track> playlist) async {
-    if (playlist.isEmpty) return;
-    if (!_isPlayableInDemo(track.path)) {
+  PlaybackSessionSnapshot captureSessionSnapshot() {
+    return PlaybackSessionSnapshot(
+      playlist: List<Track>.from(state.currentPlaylist, growable: false),
+      currentTrack: state.currentTrack,
+      currentIndex: state.currentIndex,
+      currentTime: state.currentTime,
+      playbackMode: state.playbackMode,
+      wasPlaying: state.isPlaying,
+    );
+  }
+
+  Future<void> playStandaloneTrack(
+    Track track, {
+    Duration initialPosition = Duration.zero,
+    bool autoplay = true,
+  }) async {
+    if (!_isPlayableTrack(track)) {
+      state = state.copyWith(error: _unsupportedTrackMessage(track));
+      return;
+    }
+
+    final token = _newSession();
+    state = state.copyWith(
+      currentPlaylist: const [],
+      currentTrack: track,
+      currentIndex: -1,
+      currentTime: initialPosition,
+      duration: Duration.zero,
+      isLoading: true,
+      clearError: true,
+    );
+    await _syncNativeLoopMode();
+
+    await _loadPlaylistAndPlay(
+      playlist: [track],
+      index: 0,
+      expectedToken: token,
+      errorPrefix: 'Play failed',
+      markAutoAdvancedTrack: false,
+      autoplay: autoplay,
+      initialPosition: initialPosition,
+    );
+  }
+
+  Future<void> restoreSession(PlaybackSessionSnapshot snapshot) async {
+    final playablePlaylist = snapshot.playlist
+        .where(_isPlayableTrack)
+        .toList(growable: false);
+    final restoreTrack = snapshot.currentTrack;
+
+    if (playablePlaylist.isEmpty && restoreTrack == null) {
+      await stopAndClear();
       state = state.copyWith(
-        error:
-            'This file format is not playable in current demo backend: ${p.extension(track.path)}',
+        playbackMode: snapshot.playbackMode,
+        clearError: true,
       );
       return;
     }
 
+    if (playablePlaylist.isEmpty && restoreTrack != null) {
+      state = state.copyWith(
+        playbackMode: snapshot.playbackMode,
+        clearError: true,
+      );
+      await playStandaloneTrack(
+        restoreTrack,
+        initialPosition: snapshot.currentTime,
+        autoplay: snapshot.wasPlaying,
+      );
+      return;
+    }
+
+    final fallbackIndex = snapshot.currentIndex.clamp(
+      0,
+      playablePlaylist.length - 1,
+    );
+    final preferredTrackId = restoreTrack?.id;
+    final restoreIndex = preferredTrackId == null
+        ? fallbackIndex
+        : (() {
+            final matchedIndex = playablePlaylist.indexWhere(
+              (track) => track.id == preferredTrackId,
+            );
+            return matchedIndex >= 0 ? matchedIndex : fallbackIndex;
+          })();
+
+    final token = _newSession();
+    state = state.copyWith(
+      playbackMode: snapshot.playbackMode,
+      currentPlaylist: playablePlaylist,
+      currentTrack: playablePlaylist[restoreIndex],
+      currentIndex: restoreIndex,
+      currentTime: snapshot.currentTime,
+      duration: Duration.zero,
+      isLoading: true,
+      clearError: true,
+    );
+    await _syncNativeLoopMode();
+
+    await _loadPlaylistAndPlay(
+      playlist: playablePlaylist,
+      index: restoreIndex,
+      expectedToken: token,
+      errorPrefix: 'Restore playback failed',
+      markAutoAdvancedTrack: false,
+      autoplay: snapshot.wasPlaying,
+      initialPosition: snapshot.currentTime,
+    );
+  }
+
+  Future<void> stopAndClear({bool useFade = false}) async {
+    final token = _newSession();
+    if (state.backendKind == PlaybackBackendKind.windowsDsd) {
+      try {
+        await _windowsDsdBackend.stop();
+      } catch (_) {
+        // Keep stop resilient if the backend is already idle.
+      }
+      if (!_isSessionActive(token)) return;
+      state = state.copyWith(
+        currentPlaylist: const [],
+        currentTrack: null,
+        currentIndex: -1,
+        currentTime: Duration.zero,
+        duration: Duration.zero,
+        isLoading: false,
+        isPlaying: false,
+        windowsDsdOutputModeLabel: null,
+        windowsDsdActiveDeviceName: null,
+        windowsDsdFallbackReason: null,
+        backendKind: PlaybackBackendKind.mediaKit,
+        clearError: true,
+      );
+      return;
+    }
+    if (useFade) {
+      await _fadeOutCurrentTrack(
+        expectedToken: token,
+        duration: _configuredFadeDuration,
+        reason: 'stop',
+      );
+    }
+    if (!_isSessionActive(token)) return;
+    try {
+      await _player.stop();
+    } catch (_) {
+      // Keep stop resilient even if backend is already idle.
+    }
+    if (!_isSessionActive(token)) return;
+    await _setPlayerVolumeSafely(state.volume);
+
+    state = state.copyWith(
+      currentPlaylist: const [],
+      currentTrack: null,
+      currentIndex: -1,
+      currentTime: Duration.zero,
+      duration: Duration.zero,
+      isLoading: false,
+      isPlaying: false,
+      windowsDsdOutputModeLabel: null,
+      windowsDsdActiveDeviceName: null,
+      windowsDsdFallbackReason: null,
+      clearError: true,
+    );
+  }
+
+  Future<void> _playFromContext(Track track, List<Track> playlist) async {
+    if (playlist.isEmpty) return;
+    if (!_isPlayableTrack(track)) {
+      state = state.copyWith(error: _unsupportedTrackMessage(track));
+      return;
+    }
+
     final playablePlaylist = playlist
-        .where((item) => _isPlayableInDemo(item.path))
+        .where(_isPlayableTrack)
         .toList(growable: false);
     if (playablePlaylist.isEmpty) {
       state = state.copyWith(
@@ -609,7 +842,8 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     _debug(
       'playFromContext -> selectedIndex=$index, playlistLength=${playablePlaylist.length}, '
       'queueStartsWith="${rotatedPlaylist.first.title}", '
-      'track="${track.title}", ext=${p.extension(track.path).toLowerCase()}, '
+      'track="${track.title}", remote=${track.isRemote}, '
+      'ext=${p.extension(track.path).toLowerCase()}, '
       'outputMode=${state.audioOutputMode.name}',
       force: true,
     );
@@ -649,6 +883,22 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
   Future<void> togglePlayPause() async {
     if (!state.hasTrack) return;
+
+    if (state.backendKind == PlaybackBackendKind.windowsDsd) {
+      if (state.isPlaying) {
+        await _windowsDsdBackend.pause();
+        state = state.copyWith(isPlaying: false, clearError: true);
+        return;
+      }
+
+      if (state.duration > Duration.zero &&
+          state.currentTime >= state.duration) {
+        await _windowsDsdBackend.seek(Duration.zero);
+      }
+      await _windowsDsdBackend.play();
+      state = state.copyWith(isPlaying: true, clearError: true);
+      return;
+    }
 
     _debug(
       'togglePlayPause -> playing=${_player.playing}, '
@@ -692,12 +942,21 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
   Future<void> seekTo(Duration position) async {
     if (!state.hasTrack) return;
+    if (state.backendKind == PlaybackBackendKind.windowsDsd) {
+      await _windowsDsdBackend.seek(position);
+      state = state.copyWith(currentTime: position);
+      return;
+    }
     await _player.seek(position);
   }
 
   Future<void> setVolume(double volume) async {
     final normalized = volume.clamp(0.0, 1.0);
     _cancelPendingVolumeRamp();
+    if (state.backendKind == PlaybackBackendKind.windowsDsd) {
+      state = state.copyWith(volume: normalized);
+      return;
+    }
     await _player.setVolume(normalized);
     state = state.copyWith(volume: normalized);
   }
@@ -973,7 +1232,9 @@ class PlaybackController extends StateNotifier<PlaybackState> {
   bool _shouldSkipTrackAfterDecodeError(PlayerException error) {
     final message = (error.message ?? '').toLowerCase();
     final looksLikeDecodeError =
-        message.contains('decode') || message.contains('decoding');
+        message.contains('decode') ||
+        message.contains('decoding') ||
+        message.contains('format');
     if (!looksLikeDecodeError) return false;
     if (_recoveringDecoderError) return false;
     if (state.playbackMode == PlaybackMode.single) return false;
@@ -999,7 +1260,9 @@ class PlaybackController extends StateNotifier<PlaybackState> {
   bool _shouldRecoverFromDecodeError(PlayerException error) {
     final message = (error.message ?? '').toLowerCase();
     final looksLikeDecodeError =
-        message.contains('decode') || message.contains('decoding');
+        message.contains('decode') ||
+        message.contains('decoding') ||
+        message.contains('format');
     if (!looksLikeDecodeError) return false;
     if (state.currentPlaylist.isEmpty || state.currentIndex < 0) return false;
     if (_recoveringDecoderError) return false;
@@ -1028,7 +1291,9 @@ class PlaybackController extends StateNotifier<PlaybackState> {
   bool _shouldTreatDecodeErrorAsTrackCompletion(PlayerException error) {
     final message = (error.message ?? '').toLowerCase();
     final looksLikeDecodeError =
-        message.contains('decode') || message.contains('decoding');
+        message.contains('decode') ||
+        message.contains('decoding') ||
+        message.contains('format');
     if (!looksLikeDecodeError) return false;
     if (_recoveringDecoderError || _autoAdvancing) return false;
     if (!state.hasTrack || state.currentPlaylist.isEmpty) return false;
@@ -1331,6 +1596,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     required String errorPrefix,
     required bool markAutoAdvancedTrack,
     bool autoplay = true,
+    Duration initialPosition = Duration.zero,
   }) async {
     _debug(
       'native.output.requested => mode=${state.audioOutputMode.name}, '
@@ -1341,6 +1607,29 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     );
     try {
       final track = playlist[index];
+      final dsdHandled = await _tryLoadWindowsDsdTrack(
+        track: track,
+        expectedToken: expectedToken,
+        autoplay: autoplay,
+        initialPosition: initialPosition,
+      );
+      if (dsdHandled || !_isSessionActive(expectedToken)) return;
+
+      if (state.backendKind == PlaybackBackendKind.windowsDsd) {
+        try {
+          await _windowsDsdBackend.stop();
+        } catch (_) {
+          // Ignore backend stop failures during backend switching.
+        }
+        state = state.copyWith(
+          backendKind: PlaybackBackendKind.mediaKit,
+          windowsDsdOutputModeLabel: null,
+          windowsDsdActiveDeviceName: null,
+          windowsDsdFallbackReason: null,
+        );
+      }
+
+      if (!_isSessionActive(expectedToken)) return;
       await _fadeOutCurrentTrack(
         expectedToken: expectedToken,
         duration: _configuredFadeDuration,
@@ -1364,31 +1653,38 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       }
       if (!_isSessionActive(expectedToken)) return;
       _debug(
-        'setFilePath(managed-playlist) -> index=$index, playlistLength=${playlist.length}, '
-        'file=${track.fileName}, ext=${p.extension(track.path).toLowerCase()}',
+        'loadTrackSource(managed-playlist) -> index=$index, playlistLength=${playlist.length}, '
+        'title="${track.title}", remote=${track.isRemote}, '
+        'source=${_describeTrackSource(track)}, ext=${p.extension(track.path).toLowerCase()}',
       );
-      _debug('loadPlaylistAndPlay -> begin setFilePath');
-      await _player.setFilePath(
-        track.path,
-        initialPosition: Duration.zero,
+      _debug('loadPlaylistAndPlay -> begin loadTrackSource');
+      await _loadTrackSource(
+        track,
+        initialPosition: initialPosition,
         preload: true,
       );
       if (!_isSessionActive(expectedToken)) return;
-      _debug('loadPlaylistAndPlay -> setFilePath completed');
+      _debug('loadPlaylistAndPlay -> loadTrackSource completed');
       await _syncNativeLoopMode();
       if (!_isSessionActive(expectedToken)) return;
 
       if (autoplay) {
         _debug('loadPlaylistAndPlay -> begin play');
-        await _resumeWithFade(
-          expectedToken: expectedToken,
-          reason: 'track-load',
-        );
+        if (_shouldUseNearLosslessDsdPath(track)) {
+          await _setPlayerVolumeSafelyForTrack(state.volume, track: track);
+          if (!_isSessionActive(expectedToken)) return;
+          await _player.play();
+        } else {
+          await _resumeWithFade(
+            expectedToken: expectedToken,
+            reason: 'track-load',
+          );
+        }
         if (!_isSessionActive(expectedToken)) return;
         _debug('loadPlaylistAndPlay -> play completed');
       } else {
         _cancelPendingVolumeRamp();
-        await _setPlayerVolumeSafely(state.volume);
+        await _setPlayerVolumeSafelyForTrack(state.volume, track: track);
         try {
           await _player.pause();
         } catch (_) {
@@ -1402,6 +1698,10 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       state = state.copyWith(
         isLoading: false,
         isPlaying: autoplay ? state.isPlaying : false,
+        windowsDsdOutputModeLabel: null,
+        windowsDsdActiveDeviceName: null,
+        windowsDsdFallbackReason: null,
+        backendKind: PlaybackBackendKind.mediaKit,
         clearError: true,
       );
       _debug('loadPlaylistAndPlay success.');
@@ -1435,9 +1735,219 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     }
   }
 
-  bool _isPlayableInDemo(String path) {
-    final extension = p.extension(path).toLowerCase();
+  Future<void> _loadTrackSource(
+    Track track, {
+    Duration initialPosition = Duration.zero,
+    bool preload = true,
+  }) async {
+    if (track.isRemote) {
+      final uri = Uri.tryParse(track.playbackSource);
+      if (uri != null && uri.scheme.toLowerCase() == 'file') {
+        await _player.setFilePath(
+          uri.toFilePath(windows: Platform.isWindows),
+          initialPosition: initialPosition,
+          preload: preload,
+        );
+        return;
+      }
+      final headers = <String, String>{
+        'User-Agent':
+            'PrismWave/1.0.0 (+https://github.com/shanbei2033/PrismWave)',
+        ...?track.playbackHeaders,
+      };
+      await _player.setUrl(
+        track.playbackSource,
+        headers: headers,
+        initialPosition: initialPosition,
+        preload: preload,
+      );
+      return;
+    }
+
+    await _player.setFilePath(
+      track.path,
+      initialPosition: initialPosition,
+      preload: preload,
+    );
+  }
+
+  void _bindWindowsDsdBackendEvents() {
+    unawaited(_windowsDsdPositionSub?.cancel() ?? Future<void>.value());
+    unawaited(_windowsDsdPlayingSub?.cancel() ?? Future<void>.value());
+    unawaited(_windowsDsdCompletedSub?.cancel() ?? Future<void>.value());
+
+    _windowsDsdPositionSub = _windowsDsdBackend.positionStream.listen((
+      position,
+    ) {
+      if (state.backendKind != PlaybackBackendKind.windowsDsd) {
+        return;
+      }
+      state = state.copyWith(currentTime: position);
+    });
+
+    _windowsDsdPlayingSub = _windowsDsdBackend.playingStream.listen((playing) {
+      if (state.backendKind != PlaybackBackendKind.windowsDsd) {
+        return;
+      }
+      state = state.copyWith(isPlaying: playing, isLoading: false);
+    });
+
+    _windowsDsdCompletedSub = _windowsDsdBackend.completedStream.listen((
+      _,
+    ) async {
+      if (state.backendKind != PlaybackBackendKind.windowsDsd ||
+          !state.hasTrack ||
+          _autoAdvancing) {
+        return;
+      }
+      _autoAdvancing = true;
+      try {
+        await next(fromAutoEnded: true);
+      } finally {
+        _autoAdvancing = false;
+      }
+    });
+  }
+
+  Future<bool> _tryLoadWindowsDsdTrack({
+    required Track track,
+    required int expectedToken,
+    required bool autoplay,
+    required Duration initialPosition,
+  }) async {
+    if (!Platform.isWindows || !_isDsdTrack(track)) {
+      return false;
+    }
+
+    try {
+      if (_player.playing || _player.processingState != ProcessingState.idle) {
+        await _player.stop();
+      }
+    } catch (_) {
+      // Ignore legacy backend stop failures during DSD handoff.
+    }
+    if (!_isSessionActive(expectedToken)) return true;
+
+    try {
+      final selectedDsdDevice = state.selectedWindowsDsdDeviceId == 'auto'
+          ? -1
+          : int.tryParse(state.selectedWindowsDsdDeviceId) ?? -1;
+      await _windowsDsdBackend.loadTrack(
+        track.path,
+        asioDevice: selectedDsdDevice,
+      );
+      if (!_isSessionActive(expectedToken)) {
+        await _windowsDsdBackend.stop();
+        return true;
+      }
+
+      if (initialPosition > Duration.zero) {
+        await _windowsDsdBackend.seek(initialPosition);
+      }
+
+      if (autoplay) {
+        await _windowsDsdBackend.play();
+      } else {
+        await _windowsDsdBackend.pause();
+      }
+      if (!_isSessionActive(expectedToken)) {
+        await _windowsDsdBackend.stop();
+        return true;
+      }
+
+      state = state.copyWith(
+        currentTime: initialPosition,
+        duration: _windowsDsdBackend.duration,
+        isLoading: false,
+        isPlaying: autoplay,
+        windowsDsdOutputModeLabel: _windowsDsdBackend.outputModeLabel,
+        windowsDsdActiveDeviceName: _windowsDsdBackend.activeDeviceName,
+        windowsDsdFallbackReason: null,
+        backendKind: PlaybackBackendKind.windowsDsd,
+        clearError: true,
+      );
+      _debug(
+        'windows.dsd -> loaded "${track.title}" '
+        '(raw=${_windowsDsdBackend.usingRawDsd})',
+        force: true,
+      );
+      return true;
+    } catch (error) {
+      _debug('windows.dsd fallback -> ${track.title} | $error', force: true);
+      state = state.copyWith(
+        backendKind: PlaybackBackendKind.mediaKit,
+        windowsDsdOutputModeLabel: null,
+        windowsDsdActiveDeviceName: null,
+        windowsDsdFallbackReason: _describeWindowsDsdFallback(error),
+      );
+      return false;
+    }
+  }
+
+  String _describeWindowsDsdFallback(Object error) {
+    final message = error.toString();
+    if (!state.windowsDsdAvailable) {
+      return 'Windows DSD backend runtime is unavailable.';
+    }
+    if (state.availableWindowsDsdDevices.isEmpty) {
+      return 'No ASIO device is available for the Windows DSD backend.';
+    }
+    if (message.contains('BASS_ASIO_Init failed')) {
+      return state.selectedWindowsDsdDeviceId == 'auto'
+          ? 'The default ASIO device could not be initialized.'
+          : 'The selected ASIO device could not be initialized.';
+    }
+    if (message.contains('BASS_ASIO_SetRate failed')) {
+      return 'The ASIO device rejected the requested DSD output rate.';
+    }
+    if (message.contains('BASS_ASIO_ChannelEnableBASS failed')) {
+      return 'The ASIO device could not bind the DSD stream.';
+    }
+    if (message.contains('BASS_DSD_StreamCreateFile failed') ||
+        message.contains('BASS_DSD_StreamCreateFile (DoP) failed')) {
+      return 'The Windows DSD backend could not open this DSF/DFF file.';
+    }
+    return message;
+  }
+
+  bool _isPlayableTrack(Track track) {
+    if (track.isRemote) {
+      final uri = Uri.tryParse(track.playbackSource);
+      if (uri == null) return false;
+      final scheme = uri.scheme.toLowerCase();
+      if (!_remotePlayableSchemes.contains(scheme)) {
+        return false;
+      }
+      if (scheme == 'file') {
+        return true;
+      }
+      return uri.host.isNotEmpty;
+    }
+
+    final extension = p.extension(track.path).toLowerCase();
     return _demoPlayableExtensions.contains(extension);
+  }
+
+  bool _isDsdTrack(Track? track) {
+    if (track == null || track.isRemote) return false;
+    final extension = p.extension(track.path).toLowerCase();
+    return extension == '.dsf' || extension == '.dff';
+  }
+
+  String _unsupportedTrackMessage(Track track) {
+    if (track.isRemote) {
+      return 'This remote audio source is not supported in current demo backend.';
+    }
+    return 'This file format is not playable in current demo backend: ${p.extension(track.path)}';
+  }
+
+  String _describeTrackSource(Track track) {
+    if (track.isRemote) {
+      final uri = Uri.tryParse(track.playbackSource);
+      if (uri == null) return track.playbackSource;
+      return '${uri.scheme}://${uri.host}${uri.path}';
+    }
+    return track.path;
   }
 
   int _newSession() {
@@ -1462,6 +1972,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
   bool _canFadeCurrentTrack() {
     if (!state.hasTrack) return false;
+    if (_shouldUseNearLosslessDsdPath(state.currentTrack)) return false;
     if (!state.fadeEnabled) return false;
     if (state.volume <= 0) return false;
     if (!_player.playing) return false;
@@ -1469,8 +1980,13 @@ class PlaybackController extends StateNotifier<PlaybackState> {
         _player.processingState == ProcessingState.buffering;
   }
 
+  bool _shouldUseNearLosslessDsdPath(Track? track) {
+    return _isDsdTrack(track);
+  }
+
   Future<void> _pauseWithFade() async {
-    if (!state.fadeEnabled) {
+    if (!state.fadeEnabled ||
+        _shouldUseNearLosslessDsdPath(state.currentTrack)) {
       await _player.pause();
       return;
     }
@@ -1494,6 +2010,15 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     String reason = 'resume',
   }) async {
     final effectiveToken = expectedToken ?? _sessionToken;
+    if (_shouldUseNearLosslessDsdPath(state.currentTrack)) {
+      await _setPlayerVolumeSafelyForTrack(
+        state.volume,
+        track: state.currentTrack,
+      );
+      if (!_isSessionActive(effectiveToken)) return;
+      await _player.play();
+      return;
+    }
     final targetVolume = state.volume.clamp(0.0, 1.0);
     if (targetVolume <= 0) {
       await _player.play();
@@ -1587,11 +2112,26 @@ class PlaybackController extends StateNotifier<PlaybackState> {
   }
 
   Future<void> _setPlayerVolumeSafely(double volume) async {
+    await _setPlayerVolumeSafelyForTrack(volume, track: state.currentTrack);
+  }
+
+  Future<void> _setPlayerVolumeSafelyForTrack(
+    double volume, {
+    Track? track,
+  }) async {
     try {
-      await _player.setVolume(volume.clamp(0.0, 1.0));
+      final effectiveVolume = _effectiveOutputVolumeForTrack(track, volume);
+      await _player.setVolume(effectiveVolume);
     } catch (_) {
       // Ignore transient backend volume failures during player rebuilds.
     }
+  }
+
+  double _effectiveOutputVolumeForTrack(Track? track, double requestedVolume) {
+    if (_shouldUseNearLosslessDsdPath(track)) {
+      return 1.0;
+    }
+    return requestedVolume.clamp(0.0, 1.0);
   }
 
   Future<void> _syncNativeLoopMode() async {
@@ -1608,11 +2148,12 @@ class PlaybackController extends StateNotifier<PlaybackState> {
   bool _isCurrentTrackFlac() {
     final track = state.currentTrack;
     if (track == null) return false;
+    if (track.isRemote) return false;
     return p.extension(track.path).toLowerCase() == '.flac';
   }
 
   void _debug(String message, {bool force = false}) {
-    if (!force && !state.developerMode) return;
+    if (!state.developerMode) return;
 
     final timestamp = DateTime.now().toIso8601String();
     final line = '[$timestamp] $message';
@@ -1790,8 +2331,12 @@ Get-Content -Path \$logPath -Wait
     JustAudioMediaKit.nativeAudioRouteLogger = null;
     JustAudioMediaKit.nativeAudioDevicesListener = null;
     JustAudioMediaKit.nativeSelectedAudioDeviceListener = null;
+    unawaited(_windowsDsdPositionSub?.cancel() ?? Future<void>.value());
+    unawaited(_windowsDsdPlayingSub?.cancel() ?? Future<void>.value());
+    unawaited(_windowsDsdCompletedSub?.cancel() ?? Future<void>.value());
     unawaited(_probeAudioDevicesSub?.cancel() ?? Future<void>.value());
     unawaited(_probeAudioDeviceSub?.cancel() ?? Future<void>.value());
+    unawaited(_windowsDsdBackend.dispose());
     unawaited(_audioDeviceProbe.dispose());
     unawaited(_disposeCurrentPlayerInstance());
     unawaited(_disableDeveloperOutputs());

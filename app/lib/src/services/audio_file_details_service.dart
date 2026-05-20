@@ -1,22 +1,17 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:metadata_god/metadata_god.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/audio_file_details.dart';
 import '../models/track.dart';
+import 'local_audio_metadata_service.dart';
 
 Future<AudioFileDetails> readAudioFileDetails(
   Track track, {
   Duration? fallbackDuration,
 }) async {
-  Metadata? metadata;
-  try {
-    metadata = await MetadataGod.readMetadata(file: track.path);
-  } catch (_) {
-    metadata = null;
-  }
+  final metadata = await readBestEffortAudioMetadata(track.path);
 
   final duration = metadata?.duration ?? fallbackDuration;
   final file = File(track.path);
@@ -28,8 +23,8 @@ Future<AudioFileDetails> readAudioFileDetails(
   final sampleRateHz = await _readSampleRate(track.path);
 
   final trackNumberLabel = _buildTrackNumberLabel(
-    metadata?.trackNumber,
-    metadata?.trackTotal,
+      metadata?.trackNumber,
+      metadata?.trackTotal,
   );
 
   return AudioFileDetails(

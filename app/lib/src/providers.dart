@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'controllers/app_settings_controller.dart';
+import 'controllers/hits_controller.dart';
 import 'controllers/library_controller.dart';
 import 'controllers/playback_controller.dart';
 import 'state/app_settings_state.dart';
+import 'state/hits_state.dart';
 import 'state/library_state.dart';
 import 'state/playback_state.dart';
 
@@ -24,3 +26,12 @@ final playbackProvider =
       ref.onDispose(controller.dispose);
       return controller;
     });
+
+final hitsProvider =
+    StateNotifierProvider.autoDispose<HitsController, HitsState>(
+      (ref) => HitsController(
+        readLibraryState: () => ref.read(libraryProvider),
+        readPlaybackState: () => ref.read(playbackProvider),
+        playbackController: ref.read(playbackProvider.notifier),
+      ),
+    );

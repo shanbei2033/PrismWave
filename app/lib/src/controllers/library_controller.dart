@@ -5,7 +5,6 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:metadata_god/metadata_god.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,6 +14,7 @@ import '../models/online_cover_search_result.dart';
 import '../models/online_lyrics_search_result.dart';
 import '../models/track.dart';
 import '../services/library_scanner.dart';
+import '../services/local_audio_metadata_service.dart';
 import '../services/lyrics_reader.dart';
 import '../services/online_cover_service.dart';
 import '../services/online_lyrics_service.dart';
@@ -270,7 +270,10 @@ class LibraryController extends StateNotifier<LibraryState> {
       if (job != _metadataJobSeed) return;
 
       try {
-        final metadata = await MetadataGod.readMetadata(file: track.path);
+        final metadata = await readBestEffortAudioMetadata(track.path);
+        if (metadata == null) {
+          continue;
+        }
 
         final mergedTrack = track.copyWith(
           title: _pickField(metadata.title, fallback: track.title),
@@ -286,7 +289,7 @@ class LibraryController extends StateNotifier<LibraryState> {
 
         final hasCustomCover =
             state.customCoverPathByTrackPath[track.path]?.isNotEmpty ?? false;
-        final pictureData = metadata.picture?.data;
+        final pictureData = metadata.pictureData;
         if (!hasCustomCover && pictureData != null && pictureData.isNotEmpty) {
           coverPatch[track.path] = pictureData;
         }

@@ -12,12 +12,29 @@ class OnlineCoverService {
   OnlineCoverService();
 
   static const String _appleSearchHost = 'itunes.apple.com';
+  static const String _deezerSearchHost = 'api.deezer.com';
   static const String _musicBrainzHost = 'musicbrainz.org';
   static const String _coverArchiveHost = 'coverartarchive.org';
   static const String _cacheDirName = 'PrismWave';
   static const String _cacheSubDir = 'cover_cache';
   static const String _searchCacheSubDir = 'search_cache';
   static const Duration _searchCacheTtl = Duration(days: 7);
+  static const int _maxArtworkSearchTerms = 4;
+  static const Set<String> _variantKeywords = {
+    'remix',
+    'edit',
+    'version',
+    'mix',
+    'live',
+    'vip',
+    'karaoke',
+    'instrumental',
+    'rework',
+    'sped up',
+    'spedup',
+    'slowed',
+    'reverb',
+  };
 
   final HttpClient _httpClient = HttpClient()
     ..connectionTimeout = const Duration(seconds: 8);
@@ -41,11 +58,18 @@ class OnlineCoverService {
       track,
       query: normalizedQuery,
     );
-    final enoughAppleResults =
+    final enoughPrimaryResults =
         appleResults.length >= 6 ||
         (appleResults.isNotEmpty && appleResults.first.score >= 84);
+    final deezerResults = enoughPrimaryResults
+        ? const <OnlineCoverSearchResult>[]
+        : await _searchDeezerArtwork(track, query: normalizedQuery);
+    final enoughFallbackCoverage =
+        enoughPrimaryResults ||
+        deezerResults.length >= 6 ||
+        (deezerResults.isNotEmpty && deezerResults.first.score >= 84);
 
-    final fallbackResults = enoughAppleResults
+    final fallbackResults = enoughFallbackCoverage
         ? const <OnlineCoverSearchResult>[]
         : await _searchMusicBrainzArtwork(track, query: normalizedQuery);
 
@@ -54,6 +78,7 @@ class OnlineCoverService {
       normalizedQuery,
       <OnlineCoverSearchResult>[
         ...appleResults,
+        ...deezerResults,
         ...fallbackResults,
       ],
     );
@@ -100,15 +125,11 @@ class OnlineCoverService {
     Track track, {
     required String query,
   }) async {
-    final searchTerms = <String>[
-      _composeAppleTerm(track, query),
-      query,
-      if (track.album.trim().isNotEmpty) '${track.album} ${track.artist}',
-    ];
+    final searchTerms = _buildArtworkSearchTerms(track, query: query);
     final gathered = <OnlineCoverSearchResult>[];
     final seen = <String>{};
 
-    for (final term in searchTerms) {
+    for (final term in searchTerms.take(_maxArtworkSearchTerms)) {
       final trimmed = term.trim();
       if (trimmed.isEmpty) continue;
 
@@ -145,6 +166,74 @@ class OnlineCoverService {
             thumbnailUrl: thumbUrl,
             fullImageUrl: fullUrl,
             source: 'apple',
+          ),
+        );
+      }
+
+      if (gathered.length >= 10) break;
+    }
+
+    return _mergeAndRankResults(track, query, gathered);
+  }
+
+  Future<List<OnlineCoverSearchResult>> _searchDeezerArtwork(
+    Track track, {
+    required String query,
+  }) async {
+    final searchTerms = _buildArtworkSearchTerms(track, query: query);
+    final gathered = <OnlineCoverSearchResult>[];
+    final seen = <String>{};
+
+    for (final term in searchTerms.take(_maxArtworkSearchTerms)) {
+      final trimmed = term.trim();
+      if (trimmed.isEmpty) continue;
+
+      final uri = Uri.https(_deezerSearchHost, '/search', {
+        'q': trimmed,
+        'limit': '14',
+      });
+      final payload = await _requestJson(uri);
+      if (payload is! Map<String, dynamic>) continue;
+      final results = payload['data'];
+      if (results is! List) continue;
+
+      for (final raw in results.whereType<Map>()) {
+        final map = Map<String, dynamic>.from(raw);
+        final title = map['title']?.toString().trim() ?? '';
+        final artistMap = map['artist'];
+        final albumMap = map['album'];
+        if (title.isEmpty || artistMap is! Map || albumMap is! Map) {
+          continue;
+        }
+
+        final artist = artistMap['name']?.toString().trim() ?? '';
+        final album = albumMap['title']?.toString().trim() ?? '';
+        final thumbnailUrl =
+            albumMap['cover_medium']?.toString().trim() ??
+            albumMap['cover']?.toString().trim() ??
+            '';
+        final fullImageUrl =
+            albumMap['cover_xl']?.toString().trim() ??
+            albumMap['cover_big']?.toString().trim() ??
+            albumMap['cover_medium']?.toString().trim() ??
+            albumMap['cover']?.toString().trim() ??
+            '';
+        if (artist.isEmpty || fullImageUrl.isEmpty) {
+          continue;
+        }
+
+        final dedupeKey = '$title|$artist|$fullImageUrl';
+        if (!seen.add(dedupeKey)) continue;
+
+        gathered.add(
+          OnlineCoverSearchResult(
+            id: 'deezer:${map['id'] ?? fullImageUrl}',
+            title: title,
+            artist: artist,
+            album: album,
+            thumbnailUrl: thumbnailUrl.isEmpty ? fullImageUrl : thumbnailUrl,
+            fullImageUrl: fullImageUrl,
+            source: 'deezer',
           ),
         );
       }
@@ -296,13 +385,15 @@ class OnlineCoverService {
 
   Future<dynamic> _requestJson(Uri uri) async {
     try {
-      final request = await _httpClient.getUrl(uri);
+      final request = await _httpClient
+          .getUrl(uri)
+          .timeout(const Duration(seconds: 6));
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
       request.headers.set(
         HttpHeaders.userAgentHeader,
         'PrismWave/1.0.0 (+https://github.com/shanbei2033/PrismWave)',
       );
-      final response = await request.close();
+      final response = await request.close().timeout(const Duration(seconds: 8));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return null;
       }
@@ -317,12 +408,14 @@ class OnlineCoverService {
   Future<Uint8List?> _downloadBytes(String url) async {
     try {
       final uri = Uri.parse(url);
-      final request = await _httpClient.getUrl(uri);
+      final request = await _httpClient
+          .getUrl(uri)
+          .timeout(const Duration(seconds: 6));
       request.headers.set(
         HttpHeaders.userAgentHeader,
         'PrismWave/1.0.0 (+https://github.com/shanbei2033/PrismWave)',
       );
-      final response = await request.close();
+      final response = await request.close().timeout(const Duration(seconds: 8));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return null;
       }
@@ -378,6 +471,8 @@ class OnlineCoverService {
 
     if (result.source == 'apple') {
       score += 12;
+    } else if (result.source == 'deezer') {
+      score += 10;
     } else if (result.source == 'musicbrainz') {
       score += 4;
     }
@@ -385,12 +480,46 @@ class OnlineCoverService {
     return score;
   }
 
-  String _composeAppleTerm(Track track, String query) {
+  List<String> _buildArtworkSearchTerms(Track track, {required String query}) {
+    final terms = <String>{};
+
+    void add(String value) {
+      final trimmed = value.trim();
+      if (trimmed.isNotEmpty) {
+        terms.add(trimmed);
+      }
+    }
+
+    final cleanQuery = _stripSearchDecorations(query);
+    final cleanTitle = _stripSearchDecorations(track.title);
+    final cleanArtist = _stripSearchDecorations(track.artist);
+    final cleanAlbum = _stripSearchDecorations(track.album);
+    final simplifiedTitle = _simplifyTrackTitleForSearch(
+      cleanTitle.isEmpty ? query : cleanTitle,
+    );
+
+    add(_composeArtworkQuery(query: query, artist: cleanArtist));
+    add(query);
+    add(cleanQuery);
+    add('${track.title} ${track.artist}');
+    add('$cleanTitle $cleanArtist');
+    add('$simplifiedTitle $cleanArtist');
+    if (cleanAlbum.isNotEmpty) {
+      add('$cleanTitle $cleanArtist $cleanAlbum');
+      add('$simplifiedTitle $cleanArtist $cleanAlbum');
+      add('$cleanAlbum $cleanArtist');
+    }
+    add(cleanTitle);
+
+    return terms.take(8).toList(growable: false);
+  }
+
+  String _composeArtworkQuery({required String query, required String artist}) {
     final parts = <String>[
       query,
-      if (track.artist.trim().isNotEmpty &&
-          !_normalize(query).contains(_normalize(track.artist)))
-        track.artist,
+      if (artist.trim().isNotEmpty &&
+          !_normalize(query).contains(_normalize(artist)))
+        artist,
     ];
     return parts.join(' ').trim();
   }
@@ -418,6 +547,56 @@ class OnlineCoverService {
         .replaceAll(RegExp(r'\([^)]*\)'), '')
         .replaceAll(RegExp(r'feat\.?|ft\.?|ver\.?|version|live|remix'), '')
         .replaceAll(RegExp(r'[^a-z0-9\u4e00-\u9fff]+'), '');
+  }
+
+  String _stripSearchDecorations(String value) {
+    return value
+        .replaceAll(RegExp(r'\[[^\]]*\]'), ' ')
+        .replaceAll(RegExp(r'\([^)]*\)'), ' ')
+        .replaceAll(RegExp(r'\b(feat|ft|with)\b', caseSensitive: false), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  String _simplifyTrackTitleForSearch(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return trimmed;
+    }
+
+    final separatorMatch = RegExp(r'\s[-:|/]\s').firstMatch(trimmed);
+    if (separatorMatch != null) {
+      final left = trimmed.substring(0, separatorMatch.start).trim();
+      final right = trimmed.substring(separatorMatch.end).trim();
+      if (left.isNotEmpty &&
+          right.isNotEmpty &&
+          _containsVariantKeyword(right)) {
+        return left;
+      }
+    }
+
+    final simplified = trimmed
+        .replaceAll(
+          RegExp(
+            r'\b(remix|edit|version|mix|live|vip|karaoke|instrumental|rework)\b',
+            caseSensitive: false,
+          ),
+          ' ',
+        )
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    return simplified.isEmpty ? trimmed : simplified;
+  }
+
+  bool _containsVariantKeyword(String value) {
+    final normalized = _normalize(value);
+    for (final keyword in _variantKeywords) {
+      if (normalized.contains(_normalize(keyword))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<List<OnlineCoverSearchResult>> _loadCachedSearchResults(

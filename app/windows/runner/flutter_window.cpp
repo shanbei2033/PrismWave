@@ -27,13 +27,16 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
+  // Show the native window immediately after the Flutter view is attached.
+  // Waiting for the first frame can leave the app permanently hidden on some
+  // Windows environments in release builds.
+  this->Show();
+
+  // Keep the original first-frame flow as a secondary path so Flutter is
+  // guaranteed to schedule and present a frame after startup.
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
   });
-
-  // Flutter can complete the first frame before the "show window" callback is
-  // registered. The following call ensures a frame is pending to ensure the
-  // window is shown. It is a no-op if the first frame hasn't completed yet.
   flutter_controller_->ForceRedraw();
 
   return true;

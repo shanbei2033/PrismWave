@@ -36,5 +36,24 @@ target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
 target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
+set(PRISMWAVE_DSD_VENDOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../native/windows_dsd/vendor")
+set(PRISMWAVE_DSD_RUNTIME_DLLS
+  "${PRISMWAVE_DSD_VENDOR_DIR}/bass24/x64/bass.dll"
+  "${PRISMWAVE_DSD_VENDOR_DIR}/bassdsd24/x64/bassdsd.dll"
+  "${PRISMWAVE_DSD_VENDOR_DIR}/bassasio14/x64/bassasio.dll"
+)
+
+foreach(DSD_RUNTIME_DLL ${PRISMWAVE_DSD_RUNTIME_DLLS})
+  if(EXISTS "${DSD_RUNTIME_DLL}")
+    add_custom_command(
+      TARGET ${BINARY_NAME} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${DSD_RUNTIME_DLL}"
+        "$<TARGET_FILE_DIR:${BINARY_NAME}>"
+      VERBATIM
+    )
+  endif()
+endforeach()
+
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)

@@ -7,6 +7,8 @@ class Track {
     required this.artist,
     required this.album,
     this.coverPath,
+    this.playbackUrl,
+    this.playbackHeaders,
   });
 
   final String path;
@@ -14,6 +16,12 @@ class Track {
   final String artist;
   final String album;
   final String? coverPath;
+  final String? playbackUrl;
+  final Map<String, String>? playbackHeaders;
+
+  bool get isRemote => (playbackUrl ?? '').trim().isNotEmpty;
+
+  String get playbackSource => isRemote ? playbackUrl!.trim() : path;
 
   Track copyWith({
     String? path,
@@ -21,6 +29,8 @@ class Track {
     String? artist,
     String? album,
     String? coverPath,
+    String? playbackUrl,
+    Map<String, String>? playbackHeaders,
   }) {
     return Track(
       path: path ?? this.path,
@@ -28,6 +38,8 @@ class Track {
       artist: artist ?? this.artist,
       album: album ?? this.album,
       coverPath: coverPath ?? this.coverPath,
+      playbackUrl: playbackUrl ?? this.playbackUrl,
+      playbackHeaders: playbackHeaders ?? this.playbackHeaders,
     );
   }
 
@@ -53,6 +65,8 @@ class Track {
       artist: map['artist'] ?? 'Unknown Artist',
       album: map['album'] ?? 'Unknown Album',
       coverPath: map['coverPath'],
+      playbackUrl: map['playbackUrl'],
+      playbackHeaders: null,
     );
   }
 }

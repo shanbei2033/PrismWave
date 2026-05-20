@@ -500,7 +500,7 @@ class _SlotLyricsPanelState extends State<_SlotLyricsPanel> {
     return _safeIndex(index) * _itemExtent;
   }
 
-  double _lineProgress(int index) {
+  double _rawLineProgress(int index, Duration position) {
     if (widget.lyrics.isEmpty) return 0;
     if (index < 0 || index >= widget.lyrics.length) return 0;
 
@@ -511,9 +511,12 @@ class _SlotLyricsPanelState extends State<_SlotLyricsPanel> {
     final spanMs = (nextTime - current.time).inMilliseconds;
     if (spanMs <= 0) return index < widget.currentIndex ? 1 : 0;
 
-    final elapsedMs = (widget.currentPosition - current.time).inMilliseconds
-        .toDouble();
-    final raw = (elapsedMs / spanMs).clamp(0.0, 1.0);
+    final elapsedMs = (position - current.time).inMilliseconds.toDouble();
+    return (elapsedMs / spanMs).clamp(0.0, 1.0);
+  }
+
+  double _lineProgress(int index) {
+    final raw = _rawLineProgress(index, widget.currentPosition);
     return Curves.easeInOut.transform(raw);
   }
 
@@ -557,14 +560,25 @@ class _SlotLyricsPanelState extends State<_SlotLyricsPanel> {
     }
 
     final maxScroll = _controller.position.maxScrollExtent;
+    final current = _controller.offset.clamp(0.0, maxScroll);
     final target = _targetOffset(nextIndex).clamp(0.0, maxScroll);
-    final delta = (nextIndex - previousIndex).abs();
-    final durationMs = (delta * 230).clamp(280, 1200);
+    final deltaPixels = (target - current).abs();
+    if (deltaPixels < 0.5) return;
 
-    _controller.animateTo(
-      target,
-      duration: Duration(milliseconds: durationMs),
-      curve: Curves.easeInOutCubic,
+    if (deltaPixels >= _itemExtent * 4) {
+      _controller.jumpTo(target);
+      return;
+    }
+
+    final deltaLines = (deltaPixels / _itemExtent).clamp(1.0, 4.0);
+    final durationMs = (180 + ((deltaLines - 1) * 70)).round().clamp(180, 390);
+
+    unawaited(
+      _controller.animateTo(
+        target,
+        duration: Duration(milliseconds: durationMs),
+        curve: Curves.easeOutCubic,
+      ),
     );
   }
 
@@ -605,7 +619,9 @@ class _SlotLyricsPanelState extends State<_SlotLyricsPanel> {
                 final distance = (index - safeCurrent).abs();
                 return Center(
                   child: _SlotLyricText(
-                    key: ValueKey('slot-line-$index-$safeCurrent'),
+                    key: ValueKey(
+                      'slot-line-$index-${widget.lyrics[index].time.inMilliseconds}',
+                    ),
                     text: widget.lyrics[index].text,
                     segments: widget.lyrics[index].segments,
                     active: active,
@@ -2080,10 +2096,17 @@ class _CoverImage extends StatelessWidget {
         coverBytes!,
         fit: fit,
         gaplessPlayback: true,
-        errorBuilder: (_, _, _) => _placeholder(),
+        errorBuilder: (_, _, _) => _fileImageOrPlaceholder(),
       );
     }
 
+    if (coverPath != null && File(coverPath!).existsSync()) {
+      return _fileImageOrPlaceholder();
+    }
+    return _placeholder();
+  }
+
+  Widget _fileImageOrPlaceholder() {
     if (coverPath != null && File(coverPath!).existsSync()) {
       return Image.file(
         File(coverPath!),

@@ -7,6 +7,88 @@ class AppStrings {
 
   final AppLanguage appLanguage;
 
+  String get settingsBasicTab => _tr('\u57fa\u7840', '\u57fa\u790e', 'Basic');
+  String get settingsPlaybackTab =>
+      _tr('\u64ad\u653e', '\u64ad\u653e', 'Playback');
+  String get hits => 'HITS';
+  String get hitsNoNetwork => _tr(
+    '\u5f53\u524d\u65e0\u7f51\u7edc',
+    '\u76ee\u524d\u7121\u7db2\u8def',
+    'No network connection',
+  );
+  String get hitsCloudTimeout => _tr(
+    '\u8fde\u63a5\u4e91\u7aef\u8d85\u65f6',
+    '\u9023\u63a5\u96f2\u7aef\u8d85\u6642',
+    'Cloud connection timed out',
+  );
+  String get hitsInDevelopment => _tr(
+    '\u6b63\u5728\u5f00\u53d1\u4e2d',
+    '\u6b63\u5728\u958b\u767c\u4e2d',
+    'In development',
+  );
+  String get hitsUnavailable => _tr(
+    'HITS\u4e0d\u53ef\u7528',
+    'HITS\u4e0d\u53ef\u7528',
+    'HITS unavailable',
+  );
+  String get hitsLoadingSchedule => _tr(
+    '\u6b63\u5728\u52a0\u8f7d HITS \u8282\u76ee\u5355',
+    '\u6b63\u5728\u8f09\u5165 HITS \u7bc0\u76ee\u55ae',
+    'Loading HITS schedule',
+  );
+  String get hitsOffAir =>
+      _tr('HITS \u4f11\u53f0\u4e2d', 'HITS \u4f11\u53f0\u4e2d', 'HITS off air');
+  String get hitsScheduleStandby => _tr(
+    'HITS \u8282\u76ee\u51c6\u5907\u4e2d',
+    'HITS \u7bc0\u76ee\u6e96\u5099\u4e2d',
+    'HITS standby',
+  );
+  String get hitsAudioComingSoon => _tr(
+    '\u97f3\u9891\u63a5\u5165\u5f00\u53d1\u4e2d',
+    '\u97f3\u8a0a\u63a5\u5165\u958b\u767c\u4e2d',
+    'Audio integration in development',
+  );
+  String get hitsUsingCachedSchedule => _tr(
+    '\u5df2\u5207\u6362\u5230\u79bb\u7ebf\u7f13\u5b58\u8282\u76ee\u5355',
+    '\u5df2\u5207\u63db\u5230\u96e2\u7dda\u5feb\u53d6\u7bc0\u76ee\u55ae',
+    'Using cached HITS schedule',
+  );
+  String get hitsLivePlaybackSynced => _tr(
+    '\u5df2\u6309 HITS \u65f6\u95f4\u7ebf\u540c\u6b65\u64ad\u653e',
+    '\u5df2\u6309 HITS \u6642\u9593\u7dda\u540c\u6b65\u64ad\u653e',
+    'Playing in sync with the HITS timeline',
+  );
+  String get hitsResumeToLiveHint => _tr(
+    '\u5df2\u6682\u505c\uff0c\u6062\u590d\u540e\u5c06\u8df3\u8f6c\u5230\u5f53\u524d\u76f4\u64ad\u8fdb\u5ea6',
+    '\u5df2\u66ab\u505c\uff0c\u6062\u5fa9\u5f8c\u5c07\u8df3\u8f49\u5230\u76ee\u524d\u76f4\u64ad\u9032\u5ea6',
+    'Paused. Resume will jump to the live position',
+  );
+  String get hitsTrackNotInLibrary => _tr(
+    '\u5f53\u524d\u8282\u76ee\u672a\u5728\u672c\u5730\u5e93\u4e2d\u5339\u914d\u5230\u6b4c\u66f2',
+    '\u76ee\u524d\u7bc0\u76ee\u672a\u5728\u672c\u5730\u5eab\u4e2d\u5339\u914d\u5230\u6b4c\u66f2',
+    'This HITS track is not matched in your local library',
+  );
+  String get hitsNoPlayableSource => _tr(
+    '\u5f53\u524d\u8282\u76ee\u5355\u672a\u63d0\u4f9b\u53ef\u64ad\u653e\u97f3\u6e90',
+    '\u76ee\u524d\u7bc0\u76ee\u55ae\u672a\u63d0\u4f9b\u53ef\u64ad\u653e\u97f3\u6e90',
+    'This HITS schedule item does not provide a playable audio source',
+  );
+  String get hitsResolvingOnlineSource => _tr(
+    '\u6b63\u5728\u641c\u7d22\u5728\u7ebf\u97f3\u6e90',
+    '\u6b63\u5728\u641c\u5c0b\u7dda\u4e0a\u97f3\u6e90',
+    'Searching for an online audio source',
+  );
+  String get hitsOnlineLyricsReady => _tr(
+    '\u5df2\u8054\u7f51\u5339\u914d\u6b4c\u8bcd\uff0c\u97f3\u9891\u6e90\u63a5\u5165\u4e2d',
+    '\u5df2\u9023\u7db2\u5339\u914d\u6b4c\u8a5e\uff0c\u97f3\u8a0a\u6e90\u63a5\u5165\u4e2d',
+    'Online lyrics are ready, audio source integration is in progress',
+  );
+  String get hitsSyncingPlayback => _tr(
+    '\u6b63\u5728\u540c\u6b65 HITS \u64ad\u653e',
+    '\u6b63\u5728\u540c\u6b65 HITS \u64ad\u653e',
+    'Syncing HITS playback',
+  );
+
   bool get _zhHans => appLanguage == AppLanguage.zhCn;
   bool get _zhHant => appLanguage == AppLanguage.zhTw;
 
@@ -154,6 +236,38 @@ class AppStrings {
     '選擇目前使用的播放裝置，切換後會重建播放器以套用到目前後端。',
     'Choose the playback device. The player will be recreated to apply it.',
   );
+  String get windowsDsdDevice =>
+      _tr('DSD 输出设备', 'DSD 輸出裝置', 'DSD Output Device');
+  String get windowsDsdDeviceHint => _tr(
+    'DSF/DFF 播放使用所选 ASIO 设备，优先 raw DSD，不支持时自动回退 DoP。',
+    'DSF/DFF 播放使用所選 ASIO 裝置，優先 raw DSD，不支援時自動回退 DoP。',
+    'DSF/DFF playback uses the selected ASIO device, preferring raw DSD and falling back to DoP.',
+  );
+  String get windowsDsdUnavailableHint => _tr(
+    '当前未检测到可用的 Windows DSD 后端或 ASIO 设备。',
+    '目前未檢測到可用的 Windows DSD 後端或 ASIO 裝置。',
+    'No Windows DSD backend or ASIO device is currently available.',
+  );
+  String get windowsDsdStatus => _tr('DSD 状态', 'DSD 狀態', 'DSD Status');
+  String get windowsDsdRuntimeStatus => _tr('运行库', '執行庫', 'Runtime');
+  String get windowsDsdRuntimeReady => _tr('已加载', '已載入', 'Loaded');
+  String get windowsDsdRuntimeMissing => _tr('未加载', '未載入', 'Unavailable');
+  String get windowsDsdDeviceCountLabel =>
+      _tr('ASIO 设备', 'ASIO 裝置', 'ASIO Devices');
+  String windowsDsdDeviceCountValue(int count) =>
+      _tr('$count 个可用设备', '$count 個可用裝置', '$count available');
+  String get windowsDsdNoDevice =>
+      _tr('未检测到可用设备', '未偵測到可用裝置', 'No device detected');
+  String get windowsDsdCurrentBackend => _tr('当前后端', '目前後端', 'Current Backend');
+  String get windowsDsdBackendActive =>
+      _tr('Windows DSD 专用后端', 'Windows DSD 專用後端', 'Windows DSD Backend');
+  String get windowsDsdBackendFallback =>
+      _tr('已回退到常规后端', '已回退到一般後端', 'Fallback to media backend');
+  String get windowsDsdBackendIdle =>
+      _tr('等待 DSD 曲目', '等待 DSD 曲目', 'Waiting for DSD track');
+  String get windowsDsdOutputModeStatus => _tr('输出模式', '輸出模式', 'Output Mode');
+  String get windowsDsdActiveDevice => _tr('活动设备', '作用中裝置', 'Active Device');
+  String get windowsDsdFallbackReason => _tr('回退原因', '回退原因', 'Fallback Reason');
   String outputModeLabel(AudioOutputMode mode) => switch (mode) {
     AudioOutputMode.compatibility => _tr(
       '兼容模式 (MPV)',
@@ -271,6 +385,17 @@ class AppStrings {
   };
   String audioDeviceLabel(String label, {required bool isAuto}) =>
       isAuto ? defaultAudioDevice : label;
+  String windowsDsdDeviceLabel(
+    String label, {
+    required bool isAuto,
+    required bool supportsNativeDsd,
+  }) {
+    if (isAuto) {
+      return defaultAudioDevice;
+    }
+    return supportsNativeDsd ? '$label · Native DSD' : '$label · DoP';
+  }
+
   String get topBarCustomTextTitle =>
       _tr('自定义显示文字', '自訂顯示文字', 'Custom Display Text');
   String get topBarCustomTextHint => _tr(

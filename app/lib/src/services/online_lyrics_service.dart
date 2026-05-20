@@ -25,7 +25,8 @@ class OnlineLyricsService {
   );
   static final RegExp _hexLyricsPattern = RegExp(r'^[0-9a-fA-F]+$');
 
-  final HttpClient _httpClient = HttpClient()..connectionTimeout = const Duration(seconds: 6);
+  final HttpClient _httpClient = HttpClient()
+    ..connectionTimeout = const Duration(seconds: 6);
 
   Future<LyricsDocument?> loadCachedLyricsForTrack(
     Track track, {
@@ -78,12 +79,35 @@ class OnlineLyricsService {
     return null;
   }
 
+  Future<LyricsDocument?> resolveBestLyricsDocumentForTrack(
+    Track track, {
+    required String query,
+    Duration? durationHint,
+  }) async {
+    final results = await searchLyricsForTrack(
+      track,
+      query: query,
+      durationHint: durationHint,
+    );
+    for (final result in results) {
+      final document = _toDocument(result, durationHint: durationHint);
+      if (document != null && !document.isEmpty) {
+        return document;
+      }
+    }
+    return null;
+  }
+
   Future<List<OnlineLyricsSearchResult>> searchLyricsForTrack(
     Track track, {
     required String query,
     Duration? durationHint,
   }) async {
-    final lrclibFuture = _searchLrclib(track, query: query, durationHint: durationHint);
+    final lrclibFuture = _searchLrclib(
+      track,
+      query: query,
+      durationHint: durationHint,
+    );
     final qqFuture = _searchQq(track, query: query, durationHint: durationHint);
     final resultGroups = await Future.wait([lrclibFuture, qqFuture]);
     final merged = <OnlineLyricsSearchResult>[
@@ -100,9 +124,7 @@ class OnlineLyricsService {
     Duration? durationHint,
   }) async {
     final exact = await _getExactLyrics(track, durationHint: durationHint);
-    final results = await _search(
-      <String, String>{'q': query.trim()},
-    );
+    final results = await _search(<String, String>{'q': query.trim()});
     final pool = <OnlineLyricsSearchResult>[
       if (exact != null && !exact.isEmpty)
         OnlineLyricsSearchResult(
@@ -124,7 +146,12 @@ class OnlineLyricsService {
         .where((item) => item.hasLyrics && !item.instrumental)
         .map(
           (item) => item.copyWith(
-            hasTimedSegments: _toDocument(item, durationHint: durationHint)?.hasTimedSegments ?? item.hasTimedSegments,
+            hasTimedSegments:
+                _toDocument(
+                  item,
+                  durationHint: durationHint,
+                )?.hasTimedSegments ??
+                item.hasTimedSegments,
             score: _scoreResult(
               item,
               query: query,
@@ -159,28 +186,32 @@ class OnlineLyricsService {
     final candidates = candidateByKey.values.toList(growable: false);
     if (candidates.isEmpty) return const <OnlineLyricsSearchResult>[];
 
-    final narrowed = candidates
-        .map(
-          (candidate) => (
-            candidate: candidate,
-            score: _scoreQqCandidate(
-              candidate,
-              query: query,
-              track: track,
-              durationHint: durationHint,
-            ),
-          ),
-        )
-        .where((entry) => entry.score > 0)
-        .toList(growable: false)
-      ..sort((a, b) => b.score.compareTo(a.score));
+    final narrowed =
+        candidates
+            .map(
+              (candidate) => (
+                candidate: candidate,
+                score: _scoreQqCandidate(
+                  candidate,
+                  query: query,
+                  track: track,
+                  durationHint: durationHint,
+                ),
+              ),
+            )
+            .where((entry) => entry.score > 0)
+            .toList(growable: false)
+          ..sort((a, b) => b.score.compareTo(a.score));
 
     final top = narrowed
         .take(8)
         .map((entry) => entry.candidate)
         .toList(growable: false);
     final fetched = await Future.wait(
-      top.map((candidate) => _fetchQqLyricsCandidate(candidate, durationHint: durationHint)),
+      top.map(
+        (candidate) =>
+            _fetchQqLyricsCandidate(candidate, durationHint: durationHint),
+      ),
     );
 
     return fetched
@@ -215,7 +246,9 @@ class OnlineLyricsService {
     return _toDocument(result, durationHint: durationHint);
   }
 
-  Future<List<OnlineLyricsSearchResult>> _search(Map<String, String> params) async {
+  Future<List<OnlineLyricsSearchResult>> _search(
+    Map<String, String> params,
+  ) async {
     final raw = await _requestJson('/api/search', params);
     if (raw is! List) return const <OnlineLyricsSearchResult>[];
     return raw
@@ -285,13 +318,10 @@ class OnlineLyricsService {
     if (raw == null || raw.trim().isEmpty) return null;
     final parsed = parseLyricsDocument(raw, durationHint: durationHint);
     if (parsed == null || parsed.isEmpty) return null;
-    final enriched = result.copyWith(
-      hasTimedSegments: parsed.hasTimedSegments,
-    );
-    return enriched.toLyricsDocument(parsed.lines).copyWithParsed(
-      rawText: raw,
-      isSynced: parsed.isSynced,
-    );
+    final enriched = result.copyWith(hasTimedSegments: parsed.hasTimedSegments);
+    return enriched
+        .toLyricsDocument(parsed.lines)
+        .copyWithParsed(rawText: raw, isSynced: parsed.isSynced);
   }
 
   int _scoreResult(
@@ -317,7 +347,8 @@ class OnlineLyricsService {
     if (titleKey.isNotEmpty && titleKey == resultTitleKey) {
       score += 50;
     } else if (titleKey.isNotEmpty &&
-        (resultTitleKey.contains(titleKey) || titleKey.contains(resultTitleKey))) {
+        (resultTitleKey.contains(titleKey) ||
+            titleKey.contains(resultTitleKey))) {
       score += 24;
     }
 
@@ -334,12 +365,12 @@ class OnlineLyricsService {
     }
 
     if (queryKey.isNotEmpty &&
-        (resultTitleKey.contains(queryKey) || queryKey.contains(resultTitleKey))) {
+        (resultTitleKey.contains(queryKey) ||
+            queryKey.contains(resultTitleKey))) {
       score += 12;
     }
 
-    final durationSeconds =
-        durationHint != null && durationHint > Duration.zero
+    final durationSeconds = durationHint != null && durationHint > Duration.zero
         ? durationHint.inSeconds
         : 0;
     if (durationSeconds > 0 && result.durationSeconds > 0) {
@@ -557,7 +588,13 @@ class OnlineLyricsService {
     return input
         .replaceAll(RegExp(r'\[[^\]]*\]'), ' ')
         .replaceAll(RegExp(r'\([^)]*\)'), ' ')
-        .replaceAll(RegExp(r'feat\.?|ft\.?|ver\.?|version|live|remix', caseSensitive: false), ' ')
+        .replaceAll(
+          RegExp(
+            r'feat\.?|ft\.?|ver\.?|version|live|remix',
+            caseSensitive: false,
+          ),
+          ' ',
+        )
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
@@ -660,7 +697,9 @@ extension on LyricsDocument {
   }
 }
 
-Future<List<int>> consolidateHttpClientResponseBytes(HttpClientResponse response) async {
+Future<List<int>> consolidateHttpClientResponseBytes(
+  HttpClientResponse response,
+) async {
   final chunks = <int>[];
   await for (final chunk in response) {
     chunks.addAll(chunk);

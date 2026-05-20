@@ -18,6 +18,14 @@ const _supportedExtensions = {
   '.dff',
 };
 
+const _supportedImageExtensions = {
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.bmp',
+};
+
 Future<List<Track>> scanTracks(String rootPath) async {
   return scanTracksFromRoots([rootPath]);
 }
@@ -62,6 +70,9 @@ List<Map<String, String>> _scanTracksRaw(String rootPath) {
       continue;
     }
 
+    final genericCoverPath = _findGenericCoverInEntries(entries);
+    final trackSpecificCoverByStem = _buildTrackSpecificCoverMap(entries);
+
     for (final entity in entries) {
       if (entity is Directory) {
         pendingDirs.add(entity);
@@ -77,10 +88,8 @@ List<Map<String, String>> _scanTracksRaw(String rootPath) {
         directory: directory,
         rootPath: rootPath,
       );
-      final coverPath = coverByDirectory.putIfAbsent(
-        directory,
-        () => _findCoverInDirectory(directory),
-      );
+      final coverPath = trackSpecificCoverByStem[_normalizeStem(fileName)] ??
+          coverByDirectory.putIfAbsent(directory, () => genericCoverPath);
       final coverEntry = coverPath == null
           ? null
           : <String, String>{'coverPath': coverPath};
@@ -98,12 +107,35 @@ List<Map<String, String>> _scanTracksRaw(String rootPath) {
   return tracks;
 }
 
+Map<String, String> _buildTrackSpecificCoverMap(List<FileSystemEntity> entries) {
+  final coverByStem = <String, String>{};
+
+  for (final entity in entries) {
+    if (entity is! File) continue;
+    if (!_isSupportedImageFilePath(entity.path)) continue;
+
+    final stem = _normalizeStem(p.basenameWithoutExtension(entity.path));
+    if (stem.isEmpty) continue;
+    coverByStem.putIfAbsent(stem, () => entity.path);
+  }
+
+  return coverByStem;
+}
+
 bool _isSupportedAudioFilePath(String path) {
   final normalized = path.toLowerCase().trimRight().replaceAll(
     RegExp(r'[.\s]+$'),
     '',
   );
   return _supportedExtensions.any(normalized.endsWith);
+}
+
+bool _isSupportedImageFilePath(String path) {
+  final normalized = path.toLowerCase().trimRight().replaceAll(
+    RegExp(r'[.\s]+$'),
+    '',
+  );
+  return _supportedImageExtensions.any(normalized.endsWith);
 }
 
 Map<String, String> _parseTitleArtistAlbum({
@@ -138,23 +170,79 @@ Map<String, String> _parseTitleArtistAlbum({
   return {'title': title, 'artist': artist, 'album': album};
 }
 
-String? _findCoverInDirectory(String directoryPath) {
+String? _findGenericCoverInEntries(List<FileSystemEntity> entries) {
   const candidateNames = [
     'cover.jpg',
     'cover.jpeg',
     'cover.png',
+    'cover.webp',
     'folder.jpg',
     'folder.jpeg',
     'folder.png',
+    'folder.webp',
     'front.jpg',
     'front.png',
+    'front.webp',
+    'artwork.jpg',
+    'artwork.png',
+    'artwork.webp',
+    'album.jpg',
+    'album.png',
+    'album.webp',
+    'albumart.jpg',
+    'albumart.png',
+    'albumart.webp',
   ];
 
-  for (final name in candidateNames) {
-    final candidate = p.join(directoryPath, name);
-    if (File(candidate).existsSync()) {
-      return candidate;
+  final imageFiles = entries
+      .whereType<File>()
+      .where((file) => _isSupportedImageFilePath(file.path))
+      .map((file) => file.path)
+      .toList(growable: false);
+
+  if (imageFiles.isEmpty) {
+    return null;
+  }
+
+  final lowerByPath = <String, String>{
+    for (final path in imageFiles) path: p.basename(path).toLowerCase(),
+  };
+
+  for (final candidate in candidateNames) {
+    for (final path in imageFiles) {
+      if (lowerByPath[path] == candidate) {
+        return path;
+      }
     }
   }
-  return null;
+
+  if (imageFiles.length == 1) {
+    return imageFiles.first;
+  }
+
+  final scored = imageFiles
+      .map((path) => (path: path, score: _genericCoverScore(lowerByPath[path]!)))
+      .toList(growable: false)
+    ..sort((left, right) {
+      final scoreCompare = right.score.compareTo(left.score);
+      if (scoreCompare != 0) return scoreCompare;
+      return left.path.compareTo(right.path);
+    });
+
+  return scored.first.score > 0 ? scored.first.path : null;
+}
+
+int _genericCoverScore(String lowerName) {
+  if (lowerName.contains('cover')) return 100;
+  if (lowerName.contains('folder')) return 96;
+  if (lowerName.contains('front')) return 92;
+  if (lowerName.contains('artwork')) return 88;
+  if (lowerName.contains('albumart')) return 84;
+  if (lowerName.contains('album')) return 76;
+  if (lowerName.contains('art')) return 60;
+  return 0;
+}
+
+String _normalizeStem(String value) {
+  return value.trim().toLowerCase();
 }

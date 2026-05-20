@@ -21,9 +21,38 @@ Future<void> main() async {
     linux: false,
     windows: true,
   );
-  await MetadataGod.initialize();
-  await _configureWindow();
   runApp(const ProviderScope(child: PrismWaveApp()));
+  _completePlatformBootstrap();
+}
+
+Future<void> _completePlatformBootstrap() async {
+  try {
+    await MetadataGod.initialize();
+  } catch (_) {
+    // Keep startup resilient if metadata backend is unavailable.
+  }
+
+  try {
+    await _configureWindow();
+  } catch (_) {
+    // Keep startup resilient if window styling fails on a specific machine.
+  }
+}
+
+Future<void> _setWindowsAcrylicEffect() async {
+  try {
+    await Window.setEffect(
+      effect: WindowEffect.acrylic,
+      color: const Color(0x14101828),
+      dark: true,
+    );
+  } catch (_) {
+    await Window.setEffect(
+      effect: WindowEffect.aero,
+      color: Colors.transparent,
+      dark: true,
+    );
+  }
 }
 
 Future<void> _configureAudioBackendFromSettings() async {
@@ -32,8 +61,6 @@ Future<void> _configureAudioBackendFromSettings() async {
 
   JustAudioMediaKit.title = 'PrismWave';
   JustAudioMediaKit.nativeMpvProperties = const <String, String>{
-    // PrismWave handles local/online lyrics itself. Letting mpv auto-load
-    // sidecar .lrc files can surface a false fatal playback error on Windows.
     'sub-auto': 'no',
   };
   switch (mode) {
@@ -59,39 +86,17 @@ Future<void> _configureWindow() async {
   await Window.initialize();
   await windowManager.ensureInitialized();
   await windowManager.setBackgroundColor(Colors.transparent);
-
-  const windowOptions = WindowOptions(
-    title: 'PrismWave',
-    size: Size(1320, 840),
-    minimumSize: Size(980, 620),
-    center: true,
-    titleBarStyle: TitleBarStyle.hidden,
-    backgroundColor: Colors.transparent,
+  await windowManager.setMinimumSize(const Size(980, 620));
+  await windowManager.setTitle('PrismWave');
+  await windowManager.setTitleBarStyle(
+    TitleBarStyle.hidden,
+    windowButtonVisibility: false,
   );
-
-  windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.show();
-    await windowManager.focus();
-
-    if (Platform.isWindows) {
-      await Window.hideWindowControls();
-      await _setWindowsAcrylicEffect();
-    }
-  });
-}
-
-Future<void> _setWindowsAcrylicEffect() async {
-  try {
-    await Window.setEffect(
-      effect: WindowEffect.acrylic,
-      color: const Color(0x14101828),
-      dark: true,
-    );
-  } catch (_) {
-    await Window.setEffect(
-      effect: WindowEffect.aero,
-      color: Colors.transparent,
-      dark: true,
-    );
+  if (Platform.isWindows) {
+    await windowManager.setAsFrameless();
+    await Window.hideWindowControls();
+    await _setWindowsAcrylicEffect();
   }
+  await windowManager.show();
+  await windowManager.focus();
 }

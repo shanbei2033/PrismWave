@@ -32,7 +32,7 @@ PrismWave/
   app/                   Flutter application
   native/windows_dsd/    BASS/BASSDSD/BASSASIO native libraries
   installer/             Inno Setup installer script
-  tools/flutter/         Bundled Flutter SDK (gitignored)
+  tools/flutter/         Bundled Flutter SDK 
 ```
 
 ## Run

@@ -32,7 +32,7 @@ PrismWave/
   app/                   Flutter 应用
   native/windows_dsd/    BASS/BASSDSD/BASSASIO 原生运行库
   installer/             Inno Setup 安装包脚本
-  tools/flutter/         内置 Flutter SDK（已 gitignore）
+  tools/flutter/         内置 Flutter SDK
 ```
 
 ## 运行

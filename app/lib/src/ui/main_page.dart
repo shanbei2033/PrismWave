@@ -35,12 +35,15 @@ enum MainSection { library, albums, artists, favorites, settings }
 Future<void> _openExternalUrl(String url) async {
   final trimmed = url.trim();
   if (trimmed.isEmpty) return;
-  await Process.start('cmd.exe', [
-    '/c',
-    'start',
-    '',
-    trimmed,
-  ], mode: ProcessStartMode.detached);
+  try {
+    await Process.start('cmd.exe', [
+      '/c', 'start', '', trimmed,
+    ], mode: ProcessStartMode.detached);
+  } catch (_) {
+    await Process.start('rundll32', [
+      'url.dll,FileProtocolHandler', trimmed,
+    ], mode: ProcessStartMode.detached);
+  }
 }
 
 class PrismWaveHomePage extends ConsumerStatefulWidget {

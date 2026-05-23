@@ -489,7 +489,7 @@ class HitsController extends StateNotifier<HitsState> {
       return;
     }
 
-    if (directTrack != null) {
+    if (directTrack != null && immediateSource != null) {
       _lastPlaybackResolutionTrackId = scheduleTrack.stationTrackId;
       final requestToken = ++_playbackResolutionRequestToken;
       if (state.resolvedPlaybackTrack != directTrack ||
@@ -499,15 +499,13 @@ class HitsController extends StateNotifier<HitsState> {
           isResolvingPlaybackSource: false,
         );
       }
-      if (immediateSource != null) {
-        unawaited(
-          _hydrateDirectPlaybackSource(
-            scheduleTrack: scheduleTrack,
-            source: immediateSource,
-            requestToken: requestToken,
-          ),
-        );
-      }
+      unawaited(
+        _hydrateDirectPlaybackSource(
+          scheduleTrack: scheduleTrack,
+          source: immediateSource,
+          requestToken: requestToken,
+        ),
+      );
       return;
     }
 
@@ -835,6 +833,11 @@ class HitsController extends StateNotifier<HitsState> {
     }
   }
 
+  static final RegExp _nonPlayableUrlPattern = RegExp(
+    r'(?:cdnt?-preview\.dzcdn\.net|audio-ssl\.itunes\.apple\.com|'
+    r'preview\.music\.apple\.com)',
+  );
+
   HitsResolvedAudioSource? _resolveImmediatePlaybackSource(
     HitsScheduleTrack? scheduleTrack,
   ) {
@@ -842,6 +845,11 @@ class HitsController extends StateNotifier<HitsState> {
 
     final remoteUrl = scheduleTrack.audioUrl?.toString().trim() ?? '';
     if (remoteUrl.isNotEmpty) {
+      // Reject Deezer 30s previews and iTunes 30s previews — these are
+      // unplayable and must go through the multi-source resolver instead.
+      if (_nonPlayableUrlPattern.hasMatch(remoteUrl)) {
+        return null;
+      }
       return HitsResolvedAudioSource(
         playbackUrl: remoteUrl,
         provider: scheduleTrack.audioProvider.trim().isEmpty

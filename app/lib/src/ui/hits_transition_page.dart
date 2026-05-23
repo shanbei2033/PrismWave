@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,6 +50,10 @@ class _HitsTransitionPageState extends ConsumerState<HitsTransitionPage>
   // --- Cached merged listenable (created once, not per-build) ---
   late final Listenable _mergedAnimation;
 
+  // --- Pre-rendered word mark for breathing phase ---
+  final GlobalKey _repaintBoundaryKey = GlobalKey();
+  ui.Image? _cachedWordMark;
+
   // --- Cached decorations (not rebuilt per-frame) ---
   static final _glowDecoration = BoxDecoration(
     gradient: RadialGradient(
@@ -80,6 +85,7 @@ class _HitsTransitionPageState extends ConsumerState<HitsTransitionPage>
           if (mounted) {
             setState(() => _entranceCompleted = true);
             _breathing.repeat(reverse: true);
+            _captureWordMark();
             _maybeScheduleNavigation();
           } else {
             _entranceCompleted = true;
@@ -155,6 +161,19 @@ class _HitsTransitionPageState extends ConsumerState<HitsTransitionPage>
       unawaited(ref.read(hitsProvider.notifier).initialize());
     }
     _maybeScheduleNavigation();
+  }
+
+  void _captureWordMark() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      try {
+        final boundary = _repaintBoundaryKey.currentContext
+            ?.findRenderObject() as RenderRepaintBoundary?;
+        if (boundary == null) return;
+        _cachedWordMark = await boundary.toImage(pixelRatio: 2.0);
+        if (mounted) setState(() {});
+      } catch (_) {}
+    });
   }
 
   void _maybeScheduleNavigation() {
@@ -350,6 +369,7 @@ class _HitsTransitionPageState extends ConsumerState<HitsTransitionPage>
     _entrance.dispose();
     _breathing.dispose();
     _exit.dispose();
+    _cachedWordMark?.dispose();
     super.dispose();
   }
 
@@ -418,7 +438,7 @@ class _HitsTransitionPageState extends ConsumerState<HitsTransitionPage>
                   final combinedScale =
                       breathScale * exitScale *
                       (isUnavailExit
-                          ? (lerpDouble(1.0, 0.90, unavailVal) ?? 1.0)
+                          ? (ui.lerpDouble(1.0, 0.90, unavailVal) ?? 1.0)
                           : 1.0);
                   final combinedOpacity = exitOpacity *
                       (isUnavailExit
@@ -426,28 +446,42 @@ class _HitsTransitionPageState extends ConsumerState<HitsTransitionPage>
                           : 1.0);
 
                   final unavailOffsetX = isUnavailExit
-                      ? (lerpDouble(0, width * 0.86, unavailVal) ?? 0)
+                      ? (ui.lerpDouble(0, width * 0.86, unavailVal) ?? 0)
                       : 0.0;
                   final unavailBlurX =
-                      isUnavailExit ? (lerpDouble(0, 26, unavailVal) ?? 0) : 0.0;
+                      isUnavailExit ? (ui.lerpDouble(0, 26, unavailVal) ?? 0) : 0.0;
                   final unavailBlurY =
-                      isUnavailExit ? (lerpDouble(0, 6, unavailVal) ?? 0) : 0.0;
+                      isUnavailExit ? (ui.lerpDouble(0, 6, unavailVal) ?? 0) : 0.0;
                   final needsBlur = unavailBlurX > 0.1 || unavailBlurY > 0.1;
 
-                  // Build the word mark once, wrap conditionally.
-                  Widget wordMark = _HitsWordMark(
-                    horizontalTravel: width * 0.74,
-                    verticalTravel: height * 0.28,
-                    hProgress: hVal,
-                    iProgress: iVal,
-                    tsProgress: tsVal,
-                    glowStrength: glowBase,
-                  );
+                  // Build the word mark — use pre-rendered image during
+                  // breathing to avoid expensive text+shadow rasterization.
+                  Widget wordMark;
+                  if (_cachedWordMark != null) {
+                    final img = _cachedWordMark!;
+                    wordMark = SizedBox(
+                      width: img.width.toDouble() / 2.0,
+                      height: img.height.toDouble() / 2.0,
+                      child: RawImage(image: img, fit: BoxFit.contain),
+                    );
+                  } else {
+                    wordMark = RepaintBoundary(
+                      key: _repaintBoundaryKey,
+                      child: _HitsWordMark(
+                        horizontalTravel: width * 0.74,
+                        verticalTravel: height * 0.28,
+                        hProgress: hVal,
+                        iProgress: iVal,
+                        tsProgress: tsVal,
+                        glowStrength: glowBase,
+                      ),
+                    );
+                  }
 
                   // Only wrap in ImageFiltered when blur is actually needed.
                   if (needsBlur) {
                     wordMark = ImageFiltered(
-                      imageFilter: ImageFilter.blur(
+                      imageFilter: ui.ImageFilter.blur(
                         sigmaX: unavailBlurX,
                         sigmaY: unavailBlurY,
                       ),
@@ -533,7 +567,7 @@ class _HitsTransitionBackdrop extends StatelessWidget {
           child: Opacity(
             opacity: lowEffects ? 0.05 : 0.08,
             child: ImageFiltered(
-              imageFilter: ImageFilter.blur(
+              imageFilter: ui.ImageFilter.blur(
                 sigmaX: lowEffects ? 8 : 16,
                 sigmaY: lowEffects ? 8 : 16,
               ),
@@ -577,7 +611,7 @@ class _HitsWordMark extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Transform.translate(
-          offset: Offset(lerpDouble(-horizontalTravel, 0, hProgress) ?? 0, 0),
+          offset: Offset(ui.lerpDouble(-horizontalTravel, 0, hProgress) ?? 0, 0),
           child: Opacity(
             opacity: hProgress.clamp(0.0, 1.0),
             child: _HitsGlyph(label: 'H', glowStrength: glowStrength),
@@ -585,7 +619,7 @@ class _HitsWordMark extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Transform.translate(
-          offset: Offset(0, lerpDouble(-verticalTravel, 0, iProgress) ?? 0),
+          offset: Offset(0, ui.lerpDouble(-verticalTravel, 0, iProgress) ?? 0),
           child: Opacity(
             opacity: iProgress.clamp(0.0, 1.0),
             child: _HitsGlyph(label: 'I', glowStrength: glowStrength),
@@ -593,7 +627,7 @@ class _HitsWordMark extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Transform.translate(
-          offset: Offset(lerpDouble(horizontalTravel, 0, tsProgress) ?? 0, 0),
+          offset: Offset(ui.lerpDouble(horizontalTravel, 0, tsProgress) ?? 0, 0),
           child: Opacity(
             opacity: tsProgress.clamp(0.0, 1.0),
             child: _HitsGlyph(label: 'TS', glowStrength: glowStrength),

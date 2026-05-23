@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
+import 'package:win32/win32.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -238,7 +239,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       state = state.copyWith(developerMode: true);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_prefDeveloperMode, true);
-      await _enableDeveloperOutputs(openConsole: !kReleaseMode);
+      await _enableDeveloperOutputs(openConsole: true);
       _debug('Developer mode enabled by user.', force: true);
       return;
     }
@@ -2298,18 +2299,20 @@ if (!(Test-Path \$logPath)) { New-Item -ItemType File -Force -Path \$logPath | O
 Get-Content -Path \$logPath -Wait
 ''');
 
-    await Process.start('cmd.exe', [
-      '/c',
-      'start',
-      '',
-      'powershell.exe',
-      '-NoLogo',
-      '-NoExit',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-File',
-      scriptPath,
-    ], mode: ProcessStartMode.detached);
+    try {
+      ShellExecute(
+        0,
+        TEXT('open'),
+        TEXT('powershell.exe'),
+        TEXT('-NoLogo -NoExit -ExecutionPolicy Bypass -File "$scriptPath"'),
+        TEXT(''),
+        SW_SHOW,
+      );
+    } catch (e) {
+      _writeDebugLineToFile(
+        '[${DateTime.now().toIso8601String()}] _spawnDeveloperConsole failed: $e',
+      );
+    }
   }
 
   void _writeDebugLineToFile(String line) {

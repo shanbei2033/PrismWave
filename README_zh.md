@@ -7,8 +7,6 @@
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.29.3-blue" alt="Flutter"></a>
 </div>
 
-<br>
-
 [English README](./README.md)
 
 PrismWave 是一个基于 Flutter 开发的 Windows 本地音乐播放器。

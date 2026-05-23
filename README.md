@@ -7,8 +7,6 @@
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.29.3-blue" alt="Flutter"></a>
 </div>
 
-<br>
-
 [中文说明](./README_zh.md)
 
 PrismWave is a Windows local music player built with Flutter.

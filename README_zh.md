@@ -14,6 +14,7 @@ PrismWave 是一个基于 Flutter 开发的 Windows 本地音乐播放器。
 - 音频输出模式：兼容模式、WASAPI 共享、WASAPI 独占
 - 歌词：本地歌词、在线搜索与缓存、逐字歌词、QQ QRC 解码
 - HITS 广播模式：基于节目单的在线播放，9 个音源 provider，封面与歌词缓存，预加载
+  - HITS 节目单由 [prismwave-hits](https://github.com/shanbei2033/prismwave-hits) 仓库生成
 - Windows DSD 后端（BASS/BASSDSD/BASSASIO FFI）
 - 开发者模式：实时播放日志窗口与本地日志文件
 

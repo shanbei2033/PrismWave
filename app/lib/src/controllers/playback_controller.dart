@@ -101,7 +101,6 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     JustAudioMediaKit.nativeMpvProperties = const {
       'cache-secs': '12',
       'cache-on-disk': 'no',
-      'audio-buffer': '0.5',
     };
     _player = AudioPlayer();
     _bindPlayerEvents();

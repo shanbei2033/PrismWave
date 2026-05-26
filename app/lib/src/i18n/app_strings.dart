@@ -188,6 +188,7 @@ class AppStrings {
     'No folder added yet. Please add a music folder first.',
   );
   String get remove => _tr('移除', '移除', 'Remove');
+  String get folderSize => _tr('占用空间', '佔用空間', 'Disk usage');
 
   String get languageTitle => _tr('语言', '語言', 'Language');
   String get checkUpdates => _tr('检查更新', '檢查更新', 'Check for Updates');

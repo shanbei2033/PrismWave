@@ -2877,7 +2877,7 @@ class _SettingsDurationSliderState extends State<_SettingsDurationSlider> {
   }
 }
 
-class _SettingsFoldersCard extends StatelessWidget {
+class _SettingsFoldersCard extends StatefulWidget {
   const _SettingsFoldersCard({
     required this.folders,
     required this.emptyText,
@@ -2891,7 +2891,66 @@ class _SettingsFoldersCard extends StatelessWidget {
   final Future<void> Function(String folder) onRemove;
 
   @override
+  State<_SettingsFoldersCard> createState() => _SettingsFoldersCardState();
+}
+
+class _SettingsFoldersCardState extends State<_SettingsFoldersCard> {
+  final Map<String, String> _folderSizes = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _computeFolderSizes();
+  }
+
+  @override
+  void didUpdateWidget(_SettingsFoldersCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.folders.join('|') != widget.folders.join('|')) {
+      _folderSizes.clear();
+      _computeFolderSizes();
+    }
+  }
+
+  Future<void> _computeFolderSizes() async {
+    for (final folder in widget.folders) {
+      if (_folderSizes.containsKey(folder)) continue;
+      final size = await _getDirectorySize(folder);
+      if (mounted) {
+        setState(() => _folderSizes[folder] = _formatBytes(size));
+      }
+    }
+  }
+
+  Future<int> _getDirectorySize(String path) async {
+    int total = 0;
+    try {
+      await for (final entity in Directory(path).list(recursive: true, followLinks: false)) {
+        if (entity is File) {
+          try {
+            total += await entity.length();
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+    return total;
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    int i = 0;
+    double size = bytes.toDouble();
+    while (size >= 1024 && i < units.length - 1) {
+      size /= 1024;
+      i++;
+    }
+    return '${size.toStringAsFixed(i == 0 ? 0 : 1)} ${units[i]}';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final folders = widget.folders;
     final contentHeight = folders.isEmpty
         ? 124.0
         : (folders.length * 56.0 + (folders.length - 1) * 1.0).clamp(
@@ -2911,7 +2970,7 @@ class _SettingsFoldersCard extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
-                  emptyText,
+                  widget.emptyText,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.62)),
                 ),
@@ -2939,9 +2998,16 @@ class _SettingsFoldersCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  subtitle: Text(
+                    _folderSizes[folder] ?? '...',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.45),
+                    ),
+                  ),
                   trailing: IconButton(
-                    tooltip: removeLabel,
-                    onPressed: () => onRemove(folder),
+                    tooltip: widget.removeLabel,
+                    onPressed: () => widget.onRemove(folder),
                     icon: const Icon(Icons.delete_outline_rounded),
                   ),
                 );

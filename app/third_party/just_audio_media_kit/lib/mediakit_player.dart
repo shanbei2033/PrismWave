@@ -303,6 +303,9 @@ class MediaKitPlayer extends AudioPlayerPlatform {
     if (JustAudioMediaKit.preferWasapiExclusive) {
       try {
         await setProperty(_player, 'audio-exclusive', 'yes');
+        // Set WASAPI exclusive mode buffer to 50ms to prevent underruns.
+        // mpv default uses device period (~3ms) which causes crackling.
+        await setProperty(_player, 'wasapi-exclusive-buffer', '50000');
         _usingWasapiExclusive = true;
         _emitNativeAudioRouteLog(
             'configured output -> requested WASAPI exclusive');

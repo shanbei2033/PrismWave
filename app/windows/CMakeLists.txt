@@ -106,3 +106,16 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+# Use custom libmpv with WASAPI exclusive buffer fix (mpv v0.41.0).
+# This overrides the default libmpv from media_kit_libs_windows_audio.
+set(CUSTOM_LIBMPV "${CMAKE_CURRENT_SOURCE_DIR}/../../native/libmpv/libmpv-2.dll")
+if(EXISTS "${CUSTOM_LIBMPV}")
+  install(FILES "${CUSTOM_LIBMPV}"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+  # Also replace in the CMake binary dir so the plugin picks it up.
+  install(CODE "
+    file(COPY \"${CUSTOM_LIBMPV}\" DESTINATION \"${CMAKE_BINARY_DIR}/libmpv/\")
+  " COMPONENT Runtime)
+endif()

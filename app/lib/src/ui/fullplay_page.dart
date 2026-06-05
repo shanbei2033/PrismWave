@@ -19,6 +19,7 @@ import '../providers.dart';
 import '../state/library_state.dart';
 import '../state/playback_state.dart';
 import 'middle_click_autoscroll.dart';
+import 'online_home_panel.dart';
 import 'window_top_bar.dart';
 
 class FullPlayPage extends ConsumerStatefulWidget {
@@ -2078,7 +2079,7 @@ class _LyricsStatusChip extends StatelessWidget {
   }
 }
 
-class _CoverImage extends StatelessWidget {
+class _CoverImage extends ConsumerWidget {
   const _CoverImage({
     required this.coverPath,
     required this.coverBytes,
@@ -2089,30 +2090,41 @@ class _CoverImage extends StatelessWidget {
   final Uint8List? coverBytes;
   final BoxFit fit;
 
+  bool get _isNetworkPath {
+    final p = coverPath?.trim() ?? '';
+    return p.startsWith('http://') || p.startsWith('https://');
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (coverBytes != null && coverBytes!.isNotEmpty) {
       return Image.memory(
         coverBytes!,
         fit: fit,
         gaplessPlayback: true,
-        errorBuilder: (_, _, _) => _fileImageOrPlaceholder(),
+        errorBuilder: (_, _, _) => _fallbackImage(ref),
       );
     }
-
-    if (coverPath != null && File(coverPath!).existsSync()) {
-      return _fileImageOrPlaceholder();
-    }
-    return _placeholder();
+    return _fallbackImage(ref);
   }
 
-  Widget _fileImageOrPlaceholder() {
-    if (coverPath != null && File(coverPath!).existsSync()) {
-      return Image.file(
-        File(coverPath!),
-        fit: fit,
-        errorBuilder: (_, _, _) => _placeholder(),
-      );
+  Widget _fallbackImage(WidgetRef ref) {
+    final path = coverPath;
+    if (path != null && path.isNotEmpty) {
+      if (_isNetworkPath) {
+        return OnlineCoverImage(
+          coverCache: ref.read(onlineCoverCacheProvider),
+          cacheKey: path,
+          coverUrl: path,
+        );
+      }
+      if (File(path).existsSync()) {
+        return Image.file(
+          File(path),
+          fit: fit,
+          errorBuilder: (_, _, _) => _placeholder(),
+        );
+      }
     }
     return _placeholder();
   }

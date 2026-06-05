@@ -15,6 +15,7 @@ class AppSettingsState {
     this.latestReleaseUrl = '',
     this.latestInstallerUrl = '',
     this.releaseUpdateError = '',
+    this.onlineModeEnabled = true,
   });
 
   final AppLanguage language;
@@ -27,6 +28,7 @@ class AppSettingsState {
   final String latestReleaseUrl;
   final String latestInstallerUrl;
   final String releaseUpdateError;
+  final bool onlineModeEnabled;
 
   AppSettingsState copyWith({
     AppLanguage? language,
@@ -40,6 +42,7 @@ class AppSettingsState {
     String? latestInstallerUrl,
     String? releaseUpdateError,
     bool clearReleaseUpdateError = false,
+    bool? onlineModeEnabled,
   }) {
     return AppSettingsState(
       language: language ?? this.language,
@@ -54,6 +57,7 @@ class AppSettingsState {
       releaseUpdateError: clearReleaseUpdateError
           ? ''
           : (releaseUpdateError ?? this.releaseUpdateError),
+      onlineModeEnabled: onlineModeEnabled ?? this.onlineModeEnabled,
     );
   }
 }

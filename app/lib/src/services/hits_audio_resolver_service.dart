@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import '../models/hits_manifest.dart';
+
+typedef HitsResolverDebugLogger = void Function(String message, {bool force});
 
 class HitsResolvedAudioSource {
   const HitsResolvedAudioSource({
@@ -25,6 +28,37 @@ class HitsResolvedAudioSource {
   final Map<String, String>? playbackHeaders;
 }
 
+/// One result from a public keyword search across the resolver's providers.
+///
+/// [provider] is the lowercase provider id (`audius`, `youtube`, `netease`,
+/// `kuwo`, `migu`, `qq`, `kugou`, `taihe`, plus HITS-only `bilibili` /
+/// `bilivideo`). [providerTrackId] is the native id (Audius hash, YouTube
+/// videoId, Netease numeric song id as string, Kuwo mid, Migu copyright id,
+/// QQ song mid, Kugou file hash, Taihe TSID, or Bilibili bvid). Combined they
+/// uniquely identify the upstream track and are sufficient for
+/// [HitsAudioResolverService.resolveTrack] via the pinned provider path.
+class OnlineSearchHit {
+  const OnlineSearchHit({
+    required this.provider,
+    required this.providerTrackId,
+    required this.title,
+    required this.artist,
+    required this.durationMs,
+    this.coverUrl,
+    this.directAudioUrl,
+  });
+
+  final String provider;
+  final String providerTrackId;
+  final String title;
+  final String artist;
+  final int durationMs;
+  final String? coverUrl;
+  final String? directAudioUrl;
+
+  String get canonicalKey => '$provider:$providerTrackId';
+}
+
 class _ResolvedTrackCacheEntry {
   const _ResolvedTrackCacheEntry._({this.source, this.failedAt});
 
@@ -38,11 +72,53 @@ class _ResolvedTrackCacheEntry {
   final DateTime? failedAt;
 }
 
-enum _HitsSourceRegion {
-  mainlandChina,
-  greaterChina,
-  global,
+class _StreamProbeResult {
+  const _StreamProbeResult._({
+    required this.playable,
+    required this.statusCode,
+    required this.bytesRead,
+    this.contentType,
+    this.finalHost,
+    this.reason = '',
+  });
+
+  const _StreamProbeResult.playable({
+    required int statusCode,
+    required int bytesRead,
+    String? contentType,
+    String? finalHost,
+  }) : this._(
+         playable: true,
+         statusCode: statusCode,
+         bytesRead: bytesRead,
+         contentType: contentType,
+         finalHost: finalHost,
+       );
+
+  const _StreamProbeResult.rejected({
+    required int statusCode,
+    required int bytesRead,
+    required String reason,
+    String? contentType,
+    String? finalHost,
+  }) : this._(
+         playable: false,
+         statusCode: statusCode,
+         bytesRead: bytesRead,
+         contentType: contentType,
+         finalHost: finalHost,
+         reason: reason,
+       );
+
+  final bool playable;
+  final int statusCode;
+  final int bytesRead;
+  final String? contentType;
+  final String? finalHost;
+  final String reason;
 }
+
+enum _HitsSourceRegion { mainlandChina, greaterChina, global }
 
 class _HitsRoutingProfile {
   const _HitsRoutingProfile({
@@ -70,6 +146,7 @@ class _HitsRoutingProfile {
         'migu',
         'kuwo',
         'kugou',
+        'taihe',
         'qq',
         'netease',
         'youtube',
@@ -82,6 +159,7 @@ class _HitsRoutingProfile {
         'netease',
         'kuwo',
         'kugou',
+        'taihe',
         'migu',
         'youtube',
         'audius',
@@ -94,6 +172,7 @@ class _HitsRoutingProfile {
         'qq',
         'kuwo',
         'kugou',
+        'taihe',
         'migu',
         'audius',
       ],
@@ -138,11 +217,15 @@ class _HitsRoutingProfile {
 }
 
 class HitsAudioResolverService {
-  HitsAudioResolverService({HttpClient? httpClient, YoutubeExplode? youtube})
-    : _httpClient =
-          httpClient ??
-          (HttpClient()..connectionTimeout = const Duration(seconds: 6)),
-      _youtube = youtube ?? YoutubeExplode();
+  HitsAudioResolverService({
+    HttpClient? httpClient,
+    YoutubeExplode? youtube,
+    HitsResolverDebugLogger? debugLog,
+  }) : _httpClient =
+           httpClient ??
+           (HttpClient()..connectionTimeout = const Duration(seconds: 6)),
+       _youtube = youtube ?? YoutubeExplode(),
+       _debugLog = debugLog;
 
   static const String _audiusProvider = 'audius';
   static const String _youtubeProvider = 'youtube';
@@ -153,6 +236,7 @@ class HitsAudioResolverService {
   static const String _miguProvider = 'migu';
   static const String _qqProvider = 'qq';
   static const String _kugouProvider = 'kugou';
+  static const String _taiheProvider = 'taihe';
   static const String _audiusHost = 'api.audius.co';
   static const String _audiusBasePath = '/v1';
   static const String _prefGeoPayload = 'hits.sourceRegionPayload';
@@ -221,6 +305,17 @@ class HitsAudioResolverService {
   static const int _kugouCandidateLimit = 8;
   static const int _kugouResolveLimit = 3;
   static const int _kugouMinMatchScore = 44;
+  static const Map<String, String> _taiheHeaders = <String, String>{
+    'User-Agent': 'Mozilla/5.0 PrismWave/1.0.0',
+    'Referer': 'https://music.taihe.com/',
+    'Accept': 'application/json',
+  };
+  static const String _taiheAppId = '16073360';
+  static const String _taiheSignSalt = '0b50b02fd0d73a9c4c8c3a781c30845f';
+  static const int _taiheSearchQueryLimit = 3;
+  static const int _taiheCandidateLimit = 8;
+  static const int _taiheResolveLimit = 3;
+  static const int _taiheMinMatchScore = 44;
   static const Set<String> _variantKeywords = {
     'remix',
     'cover',
@@ -244,6 +339,7 @@ class HitsAudioResolverService {
 
   final HttpClient _httpClient;
   final YoutubeExplode _youtube;
+  final HitsResolverDebugLogger? _debugLog;
   SharedPreferences? _preferences;
   _HitsRoutingProfile? _routingProfile;
   Future<_HitsRoutingProfile>? _pendingRoutingProfile;
@@ -256,8 +352,36 @@ class HitsAudioResolverService {
   DateTime? _kuwoCsrfTokenFetchedAt;
   static const Duration _kuwoCsrfTokenTtl = Duration(minutes: 12);
 
+  void _debug(String message, {bool force = false}) {
+    _debugLog?.call('resolver.$message', force: force);
+  }
+
   Future<void> warmUp() async {
-    await _loadRoutingProfile();
+    await Future.wait(<Future<void>>[_loadRoutingProfile(), _warmUpHttpPool()]);
+  }
+
+  /// Pre-warms the HTTP connection pool for the hosts this resolver hits most
+  /// during a first-time online play (NetEase song API). Without this, the
+  /// first track suffers an extra DNS + TLS handshake right when the user is
+  /// waiting for audio to start. Errors are silently ignored — warmup is best
+  /// effort.
+  Future<void> _warmUpHttpPool() async {
+    const hosts = <String>['music.163.com'];
+    await Future.wait(
+      hosts.map((host) async {
+        try {
+          final request = await _httpClient
+              .headUrl(Uri.https(host, '/'))
+              .timeout(const Duration(seconds: 5));
+          final response = await request.close().timeout(
+            const Duration(seconds: 5),
+          );
+          await response.drain<void>();
+        } catch (_) {
+          // Ignore — warmup failures are not user-visible.
+        }
+      }),
+    );
   }
 
   Future<HitsResolvedAudioSource?> resolveTrack(HitsScheduleTrack track) {
@@ -301,6 +425,225 @@ class HitsAudioResolverService {
     return future;
   }
 
+  /// Public keyword search across the music-only audio providers in parallel.
+  ///
+  /// Each provider's per-call timeout is bounded by [perProviderTimeout]; the
+  /// overall call resolves once all branches finish or time out. Results are
+  /// merged and de-duplicated by `provider:providerTrackId`.
+  ///
+  /// YouTube, bilibili, and the duplicate Bilibili-as-video branch are
+  /// intentionally excluded here because their general-search APIs return mixed
+  /// video noise (vlogs, podcasts, lectures). HITS' internal resolver still
+  /// uses video providers via [resolveTrack] — this narrowing is search-UI
+  /// only.
+  Future<List<OnlineSearchHit>> searchByQuery(
+    String query, {
+    Duration perProviderTimeout = const Duration(seconds: 6),
+  }) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return const <OnlineSearchHit>[];
+
+    final futures = <Future<List<OnlineSearchHit>>>[
+      _searchHitsAudius(trimmed).timeoutSafe(perProviderTimeout),
+      _searchHitsNetease(trimmed).timeoutSafe(perProviderTimeout),
+      _searchHitsKuwo(trimmed).timeoutSafe(perProviderTimeout),
+      _searchHitsMigu(trimmed).timeoutSafe(perProviderTimeout),
+      _searchHitsQQ(trimmed).timeoutSafe(perProviderTimeout),
+      _searchHitsKugou(trimmed).timeoutSafe(perProviderTimeout),
+      _searchHitsTaihe(trimmed).timeoutSafe(perProviderTimeout),
+    ];
+    final results = await Future.wait(futures);
+
+    final byKey = <String, OnlineSearchHit>{};
+    for (final batch in results) {
+      for (final hit in batch) {
+        byKey.putIfAbsent(hit.canonicalKey, () => hit);
+      }
+    }
+    return byKey.values.toList(growable: false);
+  }
+
+  /// Construct a synthetic [HitsScheduleTrack] from an [OnlineSearchHit] and
+  /// run it through the existing [resolveTrack] pinned-provider path.
+  ///
+  /// Use this from non-HITS callers (online mode) to obtain a playable URL
+  /// without leaking private candidate types.
+  Future<HitsResolvedAudioSource?> resolveSearchHit(OnlineSearchHit hit) {
+    final provider = hit.provider.trim().toLowerCase();
+    final providerTrackId = hit.providerTrackId.trim();
+    final identity = _searchHitIdentity(hit);
+    final synthetic = HitsScheduleTrack(
+      slot: 0,
+      stationTrackId: 'online::$identity',
+      window: '',
+      startAt: DateTime.now().toUtc(),
+      endAt: DateTime.now().toUtc(),
+      duration: Duration(milliseconds: hit.durationMs),
+      title: hit.title,
+      artist: hit.artist,
+      album: '',
+      audioUrl: (hit.directAudioUrl != null && hit.directAudioUrl!.isNotEmpty)
+          ? Uri.tryParse(hit.directAudioUrl!)
+          : null,
+      audioProvider: provider,
+      providerTrackId: providerTrackId,
+      coverUrl: (hit.coverUrl != null && hit.coverUrl!.isNotEmpty)
+          ? Uri.tryParse(hit.coverUrl!)
+          : null,
+      score: 0,
+      sourceTags: const <String>[],
+      titleVariants: <String>[hit.title],
+      artistVariants: <String>[hit.artist],
+      searchQuery: '${hit.title} ${hit.artist}',
+    );
+    return resolveTrack(synthetic);
+  }
+
+  void invalidateSearchHit(OnlineSearchHit hit) {
+    final cacheKey = 'online::${_searchHitIdentity(hit)}';
+    _cache.remove(cacheKey);
+    _pending.remove(cacheKey);
+    _debug('cache.invalidate -> key=$cacheKey', force: true);
+  }
+
+  String _searchHitIdentity(OnlineSearchHit hit) {
+    final provider = hit.provider.trim().toLowerCase();
+    final providerTrackId = hit.providerTrackId.trim();
+    if (provider.isNotEmpty && providerTrackId.isNotEmpty) {
+      return '$provider:$providerTrackId';
+    }
+    return 'query:${hit.title.trim()}|${hit.artist.trim()}|${hit.durationMs}';
+  }
+
+  Future<List<OnlineSearchHit>> _searchHitsAudius(String query) async {
+    final rows = await _searchAudiusByQuery(query);
+    final hits = <OnlineSearchHit>[];
+    for (final row in rows) {
+      final candidate = _AudiusCandidate.fromJson(row);
+      if (candidate == null) continue;
+      if (!candidate.isStreamable || !candidate.isAvailable) continue;
+      hits.add(
+        OnlineSearchHit(
+          provider: _audiusProvider,
+          providerTrackId: candidate.id,
+          title: candidate.title,
+          artist: candidate.artist,
+          durationMs: candidate.durationMs,
+          coverUrl: _extractAudiusArtwork(row),
+          directAudioUrl: _audiusStreamEndpoint(candidate.id),
+        ),
+      );
+    }
+    return hits;
+  }
+
+  Future<List<OnlineSearchHit>> _searchHitsNetease(String query) async {
+    final candidates = await _searchNeteaseByQuery(query);
+    return candidates
+        .map(
+          (c) => OnlineSearchHit(
+            provider: _neteaseProvider,
+            providerTrackId: c.songId.toString(),
+            title: c.title,
+            artist: c.artist,
+            durationMs: c.durationMs,
+            coverUrl: c.coverUrl,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<List<OnlineSearchHit>> _searchHitsKuwo(String query) async {
+    final csrf = await _fetchKuwoCsrfToken();
+    final candidates = await _searchKuwoByQuery(query, csrfToken: csrf ?? '');
+    return candidates
+        .map(
+          (c) => OnlineSearchHit(
+            provider: _kuwoProvider,
+            providerTrackId: c.mid,
+            title: c.title,
+            artist: c.artist,
+            durationMs: c.durationMs,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<List<OnlineSearchHit>> _searchHitsMigu(String query) async {
+    final candidates = await _searchMiguByQuery(query);
+    return candidates
+        .map(
+          (c) => OnlineSearchHit(
+            provider: _miguProvider,
+            providerTrackId: c.copyrightId,
+            title: c.title,
+            artist: c.artist,
+            durationMs: c.durationMs,
+            coverUrl: c.coverUrl,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<List<OnlineSearchHit>> _searchHitsQQ(String query) async {
+    final candidates = await _searchQQByQuery(query);
+    return candidates
+        .map(
+          (c) => OnlineSearchHit(
+            provider: _qqProvider,
+            providerTrackId: c.songMid,
+            title: c.title,
+            artist: c.artist,
+            durationMs: c.durationMs,
+            coverUrl: c.coverUrl,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<List<OnlineSearchHit>> _searchHitsKugou(String query) async {
+    final candidates = await _searchKugouByQuery(query);
+    return candidates
+        .map(
+          (c) => OnlineSearchHit(
+            provider: _kugouProvider,
+            providerTrackId: c.fileHash,
+            title: c.title,
+            artist: c.artist,
+            durationMs: c.durationMs,
+            coverUrl: c.coverUrl,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<List<OnlineSearchHit>> _searchHitsTaihe(String query) async {
+    final candidates = await _searchTaiheByQuery(query);
+    return candidates
+        .map(
+          (c) => OnlineSearchHit(
+            provider: _taiheProvider,
+            providerTrackId: c.tsid,
+            title: c.title,
+            artist: c.artist,
+            durationMs: c.durationMs,
+            coverUrl: c.coverUrl,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  String? _extractAudiusArtwork(Map<String, dynamic> row) {
+    final artwork = row['artwork'];
+    if (artwork is Map) {
+      for (final key in const ['1000x1000', '480x480', '150x150']) {
+        final value = artwork[key];
+        if (value is String && value.trim().isNotEmpty) return value.trim();
+      }
+    }
+    return null;
+  }
+
   Future<HitsResolvedAudioSource?> _resolveTrackInternal(
     HitsScheduleTrack track,
   ) async {
@@ -325,6 +668,7 @@ class HitsAudioResolverService {
       _miguProvider,
       _qqProvider,
       _kugouProvider,
+      _taiheProvider,
     ]);
 
     var start = 0;
@@ -425,6 +769,13 @@ class HitsAudioResolverService {
       );
     }
 
+    if (provider == _taiheProvider) {
+      return _resolveTaiheStream(
+        tsid: providerTrackId,
+        coverUrl: track.coverUrl?.toString(),
+      );
+    }
+
     return null;
   }
 
@@ -467,6 +818,8 @@ class HitsAudioResolverService {
         return _searchQQ(track);
       case _kugouProvider:
         return _searchKugou(track);
+      case _taiheProvider:
+        return _searchTaihe(track);
       default:
         return null;
     }
@@ -541,7 +894,9 @@ class HitsAudioResolverService {
           .getUrl(uri)
           .timeout(const Duration(seconds: 3));
       _bilibiliHeaders.forEach(request.headers.set);
-      final response = await request.close().timeout(const Duration(seconds: 4));
+      final response = await request.close().timeout(
+        const Duration(seconds: 4),
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await response.drain<void>();
         return const <_BilibiliCandidate>[];
@@ -589,7 +944,9 @@ class HitsAudioResolverService {
         await cidResponse.drain<void>();
         return null;
       }
-      final cidDecoded = jsonDecode(await utf8.decoder.bind(cidResponse).join());
+      final cidDecoded = jsonDecode(
+        await utf8.decoder.bind(cidResponse).join(),
+      );
       final cidItems = cidDecoded is Map ? cidDecoded['data'] : null;
       if (cidItems is! List || cidItems.isEmpty) {
         return null;
@@ -610,11 +967,11 @@ class HitsAudioResolverService {
             }),
           )
           .timeout(const Duration(seconds: 4));
+      playRequest.headers.set('User-Agent', _bilibiliHeaders['User-Agent']!);
       playRequest.headers.set(
-        'User-Agent',
-        _bilibiliHeaders['User-Agent']!,
+        'Referer',
+        'https://www.bilibili.com/video/$bvid',
       );
-      playRequest.headers.set('Referer', 'https://www.bilibili.com/video/$bvid');
       playRequest.headers.set('Accept', 'application/json');
       final playResponse = await playRequest.close().timeout(
         const Duration(seconds: 5),
@@ -633,15 +990,17 @@ class HitsAudioResolverService {
       String playbackUrl = '';
       String? extension;
       if (audioItems is List && audioItems.isNotEmpty) {
-        final audioList = audioItems
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList(growable: false)
-          ..sort((left, right) {
-            final leftBandwidth = (left['bandwidth'] as num?)?.toInt() ?? 0;
-            final rightBandwidth = (right['bandwidth'] as num?)?.toInt() ?? 0;
-            return rightBandwidth.compareTo(leftBandwidth);
-          });
+        final audioList =
+            audioItems
+                .whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item))
+                .toList(growable: false)
+              ..sort((left, right) {
+                final leftBandwidth = (left['bandwidth'] as num?)?.toInt() ?? 0;
+                final rightBandwidth =
+                    (right['bandwidth'] as num?)?.toInt() ?? 0;
+                return rightBandwidth.compareTo(leftBandwidth);
+              });
         for (final item in audioList) {
           final primary = (item['baseUrl'] ?? item['base_url'] ?? '')
               .toString()
@@ -916,7 +1275,9 @@ class HitsAudioResolverService {
         HttpHeaders.userAgentHeader,
         'PrismWave/HITS (+https://github.com/shanbei2033/PrismWave)',
       );
-      final response = await request.close().timeout(const Duration(seconds: 6));
+      final response = await request.close().timeout(
+        const Duration(seconds: 6),
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await response.drain<void>();
         return const <Map<String, dynamic>>[];
@@ -950,7 +1311,9 @@ class HitsAudioResolverService {
   ) async {
     final candidateBySongId = <int, _NeteaseCandidate>{};
 
-    for (final query in _buildSearchQueries(track).take(_neteaseSearchQueryLimit)) {
+    for (final query in _buildSearchQueries(
+      track,
+    ).take(_neteaseSearchQueryLimit)) {
       final results = await _searchNeteaseByQuery(query);
       for (final candidate in results.take(_neteaseCandidateLimit)) {
         final scored = candidate.copyWith(
@@ -1008,7 +1371,9 @@ class HitsAudioResolverService {
           .getUrl(uri)
           .timeout(const Duration(seconds: 3));
       _neteaseHeaders.forEach(request.headers.set);
-      final response = await request.close().timeout(const Duration(seconds: 4));
+      final response = await request.close().timeout(
+        const Duration(seconds: 4),
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await response.drain<void>();
         return const <_NeteaseCandidate>[];
@@ -1043,20 +1408,15 @@ class HitsAudioResolverService {
     }
 
     try {
-      final url =
-          'https://music.163.com/song/media/outer/url?id=$songId.mp3';
+      final url = 'https://music.163.com/song/media/outer/url?id=$songId.mp3';
 
-      final request = await _httpClient
-          .getUrl(Uri.parse(url))
-          .timeout(const Duration(seconds: 4));
-      request.headers.set('User-Agent', _neteaseHeaders['User-Agent']!);
-      request.headers.set('Referer', 'https://music.163.com/');
-      final response = await request.close().timeout(const Duration(seconds: 5));
-
-      final statusCode = response.statusCode;
-      await response.drain<void>();
-
-      if (statusCode >= 200 && statusCode < 400) {
+      final probe = await _probeNeteaseOuterUrl(songId: songId, url: url);
+      if (probe.playable) {
+        _debug(
+          'netease.stream.valid -> songId=$songId '
+          'status=${probe.statusCode} contentType=${probe.contentType} '
+          'bytes=${probe.bytesRead} finalHost=${probe.finalHost}',
+        );
         return HitsResolvedAudioSource(
           playbackUrl: url,
           provider: _neteaseProvider,
@@ -1069,10 +1429,124 @@ class HitsAudioResolverService {
         );
       }
 
+      _debug(
+        'netease.stream.rejected -> songId=$songId '
+        'status=${probe.statusCode} contentType=${probe.contentType} '
+        'bytes=${probe.bytesRead} finalHost=${probe.finalHost} '
+        'reason=${probe.reason}',
+        force: true,
+      );
       return null;
-    } catch (_) {
+    } catch (error) {
+      _debug(
+        'netease.stream.error -> songId=$songId error=$error',
+        force: true,
+      );
       return null;
     }
+  }
+
+  Future<_StreamProbeResult> _probeNeteaseOuterUrl({
+    required int songId,
+    required String url,
+  }) async {
+    final originalUri = Uri.parse(url);
+    final request = await _httpClient
+        .getUrl(originalUri)
+        .timeout(const Duration(seconds: 4));
+    request.headers.set('User-Agent', _neteaseHeaders['User-Agent']!);
+    request.headers.set('Referer', 'https://music.163.com/');
+    request.headers.set('Accept', 'audio/*,*/*;q=0.8');
+    final response = await request.close().timeout(const Duration(seconds: 5));
+
+    final statusCode = response.statusCode;
+    final contentType = response.headers.contentType?.mimeType.toLowerCase();
+    final finalHost = response.redirects.isNotEmpty
+        ? response.redirects.last.location.host
+        : originalUri.host;
+    final contentLength = response.contentLength;
+    final sample = <int>[];
+    var bytesRead = 0;
+
+    await for (final chunk in response.timeout(const Duration(seconds: 3))) {
+      bytesRead += chunk.length;
+      if (sample.length < 16) {
+        final remaining = 16 - sample.length;
+        sample.addAll(chunk.take(remaining));
+      }
+      if (bytesRead >= 4096 || sample.length >= 16) {
+        break;
+      }
+    }
+
+    if (statusCode < 200 || statusCode >= 400) {
+      return _StreamProbeResult.rejected(
+        statusCode: statusCode,
+        contentType: contentType,
+        bytesRead: bytesRead,
+        finalHost: finalHost,
+        reason: 'http-status',
+      );
+    }
+
+    if (contentLength == 0 || bytesRead == 0) {
+      return _StreamProbeResult.rejected(
+        statusCode: statusCode,
+        contentType: contentType,
+        bytesRead: bytesRead,
+        finalHost: finalHost,
+        reason: 'empty-body',
+      );
+    }
+
+    final contentTypeLooksPlayable =
+        contentType != null &&
+        (contentType.startsWith('audio/') ||
+            contentType == 'application/octet-stream' ||
+            contentType == 'video/mp4');
+    final bytesLookPlayable = _looksLikeAudioBytes(sample);
+    if (!contentTypeLooksPlayable && !bytesLookPlayable) {
+      return _StreamProbeResult.rejected(
+        statusCode: statusCode,
+        contentType: contentType,
+        bytesRead: bytesRead,
+        finalHost: finalHost,
+        reason: 'not-audio',
+      );
+    }
+
+    return _StreamProbeResult.playable(
+      statusCode: statusCode,
+      contentType: contentType,
+      bytesRead: bytesRead,
+      finalHost: finalHost,
+    );
+  }
+
+  bool _looksLikeAudioBytes(List<int> bytes) {
+    if (bytes.length < 2) return false;
+
+    bool startsWith(List<int> signature) {
+      if (bytes.length < signature.length) return false;
+      for (var i = 0; i < signature.length; i += 1) {
+        if (bytes[i] != signature[i]) return false;
+      }
+      return true;
+    }
+
+    if (startsWith(const [0x49, 0x44, 0x33])) return true; // ID3
+    if (bytes[0] == 0xff && (bytes[1] & 0xe0) == 0xe0) return true; // MPEG
+    if (startsWith(const [0x66, 0x4c, 0x61, 0x43])) return true; // fLaC
+    if (startsWith(const [0x4f, 0x67, 0x67, 0x53])) return true; // OggS
+    if (startsWith(const [0x52, 0x49, 0x46, 0x46])) return true; // RIFF
+    if (bytes.length >= 12 &&
+        bytes[4] == 0x66 &&
+        bytes[5] == 0x74 &&
+        bytes[6] == 0x79 &&
+        bytes[7] == 0x70) {
+      return true; // MP4/M4A ftyp
+    }
+    return false;
   }
 
   int _scoreNeteaseCandidateMatch({
@@ -1081,7 +1555,9 @@ class HitsAudioResolverService {
   }) {
     final requestedTitle = _normalizeText(requestedTrack.title);
     final simplifiedTitle = _normalizeText(
-      _simplifyTrackTitleForSearch(_stripSearchDecorations(requestedTrack.title)),
+      _simplifyTrackTitleForSearch(
+        _stripSearchDecorations(requestedTrack.title),
+      ),
     );
     final requestedArtist = _normalizeText(requestedTrack.artist);
     final matchedTitle = _normalizeText(matched.title);
@@ -1133,7 +1609,9 @@ class HitsAudioResolverService {
           .getUrl(Uri.https('www.kuwo.cn', '/'))
           .timeout(const Duration(seconds: 3));
       request.headers.set('User-Agent', _kuwoHeaders['User-Agent']!);
-      final response = await request.close().timeout(const Duration(seconds: 3));
+      final response = await request.close().timeout(
+        const Duration(seconds: 3),
+      );
       await response.drain<void>();
 
       final cookies = response.cookies.where(
@@ -1149,15 +1627,18 @@ class HitsAudioResolverService {
     return cached;
   }
 
-  Future<HitsResolvedAudioSource?> _searchKuwo(
-    HitsScheduleTrack track,
-  ) async {
+  Future<HitsResolvedAudioSource?> _searchKuwo(HitsScheduleTrack track) async {
     final csrfToken = await _fetchKuwoCsrfToken();
 
     final candidateByMid = <String, _KuwoCandidate>{};
 
-    for (final query in _buildSearchQueries(track).take(_kuwoSearchQueryLimit)) {
-      final results = await _searchKuwoByQuery(query, csrfToken: csrfToken ?? '');
+    for (final query in _buildSearchQueries(
+      track,
+    ).take(_kuwoSearchQueryLimit)) {
+      final results = await _searchKuwoByQuery(
+        query,
+        csrfToken: csrfToken ?? '',
+      );
       for (final candidate in results.take(_kuwoCandidateLimit)) {
         final scored = candidate.copyWith(
           score: _scoreKuwoCandidateMatch(
@@ -1219,7 +1700,9 @@ class HitsAudioResolverService {
       _kuwoHeaders.forEach(request.headers.set);
       request.headers.set('csrf', csrfToken);
       request.headers.set(HttpHeaders.cookieHeader, 'kw_token=$csrfToken');
-      final response = await request.close().timeout(const Duration(seconds: 4));
+      final response = await request.close().timeout(
+        const Duration(seconds: 4),
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await response.drain<void>();
         return const <_KuwoCandidate>[];
@@ -1254,11 +1737,10 @@ class HitsAudioResolverService {
     }
 
     try {
-      final uri = Uri.https(
-        'www.kuwo.cn',
-        '/api/v1/www/music/playUrl',
-        {'mid': mid, 'type': 'music'},
-      );
+      final uri = Uri.https('www.kuwo.cn', '/api/v1/www/music/playUrl', {
+        'mid': mid,
+        'type': 'music',
+      });
 
       final request = await _httpClient
           .getUrl(uri)
@@ -1268,7 +1750,9 @@ class HitsAudioResolverService {
         request.headers.set('csrf', token);
         request.headers.set(HttpHeaders.cookieHeader, 'kw_token=$token');
       }
-      final response = await request.close().timeout(const Duration(seconds: 5));
+      final response = await request.close().timeout(
+        const Duration(seconds: 5),
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await response.drain<void>();
         return null;
@@ -1276,7 +1760,8 @@ class HitsAudioResolverService {
 
       final decoded = jsonDecode(await utf8.decoder.bind(response).join());
       final data = decoded is Map ? decoded['data'] : null;
-      final playbackUrl = (data is Map ? data['url'] : null)?.toString().trim() ?? '';
+      final playbackUrl =
+          (data is Map ? data['url'] : null)?.toString().trim() ?? '';
       if (playbackUrl.isEmpty || playbackUrl == 'null') {
         return null;
       }
@@ -1298,7 +1783,9 @@ class HitsAudioResolverService {
   }) {
     final requestedTitle = _normalizeText(requestedTrack.title);
     final simplifiedTitle = _normalizeText(
-      _simplifyTrackTitleForSearch(_stripSearchDecorations(requestedTrack.title)),
+      _simplifyTrackTitleForSearch(
+        _stripSearchDecorations(requestedTrack.title),
+      ),
     );
     final requestedArtist = _normalizeText(requestedTrack.artist);
     final matchedTitle = _normalizeText(matched.title);
@@ -1336,12 +1823,12 @@ class HitsAudioResolverService {
     return score;
   }
 
-  Future<HitsResolvedAudioSource?> _searchMigu(
-    HitsScheduleTrack track,
-  ) async {
+  Future<HitsResolvedAudioSource?> _searchMigu(HitsScheduleTrack track) async {
     final candidateByCopyrightId = <String, _MiguCandidate>{};
 
-    for (final query in _buildSearchQueries(track).take(_miguSearchQueryLimit)) {
+    for (final query in _buildSearchQueries(
+      track,
+    ).take(_miguSearchQueryLimit)) {
       final results = await _searchMiguByQuery(query);
       for (final candidate in results.take(_miguCandidateLimit)) {
         final scored = candidate.copyWith(
@@ -1363,8 +1850,9 @@ class HitsAudioResolverService {
       }
     }
 
-    final rankedCandidates = candidateByCopyrightId.values.toList(growable: false)
-      ..sort((left, right) => right.score.compareTo(left.score));
+    final rankedCandidates = candidateByCopyrightId.values.toList(
+      growable: false,
+    )..sort((left, right) => right.score.compareTo(left.score));
 
     for (final candidate in rankedCandidates.take(_miguResolveLimit)) {
       if (candidate.score < _miguMinMatchScore) {
@@ -1388,18 +1876,21 @@ class HitsAudioResolverService {
       return const <_MiguCandidate>[];
     }
 
-    final uri = Uri.https(
-      'm.music.migu.cn',
-      '/migu/remoting/scr_search_tag',
-      {'keyword': trimmedQuery, 'type': '2', 'pgc': '1', 'rows': '15'},
-    );
+    final uri = Uri.https('m.music.migu.cn', '/migu/remoting/scr_search_tag', {
+      'keyword': trimmedQuery,
+      'type': '2',
+      'pgc': '1',
+      'rows': '15',
+    });
 
     try {
       final request = await _httpClient
           .getUrl(uri)
           .timeout(const Duration(seconds: 3));
       _miguHeaders.forEach(request.headers.set);
-      final response = await request.close().timeout(const Duration(seconds: 4));
+      final response = await request.close().timeout(
+        const Duration(seconds: 4),
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await response.drain<void>();
         return const <_MiguCandidate>[];
@@ -1415,8 +1906,7 @@ class HitsAudioResolverService {
       return musics
           .whereType<Map>()
           .map(
-            (item) =>
-                _MiguCandidate.fromJson(Map<String, dynamic>.from(item)),
+            (item) => _MiguCandidate.fromJson(Map<String, dynamic>.from(item)),
           )
           .whereType<_MiguCandidate>()
           .toList(growable: false);
@@ -1444,7 +1934,9 @@ class HitsAudioResolverService {
           .getUrl(uri)
           .timeout(const Duration(seconds: 3));
       _miguHeaders.forEach(request.headers.set);
-      final response = await request.close().timeout(const Duration(seconds: 5));
+      final response = await request.close().timeout(
+        const Duration(seconds: 5),
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await response.drain<void>();
         return null;
@@ -1452,7 +1944,9 @@ class HitsAudioResolverService {
 
       final decoded = jsonDecode(await utf8.decoder.bind(response).join());
       final data = decoded is Map ? decoded['data'] : null;
-      final playbackUrl = (data is Map ? data['playUrl'] : null)?.toString().trim();
+      final playbackUrl = (data is Map ? data['playUrl'] : null)
+          ?.toString()
+          .trim();
       final effectiveUrl = playbackUrl ?? '';
       if (effectiveUrl.isEmpty) {
         return null;
@@ -1476,7 +1970,9 @@ class HitsAudioResolverService {
   }) {
     final requestedTitle = _normalizeText(requestedTrack.title);
     final simplifiedTitle = _normalizeText(
-      _simplifyTrackTitleForSearch(_stripSearchDecorations(requestedTrack.title)),
+      _simplifyTrackTitleForSearch(
+        _stripSearchDecorations(requestedTrack.title),
+      ),
     );
     final requestedArtist = _normalizeText(requestedTrack.artist);
     final matchedTitle = _normalizeText(matched.title);
@@ -1514,9 +2010,7 @@ class HitsAudioResolverService {
     return score;
   }
 
-  Future<HitsResolvedAudioSource?> _searchQQ(
-    HitsScheduleTrack track,
-  ) async {
+  Future<HitsResolvedAudioSource?> _searchQQ(HitsScheduleTrack track) async {
     final candidateBySongMid = <String, _QQCandidate>{};
 
     for (final query in _buildSearchQueries(track).take(_qqSearchQueryLimit)) {
@@ -1589,7 +2083,9 @@ class HitsAudioResolverService {
           .getUrl(uri)
           .timeout(const Duration(seconds: 3));
       _qqHeaders.forEach(request.headers.set);
-      final response = await request.close().timeout(const Duration(seconds: 4));
+      final response = await request.close().timeout(
+        const Duration(seconds: 4),
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await response.drain<void>();
         return const <_QQCandidate>[];
@@ -1605,9 +2101,7 @@ class HitsAudioResolverService {
 
       return list
           .whereType<Map>()
-          .map(
-            (item) => _QQCandidate.fromJson(Map<String, dynamic>.from(item)),
-          )
+          .map((item) => _QQCandidate.fromJson(Map<String, dynamic>.from(item)))
           .whereType<_QQCandidate>()
           .toList(growable: false);
     } catch (_) {
@@ -1659,17 +2153,18 @@ class HitsAudioResolverService {
         },
       };
 
-      final uri = Uri.https(
-        'u.y.qq.com',
-        '/cgi-bin/musicu.fcg',
-        {'format': 'json', 'data': jsonEncode(params)},
-      );
+      final uri = Uri.https('u.y.qq.com', '/cgi-bin/musicu.fcg', {
+        'format': 'json',
+        'data': jsonEncode(params),
+      });
 
       final request = await _httpClient
           .getUrl(uri)
           .timeout(const Duration(seconds: 4));
       _qqHeaders.forEach(request.headers.set);
-      final response = await request.close().timeout(const Duration(seconds: 4));
+      final response = await request.close().timeout(
+        const Duration(seconds: 4),
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await response.drain<void>();
         return null;
@@ -1683,7 +2178,11 @@ class HitsAudioResolverService {
         return null;
       }
 
-      return (midurlinfo.first as Map?)?.cast<String, dynamic>()['purl']?.toString().trim() ?? '';
+      return (midurlinfo.first as Map?)
+              ?.cast<String, dynamic>()['purl']
+              ?.toString()
+              .trim() ??
+          '';
     } catch (_) {
       return null;
     }
@@ -1708,7 +2207,9 @@ class HitsAudioResolverService {
   }) {
     final requestedTitle = _normalizeText(requestedTrack.title);
     final simplifiedTitle = _normalizeText(
-      _simplifyTrackTitleForSearch(_stripSearchDecorations(requestedTrack.title)),
+      _simplifyTrackTitleForSearch(
+        _stripSearchDecorations(requestedTrack.title),
+      ),
     );
     final requestedArtist = _normalizeText(requestedTrack.artist);
     final matchedTitle = _normalizeText(matched.title);
@@ -1746,12 +2247,12 @@ class HitsAudioResolverService {
     return score;
   }
 
-  Future<HitsResolvedAudioSource?> _searchKugou(
-    HitsScheduleTrack track,
-  ) async {
+  Future<HitsResolvedAudioSource?> _searchKugou(HitsScheduleTrack track) async {
     final candidateByHash = <String, _KugouCandidate>{};
 
-    for (final query in _buildSearchQueries(track).take(_kugouSearchQueryLimit)) {
+    for (final query in _buildSearchQueries(
+      track,
+    ).take(_kugouSearchQueryLimit)) {
       final results = await _searchKugouByQuery(query);
       for (final candidate in results.take(_kugouCandidateLimit)) {
         final scored = candidate.copyWith(
@@ -1809,7 +2310,9 @@ class HitsAudioResolverService {
           .getUrl(uri)
           .timeout(const Duration(seconds: 3));
       _kugouHeaders.forEach(request.headers.set);
-      final response = await request.close().timeout(const Duration(seconds: 4));
+      final response = await request.close().timeout(
+        const Duration(seconds: 4),
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await response.drain<void>();
         return const <_KugouCandidate>[];
@@ -1825,8 +2328,7 @@ class HitsAudioResolverService {
       return info
           .whereType<Map>()
           .map(
-            (item) =>
-                _KugouCandidate.fromJson(Map<String, dynamic>.from(item)),
+            (item) => _KugouCandidate.fromJson(Map<String, dynamic>.from(item)),
           )
           .whereType<_KugouCandidate>()
           .toList(growable: false);
@@ -1853,14 +2355,17 @@ class HitsAudioResolverService {
           .getUrl(uri)
           .timeout(const Duration(seconds: 4));
       _kugouHeaders.forEach(request.headers.set);
-      final response = await request.close().timeout(const Duration(seconds: 5));
+      final response = await request.close().timeout(
+        const Duration(seconds: 5),
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await response.drain<void>();
         return null;
       }
 
       final decoded = jsonDecode(await utf8.decoder.bind(response).join());
-      final playbackUrl = (decoded is Map ? decoded['url'] : null)?.toString().trim() ?? '';
+      final playbackUrl =
+          (decoded is Map ? decoded['url'] : null)?.toString().trim() ?? '';
       if (playbackUrl.isEmpty) {
         return null;
       }
@@ -1883,7 +2388,194 @@ class HitsAudioResolverService {
   }) {
     final requestedTitle = _normalizeText(requestedTrack.title);
     final simplifiedTitle = _normalizeText(
-      _simplifyTrackTitleForSearch(_stripSearchDecorations(requestedTrack.title)),
+      _simplifyTrackTitleForSearch(
+        _stripSearchDecorations(requestedTrack.title),
+      ),
+    );
+    final requestedArtist = _normalizeText(requestedTrack.artist);
+    final matchedTitle = _normalizeText(matched.title);
+    final matchedArtist = _normalizeText(matched.artist);
+
+    var score = 0;
+    score += _stringMatchScore(
+      requestedTitle,
+      matchedTitle,
+      exact: 56,
+      partial: 26,
+    );
+    if (simplifiedTitle.isNotEmpty && simplifiedTitle != requestedTitle) {
+      score += _stringMatchScore(
+        simplifiedTitle,
+        matchedTitle,
+        exact: 34,
+        partial: 18,
+      );
+    }
+    score += _stringMatchScore(
+      requestedArtist,
+      matchedArtist,
+      exact: 32,
+      partial: 14,
+    );
+    score += _durationScore(
+      requestedTrack.duration.inMilliseconds,
+      matched.durationMs,
+    );
+    score -= _variantPenalty(
+      sourceTitle: matched.title,
+      requestedTitle: requestedTrack.title,
+    );
+    return score;
+  }
+
+  Future<HitsResolvedAudioSource?> _searchTaihe(HitsScheduleTrack track) async {
+    final candidateByTsid = <String, _TaiheCandidate>{};
+
+    for (final query in _buildSearchQueries(
+      track,
+    ).take(_taiheSearchQueryLimit)) {
+      final results = await _searchTaiheByQuery(query);
+      for (final candidate in results.take(_taiheCandidateLimit)) {
+        final scored = candidate.copyWith(
+          score: _scoreTaiheCandidateMatch(
+            requestedTrack: track,
+            matched: candidate,
+          ),
+        );
+        final existing = candidateByTsid[scored.tsid];
+        if (existing == null || scored.score > existing.score) {
+          candidateByTsid[scored.tsid] = scored;
+        }
+      }
+
+      if (candidateByTsid.values.any(
+        (candidate) => candidate.score >= _taiheMinMatchScore + 18,
+      )) {
+        break;
+      }
+    }
+
+    final rankedCandidates = candidateByTsid.values.toList(growable: false)
+      ..sort((left, right) => right.score.compareTo(left.score));
+
+    for (final candidate in rankedCandidates.take(_taiheResolveLimit)) {
+      if (candidate.score < _taiheMinMatchScore) {
+        break;
+      }
+      final resolved = await _resolveTaiheStream(
+        tsid: candidate.tsid,
+        coverUrl: candidate.coverUrl,
+      );
+      if (resolved != null) {
+        return resolved;
+      }
+    }
+
+    return null;
+  }
+
+  Future<List<_TaiheCandidate>> _searchTaiheByQuery(String query) async {
+    final trimmedQuery = query.trim();
+    if (trimmedQuery.isEmpty) {
+      return const <_TaiheCandidate>[];
+    }
+
+    final uri = _taiheUri('/search', <String, String>{
+      'word': trimmedQuery,
+      'pageNo': '1',
+      'type': '1',
+    });
+
+    try {
+      final request = await _httpClient
+          .getUrl(uri)
+          .timeout(const Duration(seconds: 3));
+      _taiheHeaders.forEach(request.headers.set);
+      final response = await request.close().timeout(
+        const Duration(seconds: 4),
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        await response.drain<void>();
+        return const <_TaiheCandidate>[];
+      }
+
+      final decoded = jsonDecode(await utf8.decoder.bind(response).join());
+      final data = decoded is Map ? decoded['data'] : null;
+      final list = data is Map ? data['typeTrack'] : null;
+      if (list is! List) {
+        return const <_TaiheCandidate>[];
+      }
+
+      return list
+          .whereType<Map>()
+          .map(
+            (item) => _TaiheCandidate.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .whereType<_TaiheCandidate>()
+          .toList(growable: false);
+    } catch (_) {
+      return const <_TaiheCandidate>[];
+    }
+  }
+
+  Future<HitsResolvedAudioSource?> _resolveTaiheStream({
+    required String tsid,
+    String? coverUrl,
+  }) async {
+    if (tsid.isEmpty) {
+      return null;
+    }
+
+    try {
+      final uri = _taiheUri('/song/tracklink', <String, String>{'TSID': tsid});
+
+      final request = await _httpClient
+          .getUrl(uri)
+          .timeout(const Duration(seconds: 4));
+      _taiheHeaders.forEach(request.headers.set);
+      final response = await request.close().timeout(
+        const Duration(seconds: 5),
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        await response.drain<void>();
+        return null;
+      }
+
+      final decoded = jsonDecode(await utf8.decoder.bind(response).join());
+      final data = decoded is Map ? decoded['data'] : null;
+      final playbackUrl =
+          (data is Map ? data['path'] : null)?.toString().trim() ?? '';
+      if (playbackUrl.isEmpty) {
+        return null;
+      }
+
+      final effectiveCoverUrl =
+          coverUrl ?? (data is Map ? data['pic'] : null)?.toString().trim();
+
+      return HitsResolvedAudioSource(
+        playbackUrl: playbackUrl,
+        provider: _taiheProvider,
+        providerTrackId: tsid,
+        suggestedFileExtension: _extensionFromUrl(playbackUrl) ?? '.mp3',
+        coverUrl: (effectiveCoverUrl ?? '').isEmpty ? null : effectiveCoverUrl,
+        playbackHeaders: <String, String>{
+          'Referer': 'https://music.taihe.com/',
+        },
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int _scoreTaiheCandidateMatch({
+    required HitsScheduleTrack requestedTrack,
+    required _TaiheCandidate matched,
+  }) {
+    final requestedTitle = _normalizeText(requestedTrack.title);
+    final simplifiedTitle = _normalizeText(
+      _simplifyTrackTitleForSearch(
+        _stripSearchDecorations(requestedTrack.title),
+      ),
     );
     final requestedArtist = _normalizeText(requestedTrack.artist);
     final matchedTitle = _normalizeText(matched.title);
@@ -1943,7 +2635,11 @@ class HitsAudioResolverService {
     add(cleanTitle);
     add(track.title);
 
-    final titleVariants = <String>{track.title, cleanTitle, ...track.titleVariants};
+    final titleVariants = <String>{
+      track.title,
+      cleanTitle,
+      ...track.titleVariants,
+    };
     final artistVariants = <String>{
       track.artist,
       cleanArtist,
@@ -1986,6 +2682,7 @@ class HitsAudioResolverService {
 
     return queries.take(8).toList(growable: false);
   }
+
   int _scoreAudiusCandidateMatch({
     required HitsScheduleTrack requestedTrack,
     required _AudiusCandidate matched,
@@ -2013,12 +2710,7 @@ class HitsAudioResolverService {
       );
     }
     score += _max(
-      _stringMatchScore(
-        requestedArtist,
-        matchedArtist,
-        exact: 44,
-        partial: 18,
-      ),
+      _stringMatchScore(requestedArtist, matchedArtist, exact: 44, partial: 18),
       _stringMatchScore(requestedArtist, uploader, exact: 18, partial: 8),
     );
     score += _durationScore(
@@ -2041,7 +2733,9 @@ class HitsAudioResolverService {
   }) {
     final requestedTitle = _normalizeText(requestedTrack.title);
     final simplifiedTitle = _normalizeText(
-      _simplifyTrackTitleForSearch(_stripSearchDecorations(requestedTrack.title)),
+      _simplifyTrackTitleForSearch(
+        _stripSearchDecorations(requestedTrack.title),
+      ),
     );
     final requestedArtist = _normalizeText(requestedTrack.artist);
     final matchedTitle = _normalizeText(matched.title);
@@ -2099,7 +2793,9 @@ class HitsAudioResolverService {
   }) {
     final requestedTitle = _normalizeText(requestedTrack.title);
     final simplifiedTitle = _normalizeText(
-      _simplifyTrackTitleForSearch(_stripSearchDecorations(requestedTrack.title)),
+      _simplifyTrackTitleForSearch(
+        _stripSearchDecorations(requestedTrack.title),
+      ),
     );
     final requestedArtist = _normalizeText(requestedTrack.artist);
     final matchedTitle = _normalizeText(matched.title);
@@ -2163,12 +2859,12 @@ class HitsAudioResolverService {
     return score;
   }
 
-
   int _durationScore(int requestedDurationMs, int matchedDurationMs) {
     if (requestedDurationMs <= 0 || matchedDurationMs <= 0) {
       return 0;
     }
-    final deltaSeconds = (requestedDurationMs - matchedDurationMs).abs() / 1000.0;
+    final deltaSeconds =
+        (requestedDurationMs - matchedDurationMs).abs() / 1000.0;
     if (deltaSeconds <= 2) return 18;
     if (deltaSeconds <= 5) return 12;
     if (deltaSeconds <= 10) return 6;
@@ -2267,12 +2963,10 @@ class HitsAudioResolverService {
         normalizedTitle.contains('lyric')) {
       penalty += 8;
     }
-    if (normalizedTitle.contains('karaoke') ||
-        normalizedTitle.contains('伴奏')) {
+    if (normalizedTitle.contains('karaoke') || normalizedTitle.contains('伴奏')) {
       penalty += 22;
     }
-    if (normalizedTitle.contains('cover') ||
-        normalizedTitle.contains('翻唱')) {
+    if (normalizedTitle.contains('cover') || normalizedTitle.contains('翻唱')) {
       penalty += 18;
     }
     if (normalizedAuthor.contains('搬运') || normalizedAuthor.contains('教程')) {
@@ -2331,7 +3025,8 @@ class HitsAudioResolverService {
   }) {
     final normalizedAuthor = _normalizeText(author);
     final normalizedTitle = _normalizeText(title);
-    final commonPreferred = normalizedAuthor.contains('索尼音乐中国') ||
+    final commonPreferred =
+        normalizedAuthor.contains('索尼音乐中国') ||
         normalizedAuthor.contains('bilibili音乐') ||
         normalizedTitle.contains('官方') ||
         normalizedTitle.contains('official');
@@ -2421,6 +3116,24 @@ class HitsAudioResolverService {
   String _audiusStreamEndpoint(String trackId) {
     final encodedTrackId = Uri.encodeComponent(trackId.trim());
     return 'https://$_audiusHost$_audiusBasePath/tracks/$encodedTrackId/stream';
+  }
+
+  Uri _taiheUri(String path, Map<String, String> params) {
+    final signed = <String, String>{
+      ...params,
+      'timestamp': '${DateTime.now().millisecondsSinceEpoch ~/ 1000}',
+      'appid': _taiheAppId,
+    };
+    final sortedKeys = signed.keys.toList(growable: false)..sort();
+    final canonical = sortedKeys
+        .map(
+          (key) =>
+              '${Uri.encodeQueryComponent(key)}=${Uri.encodeQueryComponent(signed[key] ?? '')}',
+        )
+        .join('&');
+    final signSource = Uri.decodeComponent(canonical) + _taiheSignSalt;
+    signed['sign'] = md5.convert(utf8.encode(signSource)).toString();
+    return Uri.https('music.taihe.com', '/v1$path', signed);
   }
 
   String? _extensionFromUrl(String value) {
@@ -2544,7 +3257,7 @@ class HitsAudioResolverService {
       'averageLatencyMs': attempts == 0
           ? latency.inMilliseconds.toDouble()
           : ((averageLatencyMs * attempts) + latency.inMilliseconds) /
-              (attempts + 1),
+                (attempts + 1),
       'lastSuccessAt': success ? now : previous['lastSuccessAt'],
       'lastFailureAt': success ? previous['lastFailureAt'] : now,
     };
@@ -2591,9 +3304,7 @@ class HitsAudioResolverService {
 
   Future<String?> _requestCountryCode(Uri uri, String field) async {
     try {
-      final request = await _httpClient
-          .getUrl(uri)
-          .timeout(_geoProbeTimeout);
+      final request = await _httpClient.getUrl(uri).timeout(_geoProbeTimeout);
       request.headers.set(
         HttpHeaders.userAgentHeader,
         'PrismWave/HITS Region Probe',
@@ -2683,7 +3394,10 @@ class HitsAudioResolverService {
         'detectedAt': profile.detectedAt.toIso8601String(),
       }),
     );
-    await prefs.setString(_prefProviderStats, jsonEncode(profile.providerStats));
+    await prefs.setString(
+      _prefProviderStats,
+      jsonEncode(profile.providerStats),
+    );
   }
 
   bool _isRoutingProfileStale(_HitsRoutingProfile profile) {
@@ -3041,19 +3755,23 @@ class _MiguCandidate {
   final int score;
 
   static _MiguCandidate? fromJson(Map<String, dynamic> json) {
-    final copyrightId = (json['copyrightId'] as String? ?? json['id'] as String? ?? '').trim();
-    final title = (json['songName'] as String? ?? json['title'] as String? ?? '').trim();
+    final copyrightId =
+        (json['copyrightId'] as String? ?? json['id'] as String? ?? '').trim();
+    final title =
+        (json['songName'] as String? ?? json['title'] as String? ?? '').trim();
     if (copyrightId.isEmpty || title.isEmpty) {
       return null;
     }
 
     final durationSec = _miguParseDuration(json['duration']?.toString() ?? '');
-    final coverUrl = (json['cover'] as String? ?? json['picUrl'] as String?)?.trim() ?? '';
+    final coverUrl =
+        (json['cover'] as String? ?? json['picUrl'] as String?)?.trim() ?? '';
 
     return _MiguCandidate(
       copyrightId: copyrightId,
       title: title,
-      artist: (json['singerName'] as String? ?? json['artist'] as String? ?? '').trim(),
+      artist: (json['singerName'] as String? ?? json['artist'] as String? ?? '')
+          .trim(),
       durationMs: durationSec > 0 ? durationSec * 1000 : 210000,
       coverUrl: coverUrl.isNotEmpty ? coverUrl : null,
       score: 0,
@@ -3102,20 +3820,25 @@ class _QQCandidate {
 
   static _QQCandidate? fromJson(Map<String, dynamic> json) {
     final songMid = (json['mid'] as String? ?? '').trim();
-    final title = (json['title'] as String? ?? json['name'] as String? ?? '').trim();
+    final title = (json['title'] as String? ?? json['name'] as String? ?? '')
+        .trim();
     if (songMid.isEmpty || title.isEmpty) {
       return null;
     }
 
     final singers = json['singer'] as List?;
     final artist = singers is List && singers.isNotEmpty
-        ? ((singers.first as Map?)?.cast<String, dynamic>()['name'] as String? ?? '').trim()
+        ? ((singers.first as Map?)?.cast<String, dynamic>()['name']
+                      as String? ??
+                  '')
+              .trim()
         : '';
 
     final intervalSec = (json['interval'] as num?)?.toInt() ?? 0;
 
     final album = json['album'] as Map?;
-    final coverUrl = (album?.cast<String, dynamic>()['picUrl'] as String?)?.trim() ?? '';
+    final coverUrl =
+        (album?.cast<String, dynamic>()['picUrl'] as String?)?.trim() ?? '';
 
     return _QQCandidate(
       songMid: songMid,
@@ -3158,7 +3881,9 @@ class _KugouCandidate {
 
   static _KugouCandidate? fromJson(Map<String, dynamic> json) {
     final fileHash = (json['hash'] as String? ?? '').trim();
-    final title = (json['filename'] as String? ?? json['songname'] as String? ?? '').trim();
+    final title =
+        (json['filename'] as String? ?? json['songname'] as String? ?? '')
+            .trim();
     if (fileHash.isEmpty || title.isEmpty) {
       return null;
     }
@@ -3179,6 +3904,73 @@ class _KugouCandidate {
   _KugouCandidate copyWith({int? score}) {
     return _KugouCandidate(
       fileHash: fileHash,
+      title: title,
+      artist: artist,
+      durationMs: durationMs,
+      coverUrl: coverUrl,
+      score: score ?? this.score,
+    );
+  }
+}
+
+class _TaiheCandidate {
+  const _TaiheCandidate({
+    required this.tsid,
+    required this.title,
+    required this.artist,
+    required this.durationMs,
+    this.coverUrl,
+    required this.score,
+  });
+
+  final String tsid;
+  final String title;
+  final String artist;
+  final int durationMs;
+  final String? coverUrl;
+  final int score;
+
+  static _TaiheCandidate? fromJson(Map<String, dynamic> json) {
+    final tsid =
+        (json['TSID'] as String? ??
+                json['id'] as String? ??
+                json['assetId'] as String? ??
+                '')
+            .trim();
+    final title = (json['title'] as String? ?? '').trim();
+    if (tsid.isEmpty || title.isEmpty) {
+      return null;
+    }
+
+    var artist = '';
+    final artists = json['artist'];
+    if (artists is List && artists.isNotEmpty) {
+      final names = <String>[];
+      for (final item in artists) {
+        if (item is Map) {
+          final name = (item['name'] as String? ?? '').trim();
+          if (name.isNotEmpty) names.add(name);
+        }
+      }
+      artist = names.join(' / ');
+    }
+
+    final durationSec = (json['duration'] as num?)?.toInt() ?? 0;
+    final coverUrl = (json['pic'] as String?)?.trim() ?? '';
+
+    return _TaiheCandidate(
+      tsid: tsid,
+      title: title,
+      artist: artist,
+      durationMs: durationSec > 0 ? durationSec * 1000 : 210000,
+      coverUrl: coverUrl.isNotEmpty ? coverUrl : null,
+      score: 0,
+    );
+  }
+
+  _TaiheCandidate copyWith({int? score}) {
+    return _TaiheCandidate(
+      tsid: tsid,
       title: title,
       artist: artist,
       durationMs: durationMs,
@@ -3214,11 +4006,15 @@ class _NeteaseCandidate {
 
     final artists = json['ar'] as List?;
     final artist = artists is List && artists.isNotEmpty
-        ? ((artists.first as Map?)?.cast<String, dynamic>()['name'] as String? ?? '').trim()
+        ? ((artists.first as Map?)?.cast<String, dynamic>()['name']
+                      as String? ??
+                  '')
+              .trim()
         : '';
 
     final album = json['al'] as Map?;
-    final coverUrl = (album?.cast<String, dynamic>()['picUrl'] as String?)?.trim() ?? '';
+    final coverUrl =
+        (album?.cast<String, dynamic>()['picUrl'] as String?)?.trim() ?? '';
 
     final durationMs = (json['dt'] as num?)?.toInt() ?? 0;
 
@@ -3241,5 +4037,17 @@ class _NeteaseCandidate {
       coverUrl: coverUrl,
       score: score ?? this.score,
     );
+  }
+}
+
+extension _SearchTimeout on Future<List<OnlineSearchHit>> {
+  /// Wraps a per-provider search future with a timeout that returns `[]`
+  /// instead of throwing, so a single slow provider can't block the whole
+  /// `searchByQuery` call.
+  Future<List<OnlineSearchHit>> timeoutSafe(Duration limit) {
+    return timeout(
+      limit,
+      onTimeout: () => const <OnlineSearchHit>[],
+    ).catchError((_) => const <OnlineSearchHit>[]);
   }
 }

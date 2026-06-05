@@ -3,24 +3,26 @@
   <img src="assets/logo.png" alt="logo" width="128">
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
-  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-R401_fix-blue" alt="Release"></a>
+  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-R401_fix2-blue" alt="Release"></a>
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.29.3-blue" alt="Flutter"></a>
 </div>
 
 [English README](./README.md)
 
-PrismWave 是一个基于 Flutter 开发的 Windows 本地音乐播放器。
+PrismWave 是一个基于 Flutter 开发的 Windows 音乐播放器，结合了本地音乐库和在线优先的首页推荐、搜索与播放队列。
 
 ## 功能
 
 - 本地音乐库扫描与文件夹管理
+- 在线优先启动：应用启动后直接进入首页，首次打开默认启用在线模式
+- 在线首页：每日推荐、新专辑、热门歌曲，以及本地/在线统一搜索
 - 音乐库 / 专辑 / 艺术家 / 我最爱 视图，支持拖拽排序
 - 底部播放栏 + 全屏播放页
-- 播放队列，支持拖拽排序
+- 播放队列，支持拖拽排序与在线音源按需恢复
 - 播放模式：列表循环、单曲循环、随机播放
 - 音频输出模式：兼容模式、WASAPI 共享、WASAPI 独占
 - 歌词：本地歌词、在线搜索与缓存、逐字歌词、QQ QRC 解码
-- HITS 广播模式：基于节目单的在线播放，9 个音源 provider，封面与歌词缓存，预加载
+- HITS 广播模式：基于节目单的在线播放，10 个音源 provider，封面与歌词缓存，预加载
   - HITS 节目单由 [prismwave-hits](https://github.com/shanbei2033/prismwave-hits) 仓库生成
 - Windows DSD 后端（BASS/BASSDSD/BASSASIO FFI）
 - 开发者模式：实时播放日志窗口与本地日志文件
@@ -89,9 +91,13 @@ Windows 下可用的输出模式：
 HITS 是一个广播电台模式，按节目单播放在线内容：
 
 - 从 `prismwave-hits` 仓库拉取节目单
-- 9 个音源 provider 解析音频（B 站、YouTube、Audius、网易云、酷我、咪咕、QQ 音乐、酷狗）
+- 10 个音源 provider 解析音频（B 站、YouTube、Audius、网易云、酷我、咪咕、QQ 音乐、酷狗、千千/太合）
 - 封面、歌词、音频本地缓存
 - 后台预加载即将播放的曲目
+
+## 在线模式
+
+首次启动时在线模式默认启用，PrismWave 会直接打开首页，加载推荐分区，并支持搜索结果立即组成播放队列。队列中尚未解析完成的在线歌曲会在后台继续解析；如果某个在线音源在实际播放时失败，PrismWave 会让该源失效并重新从可用 provider 中寻找可播放地址。
 
 ## 开发者模式
 

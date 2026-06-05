@@ -89,6 +89,68 @@ class AppStrings {
     'Syncing HITS playback',
   );
 
+  String get navHome => _tr('\u9996\u9875', '\u9996\u9801', 'Home');
+  String get navSearch => _tr('\u641c\u7d22', '\u641c\u5c0b', 'Search');
+  String get onlineHomeLoading =>
+      _tr('\u6b63\u5728\u52a0\u8f7d\u63a8\u8350', '\u6b63\u5728\u8f09\u5165\u63a8\u85a6', 'Loading recommendations');
+  String get onlineHomeFailed =>
+      _tr('\u63a8\u8350\u52a0\u8f7d\u5931\u8d25', '\u63a8\u85a6\u8f09\u5165\u5931\u6557', 'Failed to load recommendations');
+  String get onlineHomeRetry => _tr('\u91cd\u8bd5', '\u91cd\u8a66', 'Retry');
+  String get onlineSearchPlaceholder => _tr(
+    '\u641c\u7d22\u5728\u7ebf\u548c\u672c\u5730\u97f3\u4e50',
+    '\u641c\u5c0b\u7dda\u4e0a\u8207\u672c\u6a5f\u97f3\u6a02',
+    'Search online and local music',
+  );
+  String get onlinePopularTags => _tr('\u70ed\u95e8\u6807\u7b7e', '\u71b1\u9580\u6a19\u7c64', 'Popular tags');
+  String get onlineSourceLocal => _tr('\u672c\u5730', '\u672c\u6a5f', 'Local');
+  String get onlineSourceOnline => _tr('\u5728\u7ebf', '\u7dda\u4e0a', 'Online');
+  String get onlineSearching => _tr('\u6b63\u5728\u641c\u7d22', '\u6b63\u5728\u641c\u5c0b', 'Searching');
+  String get onlineSearchEmpty => _tr('\u6ca1\u6709\u7ed3\u679c', '\u6c92\u6709\u7d50\u679c', 'No results');
+  String get onlineSearchFailed => _tr('\u641c\u7d22\u5931\u8d25', '\u641c\u5c0b\u5931\u6557', 'Search failed');
+  String get onlineResolveFailed => _tr(
+    '\u65e0\u6cd5\u89e3\u6790\u5728\u7ebf\u97f3\u6e90',
+    '\u7121\u6cd5\u89e3\u6790\u7dda\u4e0a\u97f3\u6e90',
+    'Could not resolve an online audio source',
+  );
+  String get onlineModeSettingTitle =>
+      _tr('\u5728\u7ebf\u6a21\u5f0f', '\u7dda\u4e0a\u6a21\u5f0f', 'Online mode');
+  String get onlineModeSettingDescription => _tr(
+    '\u5f00\u542f\u540e\u4fa7\u680f\u663e\u793a\u9996\u9875\u4e0e\u641c\u7d22\uff0c\u63d0\u4f9b\u5728\u7ebf\u63a8\u8350\u4e0e\u8de8\u672c\u5730/\u5728\u7ebf\u641c\u7d22',
+    '\u958b\u555f\u5f8c\u5074\u6b04\u986f\u793a\u9996\u9801\u8207\u641c\u5c0b\uff0c\u63d0\u4f9b\u7dda\u4e0a\u63a8\u85a6\u8207\u8de8\u672c\u6a5f/\u7dda\u4e0a\u641c\u5c0b',
+    'Show Home and Search in the sidebar with online recommendations and unified search',
+  );
+  String get onlineTopPlaylistTitle =>
+      _tr('\u4eca\u65e5\u8d8b\u52bf', '\u4eca\u65e5\u8da8\u52e2', "Today's Trending");
+  String get onlineTopPlaylistSubtitle => _tr(
+    '\u4e91\u97f3\u4e50\u6bcf\u65e5\u4e0a\u5347\u6700\u5feb\u7684 100 \u9996',
+    '\u96f2\u97f3\u6a02\u6bcf\u65e5\u4e0a\u5347\u6700\u5feb\u7684 100 \u9996',
+    'Top 100 trending today',
+  );
+  String get onlineTopPlaylistOpen =>
+      _tr('\u67e5\u770b\u699c\u5355', '\u67e5\u770b\u699c\u55ae', 'Open chart');
+  String get onlineTopPlaylistBadge =>
+      _tr('\u8d8b\u52bf', '\u8da8\u52e2', 'TRENDING');
+  String get onlineNewAlbumsTitle =>
+      _tr('\u4e13\u8f91\u63a8\u8350', '\u5c08\u8f2f\u63a8\u85a6', 'New Albums');
+  String get onlineNewAlbumsSubtitle => _tr(
+    '\u672c\u5468\u65b0\u53d1\u4e13\u8f91',
+    '\u672c\u9031\u65b0\u767c\u5c08\u8f2f',
+    'Released this week',
+  );
+  String get onlineHotSongsTitle =>
+      _tr('\u6b4c\u66f2\u63a8\u8350', '\u6b4c\u66f2\u63a8\u85a6', 'Songs For You');
+  String get onlineHotSongsSubtitle => _tr(
+    '\u6df7\u5408\u591a\u79cd\u98ce\u683c\u7684\u65b0\u6b4c',
+    '\u6df7\u5408\u591a\u7a2e\u98a8\u683c\u7684\u65b0\u6b4c',
+    'Mixed-genre new releases',
+  );
+  String get onlineStylesTitle =>
+      _tr('\u98ce\u683c\u63a8\u8350', '\u98a8\u683c\u63a8\u85a6', 'By Style');
+  String get onlinePlayAlbum =>
+      _tr('\u64ad\u653e\u4e13\u8f91', '\u64ad\u653e\u5c08\u8f2f', 'Play album');
+  String get onlinePlayAlbumAll => _tr('\u64ad\u653e\u5168\u90e8', '\u64ad\u653e\u5168\u90e8', 'Play all');
+  String get onlineAlbumTrackCount => _tr('\u9996', '\u9996', 'tracks');
+
   bool get _zhHans => appLanguage == AppLanguage.zhCn;
   bool get _zhHant => appLanguage == AppLanguage.zhTw;
 

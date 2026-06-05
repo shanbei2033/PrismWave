@@ -19,6 +19,7 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
   static const String _prefTopBarIdleText = 'ui.topBarIdleText';
   static const String _legacyPrefTopBarQuoteText = 'ui.topBarQuoteText';
   static const String _legacyPrefTopBarQuoteDate = 'ui.topBarQuoteDate';
+  static const String _prefOnlineModeEnabled = 'online.modeEnabled';
 
   final QuoteService _quoteService = QuoteService();
   final ReleaseUpdateService _releaseUpdateService = ReleaseUpdateService();
@@ -31,14 +32,23 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
     );
     final idleText = prefs.getString(_prefTopBarIdleText) ?? '';
     final quoteText = _readCachedQuoteText(prefs, restored);
+    final onlineModeEnabled = prefs.getBool(_prefOnlineModeEnabled) ?? true;
     state = state.copyWith(
       language: restored,
       topBarIdleMode: idleMode,
       topBarIdleText: idleText,
       topBarQuoteText: quoteText,
+      onlineModeEnabled: onlineModeEnabled,
     );
 
     await ensureTopBarQuote(forceRefresh: false);
+  }
+
+  Future<void> setOnlineModeEnabled(bool value) async {
+    if (value == state.onlineModeEnabled) return;
+    state = state.copyWith(onlineModeEnabled: value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefOnlineModeEnabled, value);
   }
 
   Future<void> setLanguage(AppLanguage language) async {

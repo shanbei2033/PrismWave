@@ -20,6 +20,11 @@ import '../models/track.dart';
 import '../services/windows_dsd_backend_service.dart';
 import '../state/playback_state.dart';
 
+typedef PlaybackQueueTrackResolver =
+    Future<Track?> Function(Track track, int index, {bool forceRefresh});
+typedef PlaybackQueueTrackFailureHandler =
+    void Function(Track track, String reason);
+
 class PlaybackController extends StateNotifier<PlaybackState> {
   PlaybackController() : super(const PlaybackState()) {
     JustAudioMediaKit.nativeAudioRouteLogger = (message) {
@@ -96,13 +101,28 @@ class PlaybackController extends StateNotifier<PlaybackState> {
   DateTime _decodeSkipWindowStart = DateTime.fromMillisecondsSinceEpoch(0);
   ProcessingState? _lastProcessingState;
   bool? _lastPlayingState;
+  PlaybackQueueTrackResolver? _queueTrackResolver;
+  PlaybackQueueTrackFailureHandler? _queueTrackFailureHandler;
+  final Set<String> _failedOnlineQueueTrackIds = <String>{};
+
+  void setQueueTrackResolver(PlaybackQueueTrackResolver? resolver) {
+    _queueTrackResolver = resolver;
+  }
+
+  void setQueueTrackFailureHandler(PlaybackQueueTrackFailureHandler? handler) {
+    _queueTrackFailureHandler = handler;
+  }
 
   void _initializePlayer() {
     JustAudioMediaKit.nativeMpvProperties = const {
       'cache-secs': '12',
       'cache-on-disk': 'no',
     };
-    _player = AudioPlayer();
+    // Bypass just_audio's local proxy server for HTTP headers.
+    // The proxy causes a race condition on first HITS open (mpv connects
+    // before the proxy is ready). media_kit already passes httpHeaders to
+    // mpv via http-header-fields, so the proxy is unnecessary.
+    _player = AudioPlayer(useProxyForRequestHeaders: false);
     _bindPlayerEvents();
     _player.setVolume(
       _effectiveOutputVolumeForTrack(state.currentTrack, state.volume),
@@ -597,16 +617,19 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       );
 
       if (_shouldSkipTrackAfterDecodeError(error)) {
+        _notifyQueuedTrackPlaybackFailure(message);
         unawaited(_skipTrackAfterDecodeError(trigger: message));
         return;
       }
 
       if (_shouldTreatDecodeErrorAsTrackCompletion(error)) {
+        _notifyQueuedTrackPlaybackFailure(message);
         unawaited(_handleDecodeErrorAsTrackCompletion(trigger: message));
         return;
       }
 
       if (_shouldRecoverFromDecodeError(error)) {
+        _notifyQueuedTrackPlaybackFailure(message);
         unawaited(_attemptDecodeRecovery(trigger: message));
         return;
       }
@@ -625,8 +648,16 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     });
   }
 
-  Future<void> playFromPlaylist(Track track, List<Track> playlist) async {
-    await _playFromContext(track, playlist);
+  Future<void> playFromPlaylist(
+    Track track,
+    List<Track> playlist, {
+    bool includeUnplayableInQueue = false,
+  }) async {
+    await _playFromContext(
+      track,
+      playlist,
+      includeUnplayableInQueue: includeUnplayableInQueue,
+    );
   }
 
   Future<void> playFromLibrary(Track track, List<Track> libraryTracks) async {
@@ -807,16 +838,20 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     );
   }
 
-  Future<void> _playFromContext(Track track, List<Track> playlist) async {
+  Future<void> _playFromContext(
+    Track track,
+    List<Track> playlist, {
+    bool includeUnplayableInQueue = false,
+  }) async {
     if (playlist.isEmpty) return;
     if (!_isPlayableTrack(track)) {
       state = state.copyWith(error: _unsupportedTrackMessage(track));
       return;
     }
 
-    final playablePlaylist = playlist
-        .where(_isPlayableTrack)
-        .toList(growable: false);
+    final playablePlaylist = includeUnplayableInQueue
+        ? List<Track>.from(playlist, growable: false)
+        : playlist.where(_isPlayableTrack).toList(growable: false);
     if (playablePlaylist.isEmpty) {
       state = state.copyWith(
         error:
@@ -918,16 +953,8 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
     if (_player.processingState == ProcessingState.idle &&
         state.currentPlaylist.isNotEmpty) {
-      final token = _newSession();
-      state = state.copyWith(isLoading: true, clearError: true);
-      await _syncNativeLoopMode();
-      await _loadPlaylistAndPlay(
-        playlist: state.currentPlaylist,
-        index: state.currentIndex < 0 ? 0 : state.currentIndex,
-        expectedToken: token,
-        errorPrefix: 'Play failed',
-        markAutoAdvancedTrack: false,
-      );
+      _debug('togglePlayPause -> idle reload via queue index.', force: true);
+      await _playIndex(state.currentIndex < 0 ? 0 : state.currentIndex);
       return;
     }
 
@@ -972,6 +999,42 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     state = state.copyWith(playbackMode: nextMode);
     _debug('cycleMode -> ${nextMode.name}', force: true);
     unawaited(_syncNativeLoopMode());
+  }
+
+  Future<void> replaceQueuePreservingCurrent(
+    List<Track> playlist, {
+    bool includeUnplayable = false,
+  }) async {
+    final currentTrack = state.currentTrack;
+    if (currentTrack == null || playlist.isEmpty) return;
+
+    final nextPlaylist = includeUnplayable
+        ? List<Track>.from(playlist, growable: false)
+        : playlist.where(_isPlayableTrack).toList(growable: false);
+    if (nextPlaylist.isEmpty) return;
+
+    final currentIndex = nextPlaylist.indexWhere(
+      (track) => track.id == currentTrack.id,
+    );
+    if (currentIndex < 0) {
+      _debug(
+        'queue.replace-preserve skipped -> current track missing, '
+        'incomingLength=${nextPlaylist.length}',
+        force: true,
+      );
+      return;
+    }
+
+    state = state.copyWith(
+      currentPlaylist: nextPlaylist,
+      currentIndex: currentIndex,
+      clearError: true,
+    );
+    _debug(
+      'queue.replace-preserve -> length=${nextPlaylist.length}, '
+      'currentIndex=$currentIndex, current="${currentTrack.title}"',
+      force: true,
+    );
   }
 
   void reorderQueue(int oldIndex, int newIndex) {
@@ -1114,11 +1177,69 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     await _playIndex(nextIndex, causedByAutoAdvance: fromAutoEnded);
   }
 
-  Future<void> _playIndex(int index, {bool causedByAutoAdvance = false}) async {
+  Future<void> _playIndex(
+    int index, {
+    bool causedByAutoAdvance = false,
+    Set<int>? skippedUnplayableIndices,
+  }) async {
     if (index < 0 || index >= state.currentPlaylist.length) return;
+    var targetIndex = index;
+    var targetTrack = state.currentPlaylist[targetIndex];
+    var forceRefresh = _isFailedOnlineQueueTrack(targetTrack);
 
-    if (index == state.currentIndex) {
-      _debug('playIndex -> same index($index), restart current.', force: true);
+    if (!_isPlayableTrack(targetTrack) || forceRefresh) {
+      final resolved = await _resolveQueuedTrackIfNeeded(
+        index: targetIndex,
+        track: targetTrack,
+        forceRefresh: forceRefresh,
+      );
+      if (resolved != null) {
+        _clearFailedOnlineQueueTrack(targetTrack);
+        targetIndex = resolved.index;
+        targetTrack = resolved.track;
+        _clearFailedOnlineQueueTrack(targetTrack);
+        forceRefresh = false;
+      }
+    }
+
+    if (!_isPlayableTrack(targetTrack) || forceRefresh) {
+      _debug(
+        'playIndex skipped unresolved track -> index=$targetIndex, '
+        'title="${targetTrack.title}", path=${targetTrack.path}',
+        force: true,
+      );
+
+      final attempted = skippedUnplayableIndices ?? <int>{};
+      attempted.add(targetIndex);
+      if (causedByAutoAdvance &&
+          attempted.length < state.currentPlaylist.length) {
+        final nextIndex = _nextUnattemptedQueueIndex(targetIndex, attempted);
+        if (nextIndex != null) {
+          _debug(
+            'playIndex unresolved auto-skip -> from=$targetIndex to=$nextIndex',
+            force: true,
+          );
+          await _playIndex(
+            nextIndex,
+            causedByAutoAdvance: true,
+            skippedUnplayableIndices: attempted,
+          );
+          return;
+        }
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        error: _queuedUnplayableTrackMessage(targetTrack),
+      );
+      return;
+    }
+
+    if (targetIndex == state.currentIndex) {
+      _debug(
+        'playIndex -> same index($targetIndex), restart current.',
+        force: true,
+      );
       _currentTrackStartedByAutoAdvance = causedByAutoAdvance;
       await _restartCurrentTrack();
       return;
@@ -1126,8 +1247,8 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
     final token = _newSession();
     state = state.copyWith(
-      currentIndex: index,
-      currentTrack: state.currentPlaylist[index],
+      currentIndex: targetIndex,
+      currentTrack: targetTrack,
       currentTime: Duration.zero,
       duration: Duration.zero,
       isLoading: true,
@@ -1137,13 +1258,13 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
     try {
       _debug(
-        'playIndex -> reload target track directly. index=$index, '
-        'title="${state.currentPlaylist[index].title}"',
+        'playIndex -> reload target track directly. index=$targetIndex, '
+        'title="${targetTrack.title}"',
         force: true,
       );
       await _loadPlaylistAndPlay(
         playlist: state.currentPlaylist,
-        index: index,
+        index: targetIndex,
         expectedToken: token,
         errorPrefix: 'Switch track failed',
         markAutoAdvancedTrack: causedByAutoAdvance,
@@ -1155,6 +1276,131 @@ class PlaybackController extends StateNotifier<PlaybackState> {
         error: 'Switch track failed: $error',
       );
     }
+  }
+
+  Future<({Track track, int index})?> _resolveQueuedTrackIfNeeded({
+    required int index,
+    required Track track,
+    bool forceRefresh = false,
+  }) async {
+    final resolver = _queueTrackResolver;
+    if (resolver == null || !_looksLikeOnlineQueueTrack(track)) {
+      return null;
+    }
+
+    _debug(
+      'queue.resolve-on-demand.start -> index=$index, '
+      'title="${track.title}", path=${track.path}, forceRefresh=$forceRefresh',
+      force: true,
+    );
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      final resolved = await resolver(track, index, forceRefresh: forceRefresh);
+      if (resolved == null || !_isPlayableTrack(resolved)) {
+        _debug(
+          'queue.resolve-on-demand.failed -> index=$index, '
+          'title="${track.title}"',
+          force: true,
+        );
+        return null;
+      }
+
+      final queue = List<Track>.from(state.currentPlaylist, growable: false);
+      var targetIndex = index;
+      if (targetIndex < 0 ||
+          targetIndex >= queue.length ||
+          queue[targetIndex].id != track.id) {
+        targetIndex = queue.indexWhere((item) => item.id == track.id);
+      }
+      if (targetIndex < 0) {
+        _debug(
+          'queue.resolve-on-demand.stale -> title="${track.title}", '
+          'resolvedPath=${resolved.path}',
+          force: true,
+        );
+        return null;
+      }
+
+      queue[targetIndex] = resolved;
+      final resolvingCurrent =
+          state.currentTrack?.id == track.id ||
+          state.currentIndex == targetIndex;
+      var nextCurrentIndex = state.currentIndex;
+      if (resolvingCurrent) {
+        nextCurrentIndex = targetIndex;
+      } else if (state.currentTrack != null) {
+        final existingCurrentIndex = queue.indexWhere(
+          (item) => item.id == state.currentTrack!.id,
+        );
+        if (existingCurrentIndex >= 0) nextCurrentIndex = existingCurrentIndex;
+      }
+
+      state = state.copyWith(
+        currentPlaylist: queue,
+        currentTrack: resolvingCurrent ? resolved : state.currentTrack,
+        currentIndex: nextCurrentIndex,
+        clearError: true,
+      );
+      _debug(
+        'queue.resolve-on-demand.ok -> index=$targetIndex, '
+        'title="${resolved.title}", remote=${resolved.isRemote}, '
+        'forceRefresh=$forceRefresh',
+        force: true,
+      );
+      return (track: resolved, index: targetIndex);
+    } catch (error) {
+      _debug(
+        'queue.resolve-on-demand.error -> index=$index, '
+        'title="${track.title}", error=$error',
+        force: true,
+      );
+      return null;
+    }
+  }
+
+  bool _isFailedOnlineQueueTrack(Track track) {
+    if (!_looksLikeOnlineQueueTrack(track)) return false;
+    return _failedOnlineQueueTrackIds.contains(track.id) ||
+        _failedOnlineQueueTrackIds.contains(track.path);
+  }
+
+  void _markFailedOnlineQueueTrack(Track track) {
+    if (!_looksLikeOnlineQueueTrack(track)) return;
+    _failedOnlineQueueTrackIds.add(track.id);
+    _failedOnlineQueueTrackIds.add(track.path);
+  }
+
+  void _clearFailedOnlineQueueTrack(Track track) {
+    _failedOnlineQueueTrackIds.remove(track.id);
+    _failedOnlineQueueTrackIds.remove(track.path);
+  }
+
+  int? _nextUnattemptedQueueIndex(int fromIndex, Set<int> attempted) {
+    final length = state.currentPlaylist.length;
+    if (length <= 1) return null;
+    for (var offset = 1; offset < length; offset += 1) {
+      final candidate = (fromIndex + offset) % length;
+      if (!attempted.contains(candidate)) return candidate;
+    }
+    return null;
+  }
+
+  void _notifyQueuedTrackPlaybackFailure(String reason) {
+    final track = state.currentTrack;
+    final handler = _queueTrackFailureHandler;
+    if (track == null ||
+        handler == null ||
+        !_looksLikeOnlineQueueTrack(track)) {
+      return;
+    }
+    _debug(
+      'queue.playback-failure -> title="${track.title}", '
+      'path=${track.path}, reason=$reason',
+      force: true,
+    );
+    _markFailedOnlineQueueTrack(track);
+    handler(track, reason);
   }
 
   Future<void> _restartCurrentTrack() async {
@@ -1172,6 +1418,8 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     final shouldRebuildForExclusiveRestart =
         state.audioOutputMode == AudioOutputMode.wasapiExclusive &&
         _player.processingState == ProcessingState.completed;
+    final shouldReloadForIdleRestart =
+        _player.processingState == ProcessingState.idle;
 
     try {
       await _fadeOutCurrentTrack(
@@ -1180,9 +1428,10 @@ class PlaybackController extends StateNotifier<PlaybackState> {
         reason: 'restart-current',
       );
 
-      if (shouldRebuildForExclusiveRestart) {
+      if (shouldRebuildForExclusiveRestart || shouldReloadForIdleRestart) {
         _debug(
-          'restartCurrentTrack -> completed in exclusive mode, reload via fresh player.',
+          'restartCurrentTrack -> reload current track. '
+          'reason=${shouldReloadForIdleRestart ? 'idle-player' : 'exclusive-completed'}',
           force: true,
         );
         await _loadPlaylistAndPlay(
@@ -1932,6 +2181,19 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     if (track == null || track.isRemote) return false;
     final extension = p.extension(track.path).toLowerCase();
     return extension == '.dsf' || extension == '.dff';
+  }
+
+  bool _looksLikeOnlineQueueTrack(Track track) {
+    final uri = Uri.tryParse(track.path);
+    if (uri == null) return false;
+    return uri.scheme.toLowerCase() == 'online';
+  }
+
+  String _queuedUnplayableTrackMessage(Track track) {
+    if (_looksLikeOnlineQueueTrack(track)) {
+      return 'This online track could not be resolved to a playable source.';
+    }
+    return _unsupportedTrackMessage(track);
   }
 
   String _unsupportedTrackMessage(Track track) {

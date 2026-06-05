@@ -14,6 +14,7 @@ import '../i18n/app_strings.dart';
 import '../models/audio_file_details.dart';
 import '../models/app_language.dart';
 import '../models/audio_output_mode.dart';
+import '../models/online_recommendation.dart';
 import '../models/playback_backend_kind.dart';
 import '../models/playback_mode.dart';
 import '../models/release_update_status.dart';
@@ -28,20 +29,28 @@ import 'glass_panel.dart';
 import 'hits_availability.dart';
 import 'hits_transition_page.dart';
 import 'middle_click_autoscroll.dart';
+import 'online_album_detail_panel.dart';
+import 'online_home_panel.dart';
+import 'online_search_panel.dart';
+import 'online_top_playlist_panel.dart';
 import 'window_top_bar.dart';
 
-enum MainSection { library, albums, artists, favorites, settings }
+enum MainSection { home, search, library, albums, artists, favorites, settings }
 
 Future<void> _openExternalUrl(String url) async {
   final trimmed = url.trim();
   if (trimmed.isEmpty) return;
   try {
     await Process.start('cmd.exe', [
-      '/c', 'start', '', trimmed,
+      '/c',
+      'start',
+      '',
+      trimmed,
     ], mode: ProcessStartMode.detached);
   } catch (_) {
     await Process.start('rundll32', [
-      'url.dll,FileProtocolHandler', trimmed,
+      'url.dll,FileProtocolHandler',
+      trimmed,
     ], mode: ProcessStartMode.detached);
   }
 }
@@ -55,9 +64,11 @@ class PrismWaveHomePage extends ConsumerStatefulWidget {
 
 class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
   final _searchController = TextEditingController();
-  MainSection _section = MainSection.library;
+  MainSection _section = MainSection.home;
   String? _selectedAlbum;
   String? _selectedArtist;
+  bool _topPlaylistOpen = false;
+  OnlineAlbumCard? _openAlbumCard;
   bool _showPlaybackQueue = false;
 
   @override
@@ -207,6 +218,19 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
       }
     });
 
+    ref.listen<bool>(appSettingsProvider.select((s) => s.onlineModeEnabled), (
+      previous,
+      next,
+    ) {
+      if (!next && mounted) {
+        if (_section == MainSection.home || _section == MainSection.search) {
+          setState(() {
+            _section = MainSection.library;
+          });
+        }
+      }
+    });
+
     ref.listen<PlaybackState>(playbackProvider, (previous, next) {
       if (next.error != null && previous?.error != next.error && mounted) {
         ScaffoldMessenger.of(
@@ -284,7 +308,13 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                                   );
                                 },
                                 child: KeyedSubtree(
-                                  key: ValueKey(_section),
+                                  key: ValueKey(
+                                    '${_section.name}'
+                                    '|${_topPlaylistOpen ? 'top' : 'root'}'
+                                    '|${_openAlbumCard?.canonicalKey ?? ''}'
+                                    '|${_selectedAlbum ?? ''}'
+                                    '|${_selectedArtist ?? ''}',
+                                  ),
                                   child: _buildSectionPanel(
                                     library: library,
                                     playback: playback,
@@ -356,6 +386,9 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     required LibraryState library,
     required AppStrings t,
   }) {
+    final onlineEnabled = ref.watch(
+      appSettingsProvider.select((s) => s.onlineModeEnabled),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -370,6 +403,20 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
           ],
         ),
         const SizedBox(height: 18),
+        if (onlineEnabled) ...[
+          _navButton(
+            section: MainSection.home,
+            icon: Icons.explore_rounded,
+            label: t.navHome,
+          ),
+          const SizedBox(height: 8),
+          _navButton(
+            section: MainSection.search,
+            icon: Icons.search_rounded,
+            label: t.navSearch,
+          ),
+          const SizedBox(height: 8),
+        ],
         _navButton(
           section: MainSection.library,
           icon: Icons.library_music_rounded,
@@ -454,10 +501,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                 ),
               ),
               const SizedBox(width: 10),
-              const Text(
-                'HITS',
-                style: TextStyle(fontSize: 15),
-              ),
+              const Text('HITS', style: TextStyle(fontSize: 15)),
             ],
           ),
         ),
@@ -607,6 +651,8 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
             _section = section;
             _selectedAlbum = null;
             _selectedArtist = null;
+            _topPlaylistOpen = false;
+            _openAlbumCard = null;
           });
         },
         child: SizedBox(
@@ -630,6 +676,43 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     required AppStrings t,
   }) {
     switch (_section) {
+      case MainSection.home:
+        if (_openAlbumCard != null) {
+          return OnlineAlbumDetailPanel(
+            t: t,
+            album: _openAlbumCard!,
+            onBack: () {
+              setState(() {
+                _openAlbumCard = null;
+              });
+            },
+          );
+        }
+        if (_topPlaylistOpen) {
+          return OnlineTopPlaylistPanel(
+            t: t,
+            onBack: () {
+              setState(() {
+                _topPlaylistOpen = false;
+              });
+            },
+          );
+        }
+        return OnlineHomePanel(
+          t: t,
+          onOpenTopPlaylist: () {
+            setState(() {
+              _topPlaylistOpen = true;
+            });
+          },
+          onOpenAlbum: (album) {
+            setState(() {
+              _openAlbumCard = album;
+            });
+          },
+        );
+      case MainSection.search:
+        return OnlineSearchPanel(t: t);
       case MainSection.library:
         return _buildTracksPanel(
           library: library,
@@ -1588,7 +1671,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
   }
 
   Future<void> _openFullPlay(Track track) async {
-    await ref.read(libraryProvider.notifier).ensureLyricsLoaded(track);
+    unawaited(ref.read(libraryProvider.notifier).ensureLyricsLoaded(track));
     if (!mounted) return;
     await Navigator.of(context).push(
       PageRouteBuilder<void>(
@@ -1661,9 +1744,9 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
       await ref.read(libraryProvider.notifier).ensureLyricsLoaded(track);
     }
     if (!mounted) return;
-    await ref.read(playbackProvider.notifier).setAudioOutputMode(
-      AudioOutputMode.wasapiShared,
-    );
+    await ref
+        .read(playbackProvider.notifier)
+        .setAudioOutputMode(AudioOutputMode.wasapiShared);
     if (!mounted) return;
     await Navigator.of(context).push(
       PageRouteBuilder<void>(
@@ -2141,6 +2224,22 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                               },
                             ),
                           ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _SettingsBlock(
+                        title: t.onlineModeSettingTitle,
+                        child: _SettingsToggleTile(
+                          title: t.onlineModeSettingTitle,
+                          subtitle: t.onlineModeSettingDescription,
+                          value: ref.watch(
+                            appSettingsProvider.select(
+                              (s) => s.onlineModeEnabled,
+                            ),
+                          ),
+                          onChanged: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setOnlineModeEnabled(value),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -2925,7 +3024,9 @@ class _SettingsFoldersCardState extends State<_SettingsFoldersCard> {
   Future<int> _getDirectorySize(String path) async {
     int total = 0;
     try {
-      await for (final entity in Directory(path).list(recursive: true, followLinks: false)) {
+      await for (final entity in Directory(
+        path,
+      ).list(recursive: true, followLinks: false)) {
         if (entity is File) {
           try {
             total += await entity.length();
@@ -3590,36 +3691,47 @@ class _PlaybackQueueTrackTileState extends State<_PlaybackQueueTrackTile> {
   }
 }
 
-class _CoverImage extends StatelessWidget {
+class _CoverImage extends ConsumerWidget {
   const _CoverImage({required this.coverPath, required this.coverBytes});
 
   final String? coverPath;
   final Uint8List? coverBytes;
 
+  bool get _isNetworkPath {
+    final p = coverPath?.trim() ?? '';
+    return p.startsWith('http://') || p.startsWith('https://');
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (coverBytes != null && coverBytes!.isNotEmpty) {
       return Image.memory(
         coverBytes!,
         fit: BoxFit.cover,
         gaplessPlayback: true,
-        errorBuilder: (_, _, _) => _fileImageOrPlaceholder(),
+        errorBuilder: (_, _, _) => _fallbackImage(ref),
       );
     }
-
-    if (coverPath != null && File(coverPath!).existsSync()) {
-      return _fileImageOrPlaceholder();
-    }
-    return _placeholder();
+    return _fallbackImage(ref);
   }
 
-  Widget _fileImageOrPlaceholder() {
-    if (coverPath != null && File(coverPath!).existsSync()) {
-      return Image.file(
-        File(coverPath!),
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _placeholder(),
-      );
+  Widget _fallbackImage(WidgetRef ref) {
+    final path = coverPath;
+    if (path != null && path.isNotEmpty) {
+      if (_isNetworkPath) {
+        return OnlineCoverImage(
+          coverCache: ref.read(onlineCoverCacheProvider),
+          cacheKey: path,
+          coverUrl: path,
+        );
+      }
+      if (File(path).existsSync()) {
+        return Image.file(
+          File(path),
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _placeholder(),
+        );
+      }
     }
     return _placeholder();
   }

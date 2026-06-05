@@ -12,6 +12,7 @@ import '../services/hits_manifest_service.dart';
 import '../services/hits_scheduler.dart';
 import '../services/online_cover_service.dart';
 import '../services/online_lyrics_service.dart';
+import '../services/online_url_utils.dart';
 import '../state/hits_state.dart';
 import '../state/library_state.dart';
 import '../state/playback_state.dart';
@@ -35,7 +36,10 @@ class HitsController extends StateNotifier<HitsState> {
        _manifestService = manifestService ?? HitsManifestService(),
        _scheduler = scheduler ?? const HitsScheduler(),
        _audioResolverService =
-           audioResolverService ?? HitsAudioResolverService(),
+           audioResolverService ??
+           HitsAudioResolverService(
+             debugLog: playbackController.appendDeveloperLog,
+           ),
        _mediaCacheService = mediaCacheService ?? HitsMediaCacheService(),
        _onlineCoverService = OnlineCoverService(),
        _onlineLyricsService = OnlineLyricsService(),
@@ -176,9 +180,7 @@ class HitsController extends StateNotifier<HitsState> {
       matchedTrack: matchedTrack,
       force: true,
     );
-    _refreshOnlineLyrics(
-      scheduleTrack: position.currentTrack,
-    );
+    _refreshOnlineLyrics(scheduleTrack: position.currentTrack);
     _refreshCover(scheduleTrack: position.currentTrack);
     _prefetchUpcomingAssets(leadTrack: position.currentTrack);
     await _syncPlaybackToSchedule(nowUtc: nowUtc, forceReload: true);
@@ -297,9 +299,7 @@ class HitsController extends StateNotifier<HitsState> {
       matchedTrack: matchedTrack,
       force: false,
     );
-    _refreshOnlineLyrics(
-      scheduleTrack: position.currentTrack,
-    );
+    _refreshOnlineLyrics(scheduleTrack: position.currentTrack);
     _refreshCover(scheduleTrack: position.currentTrack);
     if (currentTrackId != previousTrackId) {
       _prefetchUpcomingAssets(leadTrack: position.currentTrack);
@@ -310,9 +310,7 @@ class HitsController extends StateNotifier<HitsState> {
     _playbackSnapshot ??= _playbackController.captureSessionSnapshot();
   }
 
-  void _refreshOnlineLyrics({
-    required HitsScheduleTrack? scheduleTrack,
-  }) {
+  void _refreshOnlineLyrics({required HitsScheduleTrack? scheduleTrack}) {
     if (scheduleTrack == null) {
       _lastOnlineLyricsTrackId = null;
       _onlineLyricsRequestToken += 1;
@@ -401,7 +399,9 @@ class HitsController extends StateNotifier<HitsState> {
   }
 
   Duration? _scheduleTrackDurationHint(HitsScheduleTrack scheduleTrack) {
-    return scheduleTrack.duration > Duration.zero ? scheduleTrack.duration : null;
+    return scheduleTrack.duration > Duration.zero
+        ? scheduleTrack.duration
+        : null;
   }
 
   String _scheduleTrackLyricsQuery(HitsScheduleTrack scheduleTrack) {
@@ -424,10 +424,7 @@ class HitsController extends StateNotifier<HitsState> {
     if (scheduleTrack == null) {
       _lastCoverTrackId = null;
       _coverRequestToken += 1;
-      state = state.copyWith(
-        currentCoverBytes: null,
-        isCoverLoading: false,
-      );
+      state = state.copyWith(currentCoverBytes: null, isCoverLoading: false);
       return;
     }
 
@@ -459,17 +456,14 @@ class HitsController extends StateNotifier<HitsState> {
       return;
     }
 
-    state = state.copyWith(
-      currentCoverBytes: bytes,
-      isCoverLoading: false,
-    );
+    state = state.copyWith(currentCoverBytes: bytes, isCoverLoading: false);
   }
 
   void _refreshPlaybackSource({
     required HitsScheduleTrack? scheduleTrack,
     required Track? matchedTrack,
     required bool force,
-    }) {
+  }) {
     final directTrack = _resolveImmediatePlaybackTrack(
       scheduleTrack: scheduleTrack,
       matchedTrack: matchedTrack,
@@ -573,7 +567,10 @@ class HitsController extends StateNotifier<HitsState> {
 
     if (resolved != null) {
       unawaited(
-        _startTrackAssetPrefetch(scheduleTrack: scheduleTrack, source: resolved),
+        _startTrackAssetPrefetch(
+          scheduleTrack: scheduleTrack,
+          source: resolved,
+        ),
       );
     }
 
@@ -619,7 +616,9 @@ class HitsController extends StateNotifier<HitsState> {
       }
     }
 
-    unawaited(_startTrackAssetPrefetch(scheduleTrack: scheduleTrack, source: source));
+    unawaited(
+      _startTrackAssetPrefetch(scheduleTrack: scheduleTrack, source: source),
+    );
   }
 
   Future<void> _startTrackAssetPrefetch({
@@ -645,7 +644,9 @@ class HitsController extends StateNotifier<HitsState> {
   }) async {
     final coverUrl = scheduleTrack.coverUrl?.toString().trim() ?? '';
     if (coverUrl.isNotEmpty && !_looksLikePlaceholderCover(coverUrl)) {
-      final directBytes = await _mediaCacheService.loadCoverBytes(scheduleTrack);
+      final directBytes = await _mediaCacheService.loadCoverBytes(
+        scheduleTrack,
+      );
       if (directBytes != null && directBytes.isNotEmpty) {
         return directBytes;
       }
@@ -786,7 +787,8 @@ class HitsController extends StateNotifier<HitsState> {
 
     final immediateSource = _resolveImmediatePlaybackSource(scheduleTrack);
     final source =
-        immediateSource ?? await _audioResolverService.resolveTrack(scheduleTrack);
+        immediateSource ??
+        await _audioResolverService.resolveTrack(scheduleTrack);
     if (_disposed || source == null) {
       return;
     }
@@ -833,10 +835,7 @@ class HitsController extends StateNotifier<HitsState> {
     }
   }
 
-  static final RegExp _nonPlayableUrlPattern = RegExp(
-    r'(?:cdnt?-preview\.dzcdn\.net|audio-ssl\.itunes\.apple\.com|'
-    r'preview\.music\.apple\.com)',
-  );
+  static final RegExp _nonPlayableUrlPattern = kNonPlayableAudioUrlPattern;
 
   HitsResolvedAudioSource? _resolveImmediatePlaybackSource(
     HitsScheduleTrack? scheduleTrack,
@@ -911,7 +910,10 @@ class HitsController extends StateNotifier<HitsState> {
     required DateTime nowUtc,
     required bool forceReload,
   }) async {
-    if (_disposed || _syncInFlight || _restoringSession || !state.isSessionActive) {
+    if (_disposed ||
+        _syncInFlight ||
+        _restoringSession ||
+        !state.isSessionActive) {
       _syncPlaybackFlagsInState();
       return;
     }
@@ -944,8 +946,10 @@ class HitsController extends StateNotifier<HitsState> {
       }
 
       // Evict stale failure entries (older than 5 minutes).
-      _recentlyFailedTrackIds.removeWhere((_, failedAt) =>
-          nowUtc.difference(failedAt) > const Duration(minutes: 5));
+      _recentlyFailedTrackIds.removeWhere(
+        (_, failedAt) =>
+            nowUtc.difference(failedAt) > const Duration(minutes: 5),
+      );
 
       // Skip tracks whose playback source recently failed (e.g. bad URL
       // that causes the player to complete within seconds).

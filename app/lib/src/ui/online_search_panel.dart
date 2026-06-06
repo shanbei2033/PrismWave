@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,7 +8,9 @@ import '../i18n/app_strings.dart';
 import '../models/online_recommendation.dart';
 import '../providers.dart';
 import '../services/online_search_service.dart';
+import '../state/library_state.dart';
 import '../state/online_state.dart';
+import 'online_home_panel.dart';
 
 class OnlineSearchPanel extends ConsumerStatefulWidget {
   const OnlineSearchPanel({super.key, required this.t});
@@ -56,6 +61,7 @@ class _OnlineSearchPanelState extends ConsumerState<OnlineSearchPanel> {
     final t = widget.t;
     final search = ref.watch(onlineProvider.select((s) => s.search));
     final home = ref.watch(onlineProvider.select((s) => s.home));
+    final library = ref.watch(libraryProvider);
     final tags = home.data?.tags ?? const <OnlineTag>[];
 
     return Padding(
@@ -83,6 +89,7 @@ class _OnlineSearchPanelState extends ConsumerState<OnlineSearchPanel> {
                 : _SearchResults(
                     t: t,
                     state: search,
+                    library: library,
                     onPlayResult: _playResult,
                   ),
           ),
@@ -253,11 +260,13 @@ class _SearchResults extends StatelessWidget {
   const _SearchResults({
     required this.t,
     required this.state,
+    required this.library,
     required this.onPlayResult,
   });
 
   final AppStrings t;
   final OnlineSearchView state;
+  final LibraryState library;
   final ValueChanged<OnlineSearchResult> onPlayResult;
 
   @override
@@ -302,6 +311,7 @@ class _SearchResults extends StatelessWidget {
         return _SearchResultTile(
           t: t,
           result: row,
+          library: library,
           onTap: () => onPlayResult(row),
         );
       },
@@ -309,41 +319,163 @@ class _SearchResults extends StatelessWidget {
   }
 }
 
-class _SearchResultTile extends StatelessWidget {
+class _SearchResultTile extends ConsumerWidget {
   const _SearchResultTile({
     required this.t,
     required this.result,
+    required this.library,
     required this.onTap,
   });
 
   final AppStrings t;
   final OnlineSearchResult result;
+  final LibraryState library;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isLocal = result.source == OnlineSearchResultSource.local;
-    return ListTile(
-      leading: CircleAvatar(
-        radius: 18,
-        backgroundColor: Colors.white.withValues(alpha: 0.08),
-        child: Icon(
-          isLocal ? Icons.sd_storage_rounded : Icons.cloud_rounded,
-          size: 18,
+    final track = result.localTrack;
+    final duration = isLocal && track != null
+        ? library.durationOf(track)
+        : Duration(milliseconds: result.displayDurationMs);
+    final coverBytes = isLocal && track != null
+        ? library.coverBytesOf(track)
+        : null;
+    final album = result.displayAlbum.trim();
+    final artist = result.displayArtist.trim();
+    final artistAlbum = [
+      if (artist.isNotEmpty) artist,
+      if (album.isNotEmpty) album,
+    ].join(' - ');
+    final meta = [
+      result.displayProvider,
+      if ((duration?.inMilliseconds ?? 0) > 0) _formatDuration(duration!),
+    ].join(' - ');
+
+    return SizedBox(
+      height: 72,
+      child: ListTile(
+        minVerticalPadding: 8,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 2),
+        leading: _SearchResultCover(
+          isLocal: isLocal,
+          coverPathOrUrl: result.displayCoverUrl,
+          coverBytes: coverBytes,
+          fallbackIcon: isLocal
+              ? Icons.sd_storage_rounded
+              : Icons.cloud_rounded,
         ),
+        title: Text(
+          result.displayTitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              artistAlbum.isEmpty ? 'Unknown Artist' : artistAlbum,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              meta,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.45),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        onTap: onTap,
       ),
-      title: Text(
-        result.displayTitle,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
-        result.displayArtist,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
-      ),
-      onTap: onTap,
     );
   }
+}
+
+class _SearchResultCover extends ConsumerWidget {
+  const _SearchResultCover({
+    required this.isLocal,
+    required this.coverPathOrUrl,
+    required this.coverBytes,
+    required this.fallbackIcon,
+  });
+
+  final bool isLocal;
+  final String? coverPathOrUrl;
+  final Uint8List? coverBytes;
+  final IconData fallbackIcon;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(width: 48, height: 48, child: _buildImage(ref)),
+    );
+  }
+
+  Widget _buildImage(WidgetRef ref) {
+    if (coverBytes != null && coverBytes!.isNotEmpty) {
+      return Image.memory(
+        coverBytes!,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        errorBuilder: (_, _, _) => _fallback(),
+      );
+    }
+
+    final value = coverPathOrUrl?.trim() ?? '';
+    if (value.isEmpty) {
+      return _fallback();
+    }
+
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return OnlineCoverImage(
+        coverCache: ref.read(onlineCoverCacheProvider),
+        cacheKey: value,
+        coverUrl: value,
+      );
+    }
+
+    if (isLocal && File(value).existsSync()) {
+      return Image.file(
+        File(value),
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _fallback(),
+      );
+    }
+
+    return _fallback();
+  }
+
+  Widget _fallback() {
+    return Container(
+      color: Colors.white.withValues(alpha: 0.08),
+      alignment: Alignment.center,
+      child: Icon(
+        fallbackIcon,
+        size: 20,
+        color: Colors.white.withValues(alpha: 0.56),
+      ),
+    );
+  }
+}
+
+String _formatDuration(Duration duration) {
+  final totalSeconds = duration.inSeconds;
+  if (totalSeconds <= 0) return '';
+  final hours = totalSeconds ~/ 3600;
+  final minutes = (totalSeconds % 3600) ~/ 60;
+  final seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return '$hours:${minutes.toString().padLeft(2, '0')}:'
+        '${seconds.toString().padLeft(2, '0')}';
+  }
+  return '$minutes:${seconds.toString().padLeft(2, '0')}';
 }

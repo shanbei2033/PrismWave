@@ -242,7 +242,10 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
         unawaited(
           ref
               .read(libraryProvider.notifier)
-              .ensureLyricsLoaded(next.currentTrack!),
+              .ensureLyricsLoaded(
+                next.currentTrack!,
+                durationHint: next.duration,
+              ),
         );
       }
       if (previous != null) {
@@ -1671,7 +1674,12 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
   }
 
   Future<void> _openFullPlay(Track track) async {
-    unawaited(ref.read(libraryProvider.notifier).ensureLyricsLoaded(track));
+    final playback = ref.read(playbackProvider);
+    unawaited(
+      ref
+          .read(libraryProvider.notifier)
+          .ensureLyricsLoaded(track, durationHint: playback.duration),
+    );
     if (!mounted) return;
     await Navigator.of(context).push(
       PageRouteBuilder<void>(
@@ -1739,9 +1747,12 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
 
   Future<void> _openHitsTransition() async {
     final availabilityFuture = HitsAvailabilityResolver.resolve();
-    final track = ref.read(playbackProvider).currentTrack;
+    final playback = ref.read(playbackProvider);
+    final track = playback.currentTrack;
     if (track != null) {
-      await ref.read(libraryProvider.notifier).ensureLyricsLoaded(track);
+      await ref
+          .read(libraryProvider.notifier)
+          .ensureLyricsLoaded(track, durationHint: playback.duration);
     }
     if (!mounted) return;
     await ref

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-const String kCurrentReleaseVersion = 'R401_fix2';
+const String kCurrentReleaseVersion = 'R501';
 
 class ReleaseUpdateInfo {
   const ReleaseUpdateInfo({

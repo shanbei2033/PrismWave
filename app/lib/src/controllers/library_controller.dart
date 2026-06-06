@@ -48,6 +48,7 @@ class LibraryController extends StateNotifier<LibraryState> {
 
   List<String> _savedTrackOrderPaths = const [];
   Set<String> _hiddenTrackPaths = const {};
+  final Set<String> _onlineLyricsResolvedWithoutDurationPaths = <String>{};
 
   Future<void> _loadInitialState() async {
     final prefs = await SharedPreferences.getInstance();
@@ -510,7 +511,20 @@ class LibraryController extends StateNotifier<LibraryState> {
     await _persistLyricsOffsets();
   }
 
-  Future<void> ensureLyricsLoaded(Track track) async {
+  Future<void> ensureLyricsLoaded(Track track, {Duration? durationHint}) async {
+    if (track.isRemote) {
+      if (state.preferredLyricsSourceOf(track) != LyricsSourceType.online) {
+        await _setPreferredLyricsSource(track.path, LyricsSourceType.online);
+      }
+      await _ensureOnlineLyricsLoaded(
+        track,
+        autoSelectOnline: true,
+        forceReload: false,
+        durationHint: durationHint,
+      );
+      return;
+    }
+
     await _ensureLocalLyricsLoaded(track);
 
     final preferred = state.preferredLyricsSourceOf(track);
@@ -520,6 +534,7 @@ class LibraryController extends StateNotifier<LibraryState> {
         track,
         autoSelectOnline: true,
         forceReload: false,
+        durationHint: durationHint,
       );
       return;
     }
@@ -532,6 +547,7 @@ class LibraryController extends StateNotifier<LibraryState> {
       track,
       autoSelectOnline: true,
       forceReload: false,
+      durationHint: durationHint,
     );
   }
 
@@ -580,13 +596,14 @@ class LibraryController extends StateNotifier<LibraryState> {
 
   Future<List<OnlineLyricsSearchResult>> searchOnlineLyrics(
     Track track,
-    String query,
-  ) async {
+    String query, {
+    Duration? durationHint,
+  }) async {
     final normalized = query.trim().isEmpty ? track.title : query.trim();
     return _onlineLyricsService.searchLyricsForTrack(
       track,
       query: normalized,
-      durationHint: state.durationByPath[track.path],
+      durationHint: _resolveLyricsDurationHint(track, durationHint),
     );
   }
 
@@ -637,8 +654,9 @@ class LibraryController extends StateNotifier<LibraryState> {
 
   Future<void> applyManualOnlineLyricsSelection(
     Track track,
-    OnlineLyricsSearchResult result,
-  ) async {
+    OnlineLyricsSearchResult result, {
+    Duration? durationHint,
+  }) async {
     final raw = result.preferredRawLyrics;
     if (raw == null || raw.trim().isEmpty) {
       state = state.copyWith(error: 'Selected lyric item is empty.');
@@ -647,7 +665,7 @@ class LibraryController extends StateNotifier<LibraryState> {
 
     final parsed = parseLyricsDocument(
       raw,
-      durationHint: state.durationByPath[track.path],
+      durationHint: _resolveLyricsDurationHint(track, durationHint),
     );
     if (parsed == null || parsed.isEmpty) {
       state = state.copyWith(error: 'Selected lyric item cannot be parsed.');
@@ -717,24 +735,44 @@ class LibraryController extends StateNotifier<LibraryState> {
     Track track, {
     required bool autoSelectOnline,
     required bool forceReload,
+    Duration? durationHint,
   }) async {
     if (state.lyricsLoadingPaths.contains(track.path)) return;
 
+    final effectiveDurationHint = _resolveLyricsDurationHint(
+      track,
+      durationHint,
+    );
+    final shouldRetryWithDuration =
+        track.isRemote &&
+        !forceReload &&
+        _onlineLyricsResolvedWithoutDurationPaths.contains(track.path) &&
+        effectiveDurationHint != null &&
+        effectiveDurationHint > Duration.zero &&
+        (state.onlineLyricsByPath[track.path]?.isEmpty ?? true);
+
     if (!forceReload && state.onlineLyricsResolvedPaths.contains(track.path)) {
-      if (autoSelectOnline &&
-          state.onlineLyricsByPath[track.path] != null &&
-          !state.onlineLyricsByPath[track.path]!.isEmpty) {
-        await _setPreferredLyricsSource(track.path, LyricsSourceType.online);
+      if (shouldRetryWithDuration) {
+        state = state.copyWith(
+          onlineLyricsResolvedPaths: <String>{
+            ...state.onlineLyricsResolvedPaths,
+          }..remove(track.path),
+        );
+      } else {
+        if (autoSelectOnline &&
+            state.onlineLyricsByPath[track.path] != null &&
+            !state.onlineLyricsByPath[track.path]!.isEmpty) {
+          await _setPreferredLyricsSource(track.path, LyricsSourceType.online);
+        }
+        return;
       }
-      return;
     }
 
     _setLyricsLoading(track.path, true);
     try {
-      final durationHint = state.durationByPath[track.path];
       final cached = await _onlineLyricsService.loadCachedLyricsForTrack(
         track,
-        durationHint: durationHint,
+        durationHint: effectiveDurationHint,
       );
       if (cached != null && !cached.isEmpty) {
         _logLyricsDocument(
@@ -748,12 +786,13 @@ class LibraryController extends StateNotifier<LibraryState> {
           cached,
           selectOnline: autoSelectOnline,
         );
+        _onlineLyricsResolvedWithoutDurationPaths.remove(track.path);
         return;
       }
 
       final fetched = await _onlineLyricsService.fetchBestLyricsForTrack(
         track,
-        durationHint: durationHint,
+        durationHint: effectiveDurationHint,
       );
       if (fetched != null && !fetched.isEmpty) {
         await _onlineLyricsService.saveCachedLyricsForTrack(track, fetched);
@@ -768,9 +807,16 @@ class LibraryController extends StateNotifier<LibraryState> {
           fetched,
           selectOnline: autoSelectOnline,
         );
+        _onlineLyricsResolvedWithoutDurationPaths.remove(track.path);
         return;
       }
 
+      if (effectiveDurationHint == null ||
+          effectiveDurationHint <= Duration.zero) {
+        _onlineLyricsResolvedWithoutDurationPaths.add(track.path);
+      } else {
+        _onlineLyricsResolvedWithoutDurationPaths.remove(track.path);
+      }
       state = state.copyWith(
         onlineLyricsResolvedPaths: <String>{
           ...state.onlineLyricsResolvedPaths,
@@ -782,12 +828,22 @@ class LibraryController extends StateNotifier<LibraryState> {
     }
   }
 
+  Duration? _resolveLyricsDurationHint(Track track, Duration? durationHint) {
+    if (durationHint != null && durationHint > Duration.zero) {
+      return durationHint;
+    }
+    final known = state.durationByPath[track.path];
+    if (known != null && known > Duration.zero) return known;
+    return null;
+  }
+
   void _storeOnlineLyricsDocument(
     Track track,
     LyricsDocument document, {
     required bool selectOnline,
   }) {
     if (document.isEmpty) return;
+    _onlineLyricsResolvedWithoutDurationPaths.remove(track.path);
     if (selectOnline) {
       _setPreferredLyricsSourceInState(track.path, LyricsSourceType.online);
       unawaited(_persistPreferredLyricsSources());

@@ -6,6 +6,21 @@ import 'package:dart_tags/dart_tags.dart';
 import 'package:metadata_god/metadata_god.dart';
 import 'package:path/path.dart' as p;
 
+Future<void>? _metadataBackendInitialization;
+
+Future<void> initializeLocalAudioMetadataBackend() {
+  return _metadataBackendInitialization ??= _initializeMetadataBackend();
+}
+
+Future<void> _initializeMetadataBackend() async {
+  try {
+    await MetadataGod.initialize();
+  } catch (_) {
+    // Metadata reads fall back to the pure-Dart parsers below when the native
+    // backend is unavailable on a specific machine.
+  }
+}
+
 class LocalAudioMetadataSnapshot {
   const LocalAudioMetadataSnapshot({
     this.title,
@@ -68,6 +83,7 @@ Future<LocalAudioMetadataSnapshot?> readBestEffortAudioMetadata(
   LocalAudioMetadataSnapshot? snapshot;
 
   try {
+    await initializeLocalAudioMetadataBackend();
     final metadata = await MetadataGod.readMetadata(file: path);
     snapshot = LocalAudioMetadataSnapshot(
       title: metadata.title?.trim(),
@@ -88,7 +104,9 @@ Future<LocalAudioMetadataSnapshot?> readBestEffortAudioMetadata(
     '.wav' => await _readWavMetadata(path),
     _ => null,
   };
-  final merged = (snapshot ?? const LocalAudioMetadataSnapshot()).merge(fallback);
+  final merged = (snapshot ?? const LocalAudioMetadataSnapshot()).merge(
+    fallback,
+  );
   return merged.hasAnyValue ? merged : null;
 }
 
@@ -344,7 +362,10 @@ String _asciiAt(Uint8List bytes, int offset, int length) {
   if (offset < 0 || offset + length > bytes.length) {
     return '';
   }
-  return ascii.decode(bytes.sublist(offset, offset + length), allowInvalid: true);
+  return ascii.decode(
+    bytes.sublist(offset, offset + length),
+    allowInvalid: true,
+  );
 }
 
 int _readLeInt32(Uint8List bytes, int offset) {

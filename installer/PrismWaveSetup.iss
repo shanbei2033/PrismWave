@@ -1,5 +1,5 @@
 #define MyAppName "PrismWave"
-#define MyAppVersion "R401_fix2"
+#define MyAppVersion "R501"
 #define MyAppPublisher "shanbei2033"
 #define MyAppURL "https://github.com/shanbei2033/PrismWave"
 #define MyAppExeName "PrismWave.exe"

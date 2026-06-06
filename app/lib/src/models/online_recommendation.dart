@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/app_language.dart';
 import '../models/track.dart';
+import '../utils/online_text_utils.dart';
 
 @immutable
 class OnlineHomeData {
@@ -118,9 +119,9 @@ class OnlineAlbumCard {
 
   static OnlineAlbumCard? fromJson(Map<String, dynamic> json) {
     final id = (json['albumId'] as num?)?.toInt();
-    final name = (json['name'] as String?)?.trim() ?? '';
+    final name = cleanOnlineText(json['name']);
     if (id == null || id <= 0 || name.isEmpty) return null;
-    final artist = (json['artist'] as String?)?.trim() ?? '';
+    final artist = cleanOnlineText(json['artist']);
     final cover = (json['coverUrl'] as String?)?.trim();
     return OnlineAlbumCard(
       albumId: id,
@@ -277,15 +278,15 @@ class OnlineTrackCandidate {
     required String sectionId,
     required int index,
   }) {
-    final title = (json['title'] as String?)?.trim() ?? '';
-    final artist = (json['artist'] as String?)?.trim() ?? '';
+    final title = cleanOnlineText(json['title']);
+    final artist = cleanOnlineText(json['artist']);
     if (title.isEmpty || artist.isEmpty) return null;
 
     final providerTrackId = (json['providerTrackId'] as String?)?.trim();
     final audioProvider = (json['audioProvider'] as String?)?.trim();
     final audioUrl = (json['audioUrl'] as String?)?.trim();
     final coverUrl = (json['coverUrl'] as String?)?.trim();
-    final album = (json['album'] as String?)?.trim() ?? '';
+    final album = cleanOnlineText(json['album']);
     final duration = (json['durationMs'] as num?)?.toInt() ?? 0;
 
     final tagsList = <String>[];

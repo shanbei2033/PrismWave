@@ -68,8 +68,10 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
               children: [
                 Text(
                   t.navHome,
-                  style:
-                      const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const Spacer(),
                 IconButton(
@@ -78,8 +80,8 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
                   onPressed: home.status == OnlineHomeStatus.loading
                       ? null
                       : () => ref
-                          .read(onlineProvider.notifier)
-                          .ensureHomeLoaded(forceRefresh: true),
+                            .read(onlineProvider.notifier)
+                            .refreshHomeRecommendations(),
                 ),
               ],
             ),
@@ -201,10 +203,9 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
     OnlineSection section,
     OnlineTrackCandidate picked,
   ) async {
-    await ref.read(onlineProvider.notifier).playOnlineTrack(
-          picked: picked,
-          contextTracks: section.tracks,
-        );
+    await ref
+        .read(onlineProvider.notifier)
+        .playOnlineTrack(picked: picked, contextTracks: section.tracks);
   }
 
   Future<void> _openAlbum(OnlineAlbumCard album) async {
@@ -255,17 +256,6 @@ class _OnlineSection extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    if ((section.subtitle ?? '').isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          section.subtitle!,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.55),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -540,10 +530,7 @@ class _TopPlaylistBanner extends StatelessWidget {
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.play_circle_filled_rounded,
-                          size: 20,
-                        ),
+                        const Icon(Icons.play_circle_filled_rounded, size: 20),
                         const SizedBox(width: 6),
                         Text(
                           t.onlineTopPlaylistOpen,
@@ -571,10 +558,7 @@ class _TopPlaylistBanner extends StatelessWidget {
 }
 
 class _BannerCoverCollage extends StatelessWidget {
-  const _BannerCoverCollage({
-    required this.covers,
-    required this.coverCache,
-  });
+  const _BannerCoverCollage({required this.covers, required this.coverCache});
 
   final List<OnlineTrackCandidate> covers;
   final OnlineMediaCacheService coverCache;
@@ -638,14 +622,6 @@ class _AlbumRow extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 19,
                   fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                t.onlineNewAlbumsSubtitle,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.55),
-                  fontSize: 12,
                 ),
               ),
             ],

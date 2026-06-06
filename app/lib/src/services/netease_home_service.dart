@@ -31,11 +31,13 @@ class OnlineHomeBundle {
     required this.data,
     required this.usedCache,
     required this.cachedAt,
+    this.needsBackgroundRefresh = false,
   });
 
   final OnlineHomeData data;
   final bool usedCache;
   final DateTime cachedAt;
+  final bool needsBackgroundRefresh;
 }
 
 /// Pulls home recommendations from the generated prismwave-hits daily payload,
@@ -66,6 +68,17 @@ class NeteaseHomeService {
   static const int _topChartTrackCount = 100;
   static const int _kSchemaVersion = 6;
   static const int _coverSearchConcurrency = 4;
+  static const int _manualRefreshAlbumPageSize = 12;
+  static const int _manualRefreshAlbumPageCount = 4;
+  static const int _manualRefreshNewSongOffsetLimit = 36;
+  static const int _manualRefreshPlaylistOffsetLimit = 16;
+  static const List<String> _manualRefreshAlbumAreas = <String>[
+    'ALL',
+    'ZH',
+    'EA',
+    'KR',
+    'JP',
+  ];
   static final Uri _remoteHomeUri = Uri.https(
     'raw.githubusercontent.com',
     '/shanbei2033/prismwave-hits/main/home/latest_home.json',
@@ -130,10 +143,13 @@ class NeteaseHomeService {
     ),
   ];
 
-  Future<OnlineHomeBundle> loadBundle({bool forceRefresh = false}) async {
+  Future<OnlineHomeBundle> loadBundle({
+    bool forceRefresh = false,
+    bool allowStaleCache = false,
+  }) async {
     if (!forceRefresh) {
-      final cached = await _loadCached();
-      if (cached != null && _isFresh(cached)) {
+      final cached = await loadCachedBundle(allowStale: allowStaleCache);
+      if (cached != null) {
         return cached;
       }
     }
@@ -154,6 +170,73 @@ class NeteaseHomeService {
     }
   }
 
+  Future<OnlineHomeBundle?> loadCachedBundle({bool allowStale = false}) async {
+    final cached = await _loadCached();
+    if (cached == null) return null;
+    if (allowStale || _isFresh(cached)) return cached;
+    return null;
+  }
+
+  bool isFreshBundle(OnlineHomeBundle bundle) => _isFresh(bundle);
+
+  bool isFreshData(OnlineHomeData data) =>
+      data.editionDate.trim() == _todayIsoDate();
+
+  bool needsMainlandCoverFallbacks(OnlineHomeData data) {
+    bool sectionNeedsFallback(OnlineSection? section) {
+      if (section == null) return false;
+      return section.tracks.any(
+        (track) => _needsMainlandCoverFallback(track.coverUrl),
+      );
+    }
+
+    if (sectionNeedsFallback(data.topPlaylist)) return true;
+    return data.sections.any(sectionNeedsFallback);
+  }
+
+  Future<OnlineHomeBundle> enrichMainlandCoverFallbacks(
+    OnlineHomeData data,
+  ) async {
+    final enriched = await _withMainlandCoverFallbacks(data);
+    final cachedAt = DateTime.now().toUtc();
+    await _writeCache(enriched, cachedAt);
+    return OnlineHomeBundle(
+      data: enriched,
+      usedCache: false,
+      cachedAt: cachedAt,
+    );
+  }
+
+  Future<OnlineHomeBundle> loadRemoteDailyBundle() async {
+    final remoteHome = await _loadRemoteDailyHome();
+    if (remoteHome == null || !_hasSongPayload(remoteHome)) {
+      throw const OnlineHomeException(
+        OnlineHomeErrorKind.unavailable,
+        'Remote daily home payload is unavailable',
+      );
+    }
+    final data = _mergeDailyHome(remoteHome, const <OnlineAlbumCard>[]);
+    final cachedAt = DateTime.now().toUtc();
+    await _writeCache(data, cachedAt);
+    return OnlineHomeBundle(
+      data: data,
+      usedCache: false,
+      cachedAt: cachedAt,
+      needsBackgroundRefresh: true,
+    );
+  }
+
+  Future<OnlineHomeBundle> refreshRecommendations({
+    OnlineSection? preserveTopPlaylist,
+  }) async {
+    final data = await _fetchManualRefreshHome(
+      preserveTopPlaylist: preserveTopPlaylist,
+    );
+    final cachedAt = DateTime.now().toUtc();
+    await _writeCache(data, cachedAt);
+    return OnlineHomeBundle(data: data, usedCache: false, cachedAt: cachedAt);
+  }
+
   Future<OnlineHomeData> _fetchFresh() async {
     final errors = <OnlineHomeException>[];
     final results = await Future.wait<Object?>([
@@ -165,10 +248,7 @@ class NeteaseHomeService {
         results[1] as List<OnlineAlbumCard>? ?? const <OnlineAlbumCard>[];
 
     if (remoteHome != null && _hasSongPayload(remoteHome)) {
-      return _mergeDailyHome(
-        await _withMainlandCoverFallbacks(remoteHome),
-        albums,
-      );
+      return _mergeDailyHome(remoteHome, albums);
     }
 
     try {
@@ -452,6 +532,71 @@ class NeteaseHomeService {
     );
   }
 
+  Future<OnlineHomeData> _fetchManualRefreshHome({
+    required OnlineSection? preserveTopPlaylist,
+  }) async {
+    final errors = <OnlineHomeException>[];
+    final seed = DateTime.now().millisecondsSinceEpoch;
+    final albumArea =
+        _manualRefreshAlbumAreas[(seed ~/ 997) %
+            _manualRefreshAlbumAreas.length];
+    final albumOffset =
+        ((seed ~/ 1543) % _manualRefreshAlbumPageCount) *
+        _manualRefreshAlbumPageSize;
+    final newSongOffset = (seed ~/ 811) % _manualRefreshNewSongOffsetLimit;
+
+    final results = await Future.wait<Object?>([
+      _optionalListFetch(
+        _loadNewAlbums(
+          area: albumArea,
+          limit: _manualRefreshAlbumPageSize,
+          offset: albumOffset,
+        ),
+        errors,
+      ),
+      _optionalFetch(_loadNewSongsSection(offset: newSongOffset), errors),
+      ..._styleBuckets.asMap().entries.map((entry) {
+        final playlistOffset =
+            ((seed ~/ (1237 + entry.key * 97)) %
+            _manualRefreshPlaylistOffsetLimit);
+        return _optionalFetch(
+          _loadStyleSection(entry.value, playlistOffset: playlistOffset),
+          errors,
+        );
+      }),
+    ]);
+
+    final albums =
+        results[0] as List<OnlineAlbumCard>? ?? const <OnlineAlbumCard>[];
+    final newSongs = results[1] as OnlineSection?;
+    final styleSections = results
+        .sublist(2)
+        .whereType<OnlineSection>()
+        .toList(growable: false);
+    final sections = <OnlineSection>[?newSongs, ...styleSections];
+
+    if (sections.isEmpty && albums.isEmpty) {
+      final firstNoNetwork = errors.where(
+        (error) => error.kind == OnlineHomeErrorKind.noNetwork,
+      );
+      if (firstNoNetwork.isNotEmpty) throw firstNoNetwork.first;
+      throw const OnlineHomeException(
+        OnlineHomeErrorKind.unavailable,
+        'All manual home refresh requests failed',
+      );
+    }
+
+    return OnlineHomeData(
+      schemaVersion: _kSchemaVersion,
+      generatedAt: DateTime.now().toUtc(),
+      editionDate: _todayIsoDate(),
+      tags: const <OnlineTag>[],
+      sections: List.unmodifiable(sections),
+      topPlaylist: preserveTopPlaylist,
+      albumRecommendations: List.unmodifiable(albums),
+    );
+  }
+
   Future<OnlineSection?> _loadTopChart() async {
     final json = await _safeGetJson(
       neteasePlaylistDetailUri(
@@ -487,8 +632,14 @@ class NeteaseHomeService {
     );
   }
 
-  Future<List<OnlineAlbumCard>> _loadNewAlbums() async {
-    final json = await _safeGetJson(neteaseNewAlbumsUri());
+  Future<List<OnlineAlbumCard>> _loadNewAlbums({
+    String area = 'ALL',
+    int limit = 12,
+    int offset = 0,
+  }) async {
+    final json = await _safeGetJson(
+      neteaseNewAlbumsUri(area: area, limit: limit, offset: offset),
+    );
     if (json == null) return const <OnlineAlbumCard>[];
 
     final albums = json['albums'];
@@ -544,15 +695,26 @@ class NeteaseHomeService {
         upgradeCoverUrl(album['blurPicUrl'] as String?);
   }
 
-  Future<OnlineSection?> _loadNewSongsSection() async {
-    final json = await _safeGetJson(neteasePersonalizedNewSongUri());
+  Future<OnlineSection?> _loadNewSongsSection({
+    int limit = 24,
+    int offset = 0,
+  }) async {
+    final requestLimit = limit + offset;
+    final json = await _safeGetJson(
+      neteasePersonalizedNewSongUri(limit: requestLimit),
+    );
     if (json == null) return null;
 
     final result = json['result'];
     if (result is! List) return null;
 
     final candidates = <Map<String, dynamic>>[];
-    for (final raw in result) {
+    final windowed = result.skip(offset).take(limit).toList();
+    final selected = windowed.isEmpty && offset > 0
+        ? result.take(limit)
+        : windowed;
+
+    for (final raw in selected) {
       if (raw is! Map) continue;
       final entry = raw.cast<String, dynamic>();
       final song = entry['song'];
@@ -578,9 +740,16 @@ class NeteaseHomeService {
     );
   }
 
-  Future<OnlineSection?> _loadStyleSection(_StyleBucket bucket) async {
+  Future<OnlineSection?> _loadStyleSection(
+    _StyleBucket bucket, {
+    int playlistOffset = 0,
+  }) async {
     final listJson = await _safeGetJson(
-      neteasePlaylistByCategoryUri(category: bucket.category),
+      neteasePlaylistByCategoryUri(
+        category: bucket.category,
+        limit: 1,
+        offset: playlistOffset,
+      ),
     );
     if (listJson == null) return null;
     final playlists = listJson['playlists'];

@@ -38,7 +38,11 @@ class _FullPlayPageState extends ConsumerState<FullPlayPage> {
     final playback = ref.watch(playbackProvider);
     final track = playback.currentTrack;
     if (track != null) {
-      unawaited(ref.read(libraryProvider.notifier).ensureLyricsLoaded(track));
+      unawaited(
+        ref
+            .read(libraryProvider.notifier)
+            .ensureLyricsLoaded(track, durationHint: playback.duration),
+      );
     }
 
     return Scaffold(
@@ -1773,7 +1777,11 @@ class _OnlineLyricsSearchDialogState
     try {
       final results = await ref
           .read(libraryProvider.notifier)
-          .searchOnlineLyrics(widget.track, query);
+          .searchOnlineLyrics(
+            widget.track,
+            query,
+            durationHint: _currentPlaybackDurationHint(),
+          );
       final qqCount = results
           .where((item) => item.provider == 'qqmusic')
           .length;
@@ -1806,9 +1814,19 @@ class _OnlineLyricsSearchDialogState
   Future<void> _selectResult(OnlineLyricsSearchResult result) async {
     await ref
         .read(libraryProvider.notifier)
-        .applyManualOnlineLyricsSelection(widget.track, result);
+        .applyManualOnlineLyricsSelection(
+          widget.track,
+          result,
+          durationHint: _currentPlaybackDurationHint(),
+        );
     if (!mounted) return;
     Navigator.of(context).pop();
+  }
+
+  Duration? _currentPlaybackDurationHint() {
+    final playback = ref.read(playbackProvider);
+    if (playback.currentTrack?.id != widget.track.id) return null;
+    return playback.duration > Duration.zero ? playback.duration : null;
   }
 
   @override

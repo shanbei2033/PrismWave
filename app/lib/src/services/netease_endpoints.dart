@@ -36,11 +36,13 @@ Uri neteasePlaylistByCategoryUri({
   required String category,
   int limit = 1,
   String order = 'hot',
+  int offset = 0,
 }) {
   return Uri.https(kNeteaseHost, '/api/playlist/list', <String, String>{
     'cat': category,
     'order': order,
     'limit': '$limit',
+    'offset': '$offset',
   });
 }
 

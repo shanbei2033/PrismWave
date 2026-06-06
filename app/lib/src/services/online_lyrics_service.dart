@@ -67,16 +67,11 @@ class OnlineLyricsService {
     Track track, {
     Duration? durationHint,
   }) async {
-    final results = await searchLyricsForTrack(
+    return resolveBestLyricsDocumentForTrack(
       track,
-      query: track.title,
+      query: _defaultSearchQuery(track),
       durationHint: durationHint,
     );
-    if (results.isNotEmpty) {
-      final document = _toDocument(results.first, durationHint: durationHint);
-      if (document != null && !document.isEmpty) return document;
-    }
-    return null;
   }
 
   Future<LyricsDocument?> resolveBestLyricsDocumentForTrack(
@@ -597,6 +592,13 @@ class OnlineLyricsService {
         )
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
+  }
+
+  String _defaultSearchQuery(Track track) {
+    final title = track.title.trim();
+    final artist = track.artist.trim();
+    if (artist.isEmpty || artist == 'Unknown Artist') return title;
+    return '$title $artist';
   }
 
   List<OnlineLyricsSearchResult> _deduplicateResults(

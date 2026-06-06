@@ -34,11 +34,13 @@ class OnlineController extends StateNotifier<OnlineState> {
     _playbackController.setQueueTrackFailureHandler(
       _handleQueuedPlaybackFailure,
     );
-    // Warm the resolver's HTTP connection pool on a microtask so the first
-    // online play doesn't pay a DNS + TLS handshake while the user waits.
-    unawaited(_resolver.warmUp());
-    // Also warm the home service connection pool to reduce first-load latency.
-    unawaited(_homeService.warmUp());
+    // Keep startup responsive: the app opens online Home by default, so
+    // resolver warm-up waits until the first frame and home cache load have a
+    // chance to settle.
+    _resolverWarmUpTimer = Timer(const Duration(seconds: 3), () {
+      if (_disposed) return;
+      unawaited(_resolver.warmUp());
+    });
   }
 
   final PlaybackController _playbackController;
@@ -49,12 +51,16 @@ class OnlineController extends StateNotifier<OnlineState> {
   late final OnlineSearchService _searchService;
 
   Timer? _searchDebounce;
+  Timer? _resolverWarmUpTimer;
+  int _homeSeq = 0;
   int _searchSeq = 0;
   int _playbackSeq = 0;
   bool _disposed = false;
+  bool _homeBackgroundRefreshRunning = false;
   final Map<String, OnlineTrackCandidate> _queueCandidatesByTrackId = {};
   final Map<String, Future<Track?>> _queueResolvePending = {};
   final Set<String> _forceRefreshCandidateKeys = <String>{};
+  final Set<String> _homeCoverEnrichmentKeysInFlight = <String>{};
   static const Duration _searchDebounceWindow = Duration(milliseconds: 320);
   static const int _queueResolveConcurrency = 3;
 
@@ -63,9 +69,25 @@ class OnlineController extends StateNotifier<OnlineState> {
     if (!forceRefresh &&
         state.home.status == OnlineHomeStatus.ready &&
         state.home.data != null) {
+      if (!_homeService.isFreshData(state.home.data!)) {
+        _refreshHomeInBackground(reason: 'ready-state');
+        return;
+      }
+      _enrichHomeCoversIfNeeded(
+        state.home.data!,
+        seq: _homeSeq,
+        reason: 'ready-state',
+      );
       return;
     }
 
+    final seq = ++_homeSeq;
+    final stopwatch = Stopwatch()..start();
+    final hadData = state.home.data != null;
+    _debug(
+      'home.load.start -> forceRefresh=$forceRefresh hadData=$hadData',
+      force: true,
+    );
     state = state.copyWith(
       home: state.home.copyWith(
         status: OnlineHomeStatus.loading,
@@ -74,8 +96,11 @@ class OnlineController extends StateNotifier<OnlineState> {
     );
 
     try {
-      final bundle = await _homeService.loadBundle(forceRefresh: forceRefresh);
-      if (_disposed) return;
+      final bundle = await _loadHomeBundleForInitialDisplay(
+        forceRefresh: forceRefresh,
+      );
+      if (_disposed || seq != _homeSeq) return;
+      final isFresh = _homeService.isFreshBundle(bundle);
       state = state.copyWith(
         home: OnlineHomeView(
           status: OnlineHomeStatus.ready,
@@ -84,8 +109,46 @@ class OnlineController extends StateNotifier<OnlineState> {
           errorMessage: '',
         ),
       );
+      _debug(
+        'home.load.ready -> forceRefresh=$forceRefresh '
+        'usedCache=${bundle.usedCache} fresh=$isFresh '
+        'edition=${bundle.data.editionDate} '
+        'sections=${bundle.data.sections.length} '
+        'albums=${bundle.data.albumRecommendations.length} '
+        'elapsedMs=${stopwatch.elapsedMilliseconds}',
+        force: true,
+      );
+      final needsCompletion =
+          bundle.needsBackgroundRefresh ||
+          bundle.data.albumRecommendations.isEmpty;
+      if (!forceRefresh && needsCompletion) {
+        _refreshHomeInBackground(
+          reason: bundle.needsBackgroundRefresh
+              ? 'partial-fast-load'
+              : 'missing-albums',
+        );
+      } else if (isFresh) {
+        _enrichHomeCoversIfNeeded(
+          bundle.data,
+          seq: seq,
+          reason: forceRefresh ? 'manual-refresh' : 'fresh-load',
+        );
+      } else if (!forceRefresh) {
+        _refreshHomeInBackground(reason: 'stale-cache');
+      } else {
+        _debug(
+          'home.load.stale-after-manual-refresh -> usedCache=${bundle.usedCache} '
+          'edition=${bundle.data.editionDate}',
+          force: true,
+        );
+      }
     } catch (error) {
-      if (_disposed) return;
+      if (_disposed || seq != _homeSeq) return;
+      _debug(
+        'home.load.failed -> forceRefresh=$forceRefresh '
+        'elapsedMs=${stopwatch.elapsedMilliseconds} error=$error',
+        force: true,
+      );
       state = state.copyWith(
         home: state.home.copyWith(
           status: OnlineHomeStatus.failed,
@@ -95,8 +158,195 @@ class OnlineController extends StateNotifier<OnlineState> {
     }
   }
 
+  Future<void> refreshHomeRecommendations() async {
+    if (state.home.status == OnlineHomeStatus.loading) return;
+
+    final seq = ++_homeSeq;
+    final stopwatch = Stopwatch()..start();
+    final previousData = state.home.data;
+    _debug(
+      'home.manual-refresh.start -> hadData=${previousData != null}',
+      force: true,
+    );
+    state = state.copyWith(
+      home: state.home.copyWith(
+        status: OnlineHomeStatus.loading,
+        clearError: true,
+      ),
+    );
+
+    try {
+      final bundle = await _homeService.refreshRecommendations(
+        preserveTopPlaylist: previousData?.topPlaylist,
+      );
+      if (_disposed || seq != _homeSeq) return;
+      state = state.copyWith(
+        home: OnlineHomeView(
+          status: OnlineHomeStatus.ready,
+          data: bundle.data,
+          usedCache: bundle.usedCache,
+          errorMessage: '',
+        ),
+      );
+      _debug(
+        'home.manual-refresh.ready -> '
+        'topPlaylistKept=${previousData?.topPlaylist != null} '
+        'sections=${bundle.data.sections.length} '
+        'albums=${bundle.data.albumRecommendations.length} '
+        'elapsedMs=${stopwatch.elapsedMilliseconds}',
+        force: true,
+      );
+      _enrichHomeCoversIfNeeded(
+        bundle.data,
+        seq: seq,
+        reason: 'manual-refresh',
+      );
+    } catch (error) {
+      if (_disposed || seq != _homeSeq) return;
+      _debug(
+        'home.manual-refresh.failed -> '
+        'elapsedMs=${stopwatch.elapsedMilliseconds} error=$error',
+        force: true,
+      );
+      state = state.copyWith(
+        home: state.home.copyWith(
+          status: previousData == null
+              ? OnlineHomeStatus.failed
+              : OnlineHomeStatus.ready,
+          errorMessage: error.toString(),
+        ),
+      );
+    }
+  }
+
   void _debug(String message, {bool force = false}) {
     _debugLog?.call('online.$message', force: force);
+  }
+
+  Future<OnlineHomeBundle> _loadHomeBundleForInitialDisplay({
+    required bool forceRefresh,
+  }) async {
+    if (forceRefresh) {
+      return _homeService.loadBundle(forceRefresh: true);
+    }
+
+    final cached = await _homeService.loadCachedBundle(allowStale: true);
+    if (cached != null) return cached;
+
+    _debug('home.load.no-cache -> trying remote-daily-fast', force: true);
+    try {
+      return await _homeService.loadRemoteDailyBundle();
+    } catch (error) {
+      _debug(
+        'home.load.remote-daily-fast.failed -> fallback=full-load error=$error',
+        force: true,
+      );
+      return _homeService.loadBundle(forceRefresh: false);
+    }
+  }
+
+  void _refreshHomeInBackground({required String reason}) {
+    if (_disposed || _homeBackgroundRefreshRunning) {
+      _debug(
+        'home.refresh-background.skip -> reason=$reason '
+        'running=$_homeBackgroundRefreshRunning disposed=$_disposed',
+      );
+      return;
+    }
+
+    _homeBackgroundRefreshRunning = true;
+    final seq = ++_homeSeq;
+    unawaited(() async {
+      final stopwatch = Stopwatch()..start();
+      _debug('home.refresh-background.start -> reason=$reason', force: true);
+      try {
+        final bundle = await _homeService.loadBundle(forceRefresh: true);
+        if (_disposed || seq != _homeSeq) return;
+        final isFresh = _homeService.isFreshBundle(bundle);
+        state = state.copyWith(
+          home: OnlineHomeView(
+            status: OnlineHomeStatus.ready,
+            data: bundle.data,
+            usedCache: bundle.usedCache,
+            errorMessage: '',
+          ),
+        );
+        _debug(
+          'home.refresh-background.ready -> reason=$reason '
+          'fresh=$isFresh edition=${bundle.data.editionDate} '
+          'sections=${bundle.data.sections.length} '
+          'albums=${bundle.data.albumRecommendations.length} '
+          'elapsedMs=${stopwatch.elapsedMilliseconds}',
+          force: true,
+        );
+        _enrichHomeCoversIfNeeded(
+          bundle.data,
+          seq: seq,
+          reason: 'background-refresh',
+        );
+      } catch (error) {
+        _debug(
+          'home.refresh-background.failed -> reason=$reason '
+          'elapsedMs=${stopwatch.elapsedMilliseconds} error=$error',
+          force: true,
+        );
+      } finally {
+        _homeBackgroundRefreshRunning = false;
+      }
+    }());
+  }
+
+  void _enrichHomeCoversIfNeeded(
+    OnlineHomeData data, {
+    required int seq,
+    required String reason,
+  }) {
+    if (!_homeService.needsMainlandCoverFallbacks(data)) return;
+    final key = _homeDataRefreshKey(data);
+    if (!_homeCoverEnrichmentKeysInFlight.add(key)) {
+      _debug('home.cover-enrich.skip -> reason=$reason key=$key');
+      return;
+    }
+
+    unawaited(() async {
+      final stopwatch = Stopwatch()..start();
+      _debug('home.cover-enrich.start -> reason=$reason key=$key', force: true);
+      try {
+        final bundle = await _homeService.enrichMainlandCoverFallbacks(data);
+        if (_disposed || seq != _homeSeq) return;
+        state = state.copyWith(
+          home: OnlineHomeView(
+            status: OnlineHomeStatus.ready,
+            data: bundle.data,
+            usedCache: bundle.usedCache,
+            errorMessage: '',
+          ),
+        );
+        _debug(
+          'home.cover-enrich.ready -> reason=$reason key=$key '
+          'elapsedMs=${stopwatch.elapsedMilliseconds}',
+          force: true,
+        );
+      } catch (error) {
+        _debug(
+          'home.cover-enrich.failed -> reason=$reason key=$key '
+          'elapsedMs=${stopwatch.elapsedMilliseconds} error=$error',
+          force: true,
+        );
+      } finally {
+        _homeCoverEnrichmentKeysInFlight.remove(key);
+      }
+    }());
+  }
+
+  String _homeDataRefreshKey(OnlineHomeData data) {
+    final topCount = data.topPlaylist?.tracks.length ?? 0;
+    final sectionCount = data.sections.fold<int>(
+      0,
+      (count, section) => count + section.tracks.length,
+    );
+    return '${data.editionDate}|${data.generatedAt.toUtc().toIso8601String()}|'
+        '$topCount|$sectionCount';
   }
 
   void setSearchQuery(String value) {
@@ -679,6 +929,7 @@ class OnlineController extends StateNotifier<OnlineState> {
       providerTrackId: candidate.providerTrackId ?? '',
       title: candidate.title,
       artist: candidate.artist,
+      album: candidate.album,
       durationMs: candidate.durationMs,
       coverUrl: candidate.coverUrl,
       directAudioUrl: (directUrl != null && !isNonPlayableAudioUrl(directUrl))
@@ -725,8 +976,8 @@ class OnlineController extends StateNotifier<OnlineState> {
   OnlineTrackCandidate _candidateFromHit(OnlineSearchHit hit) {
     final fakeJson = <String, dynamic>{
       'title': hit.title,
-      'artist': hit.artist,
-      'album': '',
+      'artist': hit.artist.trim().isEmpty ? 'Unknown Artist' : hit.artist,
+      'album': hit.album,
       'durationMs': hit.durationMs,
       'coverUrl': hit.coverUrl,
       'audioUrl': hit.directAudioUrl,
@@ -748,6 +999,7 @@ class OnlineController extends StateNotifier<OnlineState> {
       providerTrackId: candidate.providerTrackId ?? '',
       title: candidate.title,
       artist: candidate.artist,
+      album: candidate.album,
       durationMs: candidate.durationMs,
       coverUrl: candidate.coverUrl,
       directAudioUrl:
@@ -762,6 +1014,7 @@ class OnlineController extends StateNotifier<OnlineState> {
   void dispose() {
     _disposed = true;
     _searchDebounce?.cancel();
+    _resolverWarmUpTimer?.cancel();
     _playbackController.setQueueTrackResolver(null);
     _playbackController.setQueueTrackFailureHandler(null);
     _homeService.dispose();

@@ -24,7 +24,8 @@ class WindowTopBar extends ConsumerStatefulWidget {
   ConsumerState<WindowTopBar> createState() => _WindowTopBarState();
 }
 
-class _WindowTopBarState extends ConsumerState<WindowTopBar> with WindowListener {
+class _WindowTopBarState extends ConsumerState<WindowTopBar>
+    with WindowListener {
   bool _isMaximized = false;
   Timer? _quoteTimer;
 
@@ -63,20 +64,25 @@ class _WindowTopBarState extends ConsumerState<WindowTopBar> with WindowListener
     final settings = ref.watch(appSettingsProvider);
     final track = playback.currentTrack;
     final showCurrentLyric = track != null && playback.isPlaying;
-    final topBarFeatureEnabled = settings.topBarIdleMode != TopBarIdleMode.empty;
+    final topBarFeatureEnabled =
+        settings.topBarIdleMode != TopBarIdleMode.empty;
 
     String topBarText = '';
     if (widget.showLyricBox) {
       if (topBarFeatureEnabled && track != null) {
-        unawaited(ref.read(libraryProvider.notifier).ensureLyricsLoaded(track));
+        unawaited(
+          ref
+              .read(libraryProvider.notifier)
+              .ensureLyricsLoaded(track, durationHint: playback.duration),
+        );
       }
       if (topBarFeatureEnabled &&
           settings.topBarIdleMode == TopBarIdleMode.quote &&
           settings.topBarQuoteText.trim().isEmpty) {
         unawaited(
-          ref.read(appSettingsProvider.notifier).ensureTopBarQuote(
-                forceRefresh: false,
-              ),
+          ref
+              .read(appSettingsProvider.notifier)
+              .ensureTopBarQuote(forceRefresh: false),
         );
       }
 
@@ -84,19 +90,22 @@ class _WindowTopBarState extends ConsumerState<WindowTopBar> with WindowListener
         topBarText = !showCurrentLyric
             ? _resolveIdleText(settings)
             : _resolveCurrentLyric(
-                  library.lyricsOf(track),
-                  playback.currentTime,
-                ) ??
-                '';
+                    library.lyricsOf(track),
+                    playback.currentTime,
+                  ) ??
+                  '';
       }
     }
 
-    final shouldRotateQuote = widget.showLyricBox &&
+    final shouldRotateQuote =
+        widget.showLyricBox &&
         topBarFeatureEnabled &&
         !showCurrentLyric &&
         settings.topBarIdleMode == TopBarIdleMode.quote;
     final shouldShowBox =
-        widget.showLyricBox && topBarFeatureEnabled && topBarText.trim().isNotEmpty;
+        widget.showLyricBox &&
+        topBarFeatureEnabled &&
+        topBarText.trim().isNotEmpty;
     _syncQuoteTimer(shouldRotateQuote);
 
     return Container(
@@ -146,7 +155,9 @@ class _WindowTopBarState extends ConsumerState<WindowTopBar> with WindowListener
                           const trailingGap = 8.0;
                           final boxWidth = math.max(
                             0.0,
-                            constraints.maxWidth - contentStartInset - trailingGap,
+                            constraints.maxWidth -
+                                contentStartInset -
+                                trailingGap,
                           );
 
                           return Padding(
@@ -230,19 +241,16 @@ class _WindowTopBarState extends ConsumerState<WindowTopBar> with WindowListener
 
     _quoteTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       unawaited(
-        ref.read(appSettingsProvider.notifier).ensureTopBarQuote(
-              forceRefresh: true,
-            ),
+        ref
+            .read(appSettingsProvider.notifier)
+            .ensureTopBarQuote(forceRefresh: true),
       );
     });
   }
 }
 
 class _TopBarLyricBox extends StatelessWidget {
-  const _TopBarLyricBox({
-    required this.text,
-    required this.useQuoteTypography,
-  });
+  const _TopBarLyricBox({required this.text, required this.useQuoteTypography});
 
   final String text;
   final bool useQuoteTypography;

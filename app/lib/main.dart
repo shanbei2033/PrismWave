@@ -1,15 +1,16 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
-import 'package:metadata_god/metadata_god.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'src/app.dart';
 import 'src/models/audio_output_mode.dart';
+import 'src/services/local_audio_metadata_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,21 +23,17 @@ Future<void> main() async {
     windows: true,
   );
   runApp(const ProviderScope(child: PrismWaveApp()));
-  _completePlatformBootstrap();
+  unawaited(_completePlatformBootstrap());
 }
 
 Future<void> _completePlatformBootstrap() async {
-  try {
-    await MetadataGod.initialize();
-  } catch (_) {
-    // Keep startup resilient if metadata backend is unavailable.
-  }
-
   try {
     await _configureWindow();
   } catch (_) {
     // Keep startup resilient if window styling fails on a specific machine.
   }
+
+  unawaited(initializeLocalAudioMetadataBackend());
 }
 
 Future<void> _setWindowsAcrylicEffect() async {
@@ -95,8 +92,10 @@ Future<void> _configureWindow() async {
   if (Platform.isWindows) {
     await windowManager.setAsFrameless();
     await Window.hideWindowControls();
-    await _setWindowsAcrylicEffect();
   }
   await windowManager.show();
   await windowManager.focus();
+  if (Platform.isWindows) {
+    unawaited(_setWindowsAcrylicEffect());
+  }
 }

@@ -4,9 +4,9 @@ import 'hits_audio_resolver_service.dart';
 /// Source classification for a single search result row.
 enum OnlineSearchResultSource { local, online }
 
-/// One row in the merged search list. The UI renders a "💾 / ☁️ provider"
-/// badge based on [source]; selecting an [online] row routes through the
-/// online controller's resolve+play, and [local] rows go through library play.
+/// One row in the merged search list. Selecting an [online] row routes through
+/// the online controller's resolve+play, and [local] rows go through library
+/// play.
 class OnlineSearchResult {
   const OnlineSearchResult({
     required this.source,
@@ -15,7 +15,10 @@ class OnlineSearchResult {
     required this.onlineHit,
   });
 
-  factory OnlineSearchResult.local({required Track track, required double relevance}) {
+  factory OnlineSearchResult.local({
+    required Track track,
+    required double relevance,
+  }) {
     return OnlineSearchResult(
       source: OnlineSearchResultSource.local,
       relevance: relevance,
@@ -41,16 +44,47 @@ class OnlineSearchResult {
   final Track? localTrack;
   final OnlineSearchHit? onlineHit;
 
-  String get displayTitle =>
-      source == OnlineSearchResultSource.local ? localTrack!.title : onlineHit!.title;
+  String get displayTitle => source == OnlineSearchResultSource.local
+      ? localTrack!.title
+      : onlineHit!.title;
 
-  String get displayArtist =>
-      source == OnlineSearchResultSource.local ? localTrack!.artist : onlineHit!.artist;
+  String get displayArtist => source == OnlineSearchResultSource.local
+      ? localTrack!.artist
+      : onlineHit!.artist;
+
+  String get displayAlbum => source == OnlineSearchResultSource.local
+      ? localTrack!.album
+      : onlineHit!.album;
+
+  String? get displayCoverUrl => source == OnlineSearchResultSource.local
+      ? localTrack!.coverPath
+      : onlineHit!.coverUrl;
+
+  int get displayDurationMs =>
+      source == OnlineSearchResultSource.local ? 0 : onlineHit!.durationMs;
+
+  String get displayProvider => source == OnlineSearchResultSource.local
+      ? 'Local'
+      : _providerLabel(onlineHit!.provider);
+
+  static String _providerLabel(String provider) {
+    return switch (provider.trim().toLowerCase()) {
+      'audius' => 'Audius',
+      'netease' => 'NetEase',
+      'kuwo' => 'Kuwo',
+      'migu' => 'Migu',
+      'qq' => 'QQ Music',
+      'kugou' => 'Kugou',
+      'taihe' => 'Taihe',
+      final value when value.isNotEmpty => value,
+      _ => 'Online',
+    };
+  }
 }
 
 /// Runs a single user query against:
 ///   - the local library (substring match on title/artist/album)
-///   - the 9-provider online resolver (parallel)
+///   - the music-provider online resolver (parallel)
 ///
 /// Merges and ranks both into a single list. Local hits get a +0.3 relevance
 /// boost so a song the user already owns floats above an online match for the
@@ -72,12 +106,16 @@ class OnlineSearchService {
     final localFuture = Future<List<OnlineSearchResult>>(
       () => _searchLocal(query: trimmed, library: libraryTracks),
     );
-    final onlineFuture = _resolver.searchByQuery(trimmed).then(
+    final onlineFuture = _resolver
+        .searchByQuery(trimmed)
+        .then(
           (hits) => hits
-              .map((hit) => OnlineSearchResult.online(
-                    hit: hit,
-                    relevance: _scoreHit(hit, trimmed),
-                  ))
+              .map(
+                (hit) => OnlineSearchResult.online(
+                  hit: hit,
+                  relevance: _scoreHit(hit, trimmed),
+                ),
+              )
               .toList(growable: false),
         );
 
@@ -87,17 +125,22 @@ class OnlineSearchService {
     // Suppress redundant online rows when the local library already has the
     // same (title|artist) — they'd be confusing duplicates.
     final localKeys = results[0]
-        .map((r) =>
-            '${r.displayTitle.toLowerCase()}|${r.displayArtist.toLowerCase()}')
+        .map(
+          (r) =>
+              '${r.displayTitle.toLowerCase()}|${r.displayArtist.toLowerCase()}',
+        )
         .toSet();
-    final deduped = merged
-        .where((row) =>
-            row.source == OnlineSearchResultSource.local ||
-            !localKeys.contains(
-              '${row.displayTitle.toLowerCase()}|${row.displayArtist.toLowerCase()}',
-            ))
-        .toList()
-      ..sort((a, b) => b.relevance.compareTo(a.relevance));
+    final deduped =
+        merged
+            .where(
+              (row) =>
+                  row.source == OnlineSearchResultSource.local ||
+                  !localKeys.contains(
+                    '${row.displayTitle.toLowerCase()}|${row.displayArtist.toLowerCase()}',
+                  ),
+            )
+            .toList()
+          ..sort((a, b) => b.relevance.compareTo(a.relevance));
     return deduped;
   }
 
@@ -110,7 +153,9 @@ class OnlineSearchService {
     for (final track in library) {
       final score = _scoreLocalTrack(track, lower);
       if (score <= 0) continue;
-      hits.add(OnlineSearchResult.local(track: track, relevance: score + _localBoost));
+      hits.add(
+        OnlineSearchResult.local(track: track, relevance: score + _localBoost),
+      );
     }
     hits.sort((a, b) => b.relevance.compareTo(a.relevance));
     return hits;
@@ -135,6 +180,7 @@ class OnlineSearchService {
     final lower = query.toLowerCase();
     final title = hit.title.toLowerCase();
     final artist = hit.artist.toLowerCase();
+    final album = hit.album.toLowerCase();
 
     var score = 0.0;
     if (title == lower) {
@@ -145,6 +191,8 @@ class OnlineSearchService {
       score = 0.55;
     } else if (artist.contains(lower)) {
       score = 0.4;
+    } else if (album.contains(lower)) {
+      score = 0.35;
     } else {
       score = 0.25;
     }

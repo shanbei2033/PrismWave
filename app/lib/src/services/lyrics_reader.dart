@@ -24,18 +24,6 @@ Future<LyricsDocument?> readLocalLyricsDocumentForTrack(
   String? title,
   String? artist,
 }) async {
-  final embedded = await _readEmbeddedLyrics(audioPath);
-  if (embedded != null && embedded.trim().isNotEmpty) {
-    final parsed = parseLyricsDocument(embedded, durationHint: durationHint);
-    if (parsed != null && !parsed.isEmpty) {
-      return LyricsDocument(
-        lines: parsed.lines,
-        isSynced: parsed.isSynced,
-        rawText: embedded,
-      );
-    }
-  }
-
   final sidecar = await _readSidecarLrc(
     audioPath,
     title: title,
@@ -48,6 +36,18 @@ Future<LyricsDocument?> readLocalLyricsDocumentForTrack(
         lines: parsed.lines,
         isSynced: parsed.isSynced,
         rawText: sidecar,
+      );
+    }
+  }
+
+  final embedded = await _readEmbeddedLyrics(audioPath);
+  if (embedded != null && embedded.trim().isNotEmpty) {
+    final parsed = parseLyricsDocument(embedded, durationHint: durationHint);
+    if (parsed != null && !parsed.isEmpty) {
+      return LyricsDocument(
+        lines: parsed.lines,
+        isSynced: parsed.isSynced,
+        rawText: embedded,
       );
     }
   }
@@ -66,8 +66,7 @@ Future<List<LyricLine>> readLyricsForTrack(
         durationHint: durationHint,
         title: title,
         artist: artist,
-      ))
-          ?.lines ??
+      ))?.lines ??
       const <LyricLine>[];
 }
 
@@ -467,11 +466,7 @@ String? _findLyricsInDynamic(dynamic input) {
 LyricsDocument? parseLyricsDocument(String raw, {Duration? durationHint}) {
   final parsedQrc = _parseQrcLyricsDocument(raw);
   if (parsedQrc != null && parsedQrc.isNotEmpty) {
-    return LyricsDocument(
-      lines: parsedQrc,
-      isSynced: true,
-      rawText: raw,
-    );
+    return LyricsDocument(lines: parsedQrc, isSynced: true, rawText: raw);
   }
 
   final normalized = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
@@ -510,11 +505,7 @@ LyricsDocument? parseLyricsDocument(String raw, {Duration? durationHint}) {
   if (parsed.isNotEmpty) {
     parsed.sort((a, b) => a.time.compareTo(b.time));
     final finalized = _finalizeKaraokeSegments(parsed);
-    return LyricsDocument(
-      lines: finalized,
-      isSynced: true,
-      rawText: raw,
-    );
+    return LyricsDocument(lines: finalized, isSynced: true, rawText: raw);
   }
 
   if (plain.isEmpty) return null;
@@ -554,9 +545,9 @@ List<LyricLine>? _parseQrcLyricsDocument(String raw) {
 
     final lineStartMs = int.tryParse(lineMatch.group(1) ?? '') ?? 0;
     final body = lineMatch.group(3) ?? '';
-    final segmentMatches = _qrcWordPattern.allMatches(body).toList(
-      growable: false,
-    );
+    final segmentMatches = _qrcWordPattern
+        .allMatches(body)
+        .toList(growable: false);
     if (segmentMatches.isEmpty) {
       final text = body.trim();
       if (text.isEmpty) continue;
@@ -636,22 +627,21 @@ String _decodeXmlEntities(String input) {
       .replaceAll('&#10;', '\n')
       .replaceAll('&#13;', '\r');
 
-  return decoded.replaceAllMapped(
-    RegExp(r'&#(x?[0-9a-fA-F]+);'),
-    (match) {
-      final token = match.group(1) ?? '';
-      final value = token.startsWith('x') || token.startsWith('X')
-          ? int.tryParse(token.substring(1), radix: 16)
-          : int.tryParse(token);
-      if (value == null) return match.group(0) ?? '';
-      return String.fromCharCode(value);
-    },
-  );
+  return decoded.replaceAllMapped(RegExp(r'&#(x?[0-9a-fA-F]+);'), (match) {
+    final token = match.group(1) ?? '';
+    final value = token.startsWith('x') || token.startsWith('X')
+        ? int.tryParse(token.substring(1), radix: 16)
+        : int.tryParse(token);
+    if (value == null) return match.group(0) ?? '';
+    return String.fromCharCode(value);
+  });
 }
 
 List<LyricSegment>? _parseKaraokeSegmentsFromLine(String rawLine) {
   final body = rawLine.replaceAll(_timeTagPattern, '');
-  final matches = _karaokeTimeTagPattern.allMatches(body).toList(growable: false);
+  final matches = _karaokeTimeTagPattern
+      .allMatches(body)
+      .toList(growable: false);
   if (matches.isEmpty) return null;
 
   final segments = <LyricSegment>[];
@@ -663,13 +653,7 @@ List<LyricSegment>? _parseKaraokeSegmentsFromLine(String rawLine) {
     if (textEnd < textStart) continue;
     final text = body.substring(textStart, textEnd);
     if (text.isEmpty) continue;
-    segments.add(
-      LyricSegment(
-        start: start,
-        end: start,
-        text: text,
-      ),
-    );
+    segments.add(LyricSegment(start: start, end: start, text: text));
   }
 
   if (segments.isEmpty) return null;
@@ -686,7 +670,9 @@ List<LyricLine> _finalizeKaraokeSegments(List<LyricLine> lines) {
     final nextLineTime = index + 1 < lines.length
         ? lines[index + 1].time
         : line.time + const Duration(seconds: 3);
-    final segments = List<LyricSegment>.generate(line.segments.length, (segmentIndex) {
+    final segments = List<LyricSegment>.generate(line.segments.length, (
+      segmentIndex,
+    ) {
       final segment = line.segments[segmentIndex];
       final nextStart = segmentIndex + 1 < line.segments.length
           ? line.segments[segmentIndex + 1].start

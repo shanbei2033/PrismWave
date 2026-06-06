@@ -3,7 +3,7 @@
   <img src="assets/logo.png" alt="logo" width="128">
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
-  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-R501-blue" alt="Release"></a>
+  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-R501__fix-blue" alt="Release"></a>
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.29.3-blue" alt="Flutter"></a>
 </div>
 
@@ -85,7 +85,7 @@ app/build/windows/x64/runner/Release/prismwave_demo.exe
 安装包输出路径：
 
 ```text
-dist/PrismWave-Setup-R501.exe
+dist/PrismWave-Setup-R501_fix.exe
 ```
 
 ## 音频说明
@@ -111,7 +111,7 @@ HITS 是一个广播电台模式，按节目单播放在线内容：
 
 首次启动时在线模式默认启用，PrismWave 会直接打开首页，加载推荐分区，并支持搜索结果立即组成播放队列。队列中尚未解析完成的在线歌曲会在后台继续解析；如果某个在线音源在实际播放时失败，PrismWave 会让该源失效并重新从可用 provider 中寻找可播放地址。
 
-R501 中，首页右上角刷新按钮会直接从应用内刷新推荐歌曲与专辑，同时保持趋势榜单独立更新。在线搜索和在线播放接入了更多非视频音乐源；fullplay 页面会在播放在线歌曲时结合当前播放时长自动匹配在线歌词。
+R501_fix 中，首页右上角刷新按钮会直接从应用内刷新推荐歌曲与专辑，同时保持趋势榜单独立更新。在线搜索和在线播放接入了更多非视频音乐源；fullplay 页面会在播放在线歌曲时结合当前播放时长自动匹配在线歌词。本次修复版还更新了玻璃拟态 UI、将全局字体切换为 Resource Han Rounded、优化自动歌词匹配速度，并移除了主播放键与进度条的红色调。
 
 ## 开发者模式
 

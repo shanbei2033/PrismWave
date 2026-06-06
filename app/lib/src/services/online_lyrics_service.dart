@@ -19,6 +19,8 @@ class OnlineLyricsService {
   static const String _qqHost = 'c.y.qq.com';
   static const String _cacheDirName = 'PrismWave';
   static const String _cacheSubDir = 'lyrics_cache';
+  static const Duration _primaryRequestTimeout = Duration(seconds: 3);
+  static const Duration _fallbackRequestTimeout = Duration(seconds: 3);
   static final RegExp _qqLyricContentPattern = RegExp(
     r'<content[^>]*><!\[CDATA\[([\s\S]*?)\]\]></content>',
     caseSensitive: false,
@@ -79,18 +81,28 @@ class OnlineLyricsService {
     required String query,
     Duration? durationHint,
   }) async {
-    final results = await searchLyricsForTrack(
+    final lrclibDocument = await _firstResolvedDocument([
+      _getExactLyrics(track, durationHint: durationHint),
+      _search(<String, String>{'q': query.trim()}).then((results) {
+        return _firstDocument(
+          _scoreResults(
+            results,
+            query: query,
+            track: track,
+            durationHint: durationHint,
+          ),
+          durationHint: durationHint,
+        );
+      }),
+    ]);
+    if (lrclibDocument != null) return lrclibDocument;
+
+    final qqResults = await _searchQq(
       track,
       query: query,
       durationHint: durationHint,
     );
-    for (final result in results) {
-      final document = _toDocument(result, durationHint: durationHint);
-      if (document != null && !document.isEmpty) {
-        return document;
-      }
-    }
-    return null;
+    return _firstDocument(qqResults, durationHint: durationHint);
   }
 
   Future<List<OnlineLyricsSearchResult>> searchLyricsForTrack(
@@ -98,17 +110,21 @@ class OnlineLyricsService {
     required String query,
     Duration? durationHint,
   }) async {
-    final lrclibFuture = _searchLrclib(
+    final lrclibResults = await _searchLrclib(
       track,
       query: query,
       durationHint: durationHint,
     );
-    final qqFuture = _searchQq(track, query: query, durationHint: durationHint);
-    final resultGroups = await Future.wait([lrclibFuture, qqFuture]);
-    final merged = <OnlineLyricsSearchResult>[
-      ...resultGroups[0],
-      ...resultGroups[1],
-    ];
+    if (lrclibResults.isNotEmpty) {
+      return _deduplicateResults(lrclibResults);
+    }
+
+    final qqResults = await _searchQq(
+      track,
+      query: query,
+      durationHint: durationHint,
+    );
+    final merged = <OnlineLyricsSearchResult>[...lrclibResults, ...qqResults];
     merged.sort(_compareSearchResults);
     return _deduplicateResults(merged);
   }
@@ -118,8 +134,12 @@ class OnlineLyricsService {
     required String query,
     Duration? durationHint,
   }) async {
-    final exact = await _getExactLyrics(track, durationHint: durationHint);
-    final results = await _search(<String, String>{'q': query.trim()});
+    final resultGroups = await Future.wait([
+      _getExactLyrics(track, durationHint: durationHint),
+      _search(<String, String>{'q': query.trim()}),
+    ]);
+    final exact = resultGroups[0] as LyricsDocument?;
+    final results = resultGroups[1] as List<OnlineLyricsSearchResult>;
     final pool = <OnlineLyricsSearchResult>[
       if (exact != null && !exact.isEmpty)
         OnlineLyricsSearchResult(
@@ -137,7 +157,21 @@ class OnlineLyricsService {
       ...results,
     ];
 
-    return pool
+    return _scoreResults(
+      pool,
+      query: query,
+      track: track,
+      durationHint: durationHint,
+    );
+  }
+
+  List<OnlineLyricsSearchResult> _scoreResults(
+    Iterable<OnlineLyricsSearchResult> results, {
+    required String query,
+    required Track track,
+    Duration? durationHint,
+  }) {
+    return results
         .where((item) => item.hasLyrics && !item.instrumental)
         .map(
           (item) => item.copyWith(
@@ -169,7 +203,12 @@ class OnlineLyricsService {
     }
 
     final candidateLists = await Future.wait(
-      queryVariants.map((variant) => _searchQqSuggestions(variant)),
+      queryVariants.map(
+        (variant) => _searchQqSuggestions(variant).timeout(
+          _fallbackRequestTimeout,
+          onTimeout: () => const <_QqSongCandidate>[],
+        ),
+      ),
     );
     final candidateByKey = <String, _QqSongCandidate>{};
     for (final list in candidateLists) {
@@ -199,13 +238,15 @@ class OnlineLyricsService {
           ..sort((a, b) => b.score.compareTo(a.score));
 
     final top = narrowed
-        .take(8)
+        .take(3)
         .map((entry) => entry.candidate)
         .toList(growable: false);
     final fetched = await Future.wait(
       top.map(
-        (candidate) =>
-            _fetchQqLyricsCandidate(candidate, durationHint: durationHint),
+        (candidate) => _fetchQqLyricsCandidate(
+          candidate,
+          durationHint: durationHint,
+        ).timeout(_fallbackRequestTimeout, onTimeout: () => null),
       ),
     );
 
@@ -282,8 +323,11 @@ class OnlineLyricsService {
     Map<String, String> params,
   ) async {
     final uri = Uri.https(host, path, params);
+    final timeout = host.endsWith('y.qq.com')
+        ? _fallbackRequestTimeout
+        : _primaryRequestTimeout;
     try {
-      final request = await _httpClient.getUrl(uri);
+      final request = await _httpClient.getUrl(uri).timeout(timeout);
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
       request.headers.set(
         HttpHeaders.userAgentHeader,
@@ -293,16 +337,78 @@ class OnlineLyricsService {
         request.headers.set(HttpHeaders.refererHeader, 'https://y.qq.com/');
         request.headers.set('origin', 'https://y.qq.com');
       }
-      final response = await request.close();
+      final response = await request.close().timeout(timeout);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return null;
       }
 
-      final bytes = await consolidateHttpClientResponseBytes(response);
+      final bytes = await consolidateHttpClientResponseBytes(
+        response,
+      ).timeout(timeout);
       return utf8.decode(bytes, allowMalformed: true);
     } catch (_) {
       return null;
     }
+  }
+
+  LyricsDocument? _firstDocument(
+    List<OnlineLyricsSearchResult> results, {
+    Duration? durationHint,
+  }) {
+    final sorted = _deduplicateResults(results);
+    for (final result in sorted) {
+      final document = _toDocument(result, durationHint: durationHint);
+      if (document != null && !document.isEmpty) {
+        return document;
+      }
+    }
+    return null;
+  }
+
+  Future<LyricsDocument?> _firstResolvedDocument(
+    Iterable<Future<LyricsDocument?>> futures,
+  ) {
+    return _firstResolvedResult(
+      futures,
+      isUsable: (document) => !document.isEmpty,
+    );
+  }
+
+  Future<T?> _firstResolvedResult<T>(
+    Iterable<Future<T?>> futures, {
+    bool Function(T value)? isUsable,
+  }) {
+    final completer = Completer<T?>();
+    var pending = 0;
+
+    void completeIfDone() {
+      pending -= 1;
+      if (pending <= 0 && !completer.isCompleted) {
+        completer.complete(null);
+      }
+    }
+
+    for (final future in futures) {
+      pending += 1;
+      future
+          .then((result) {
+            if (completer.isCompleted) return;
+            if (result != null && (isUsable?.call(result) ?? true)) {
+              completer.complete(result);
+              return;
+            }
+            completeIfDone();
+          })
+          .catchError((_) {
+            if (!completer.isCompleted) completeIfDone();
+          });
+    }
+
+    if (pending == 0 && !completer.isCompleted) {
+      completer.complete(null);
+    }
+
+    return completer.future;
   }
 
   LyricsDocument? _toDocument(
@@ -386,16 +492,13 @@ class OnlineLyricsService {
     _QqSongCandidate candidate, {
     Duration? durationHint,
   }) async {
-    final qrcResult = await _fetchQqQrcLyricsCandidate(
-      candidate,
-      durationHint: durationHint,
-    );
-    if (qrcResult != null) return qrcResult;
-
-    return _fetchQqFallbackLineLyricsCandidate(
-      candidate,
-      durationHint: durationHint,
-    );
+    return _firstResolvedResult([
+      _fetchQqQrcLyricsCandidate(candidate, durationHint: durationHint),
+      _fetchQqFallbackLineLyricsCandidate(
+        candidate,
+        durationHint: durationHint,
+      ),
+    ]);
   }
 
   int _scoreQqCandidate(

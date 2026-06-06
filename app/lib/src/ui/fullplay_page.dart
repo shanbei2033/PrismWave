@@ -30,6 +30,9 @@ class FullPlayPage extends ConsumerStatefulWidget {
 }
 
 class _FullPlayPageState extends ConsumerState<FullPlayPage> {
+  String? _lastLyricsRequestTrackId;
+  bool _lastLyricsRequestHadDuration = false;
+
   @override
   Widget build(BuildContext context) {
     final language = ref.watch(appSettingsProvider).language;
@@ -37,13 +40,7 @@ class _FullPlayPageState extends ConsumerState<FullPlayPage> {
     final library = ref.watch(libraryProvider);
     final playback = ref.watch(playbackProvider);
     final track = playback.currentTrack;
-    if (track != null) {
-      unawaited(
-        ref
-            .read(libraryProvider.notifier)
-            .ensureLyricsLoaded(track, durationHint: playback.duration),
-      );
-    }
+    _scheduleLyricsLoad(track, playback.duration);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -68,6 +65,34 @@ class _FullPlayPageState extends ConsumerState<FullPlayPage> {
         ],
       ),
     );
+  }
+
+  void _scheduleLyricsLoad(Track? track, Duration duration) {
+    if (track == null) {
+      _lastLyricsRequestTrackId = null;
+      _lastLyricsRequestHadDuration = false;
+      return;
+    }
+
+    final hasDuration = duration > Duration.zero;
+    if (_lastLyricsRequestTrackId == track.id &&
+        (_lastLyricsRequestHadDuration || !hasDuration)) {
+      return;
+    }
+
+    _lastLyricsRequestTrackId = track.id;
+    _lastLyricsRequestHadDuration = hasDuration;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final playback = ref.read(playbackProvider);
+      if (playback.currentTrack?.id != track.id) return;
+      unawaited(
+        ref
+            .read(libraryProvider.notifier)
+            .ensureLyricsLoaded(track, durationHint: playback.duration),
+      );
+    });
   }
 }
 

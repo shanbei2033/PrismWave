@@ -9,6 +9,7 @@ import '../models/lyric_line.dart';
 import '../models/top_bar_idle_mode.dart';
 import '../providers.dart';
 import '../state/app_settings_state.dart';
+import 'prismwave_theme.dart';
 
 class WindowTopBar extends ConsumerStatefulWidget {
   const WindowTopBar({
@@ -117,9 +118,10 @@ class _WindowTopBarState extends ConsumerState<WindowTopBar>
           if (widget.showBrand) ...[
             Text(
               'PrismWave',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.white.withValues(alpha: 0.94),
+              style: const TextStyle(
+                color: PrismWaveTheme.textPrimary,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
               ),
             ),
             const SizedBox(width: 12),
@@ -258,19 +260,13 @@ class _TopBarLyricBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseStyle = TextStyle(
-      color: Colors.white.withValues(alpha: text.isEmpty ? 0 : 0.88),
+      color: PrismWaveTheme.textSecondary.withValues(
+        alpha: text.isEmpty ? 0 : 0.92,
+      ),
       fontSize: 13,
       fontWeight: useQuoteTypography ? FontWeight.w400 : FontWeight.w500,
       height: 1.08,
       leadingDistribution: TextLeadingDistribution.even,
-      fontFamilyFallback: const [
-        'Microsoft YaHei UI',
-        'Microsoft YaHei',
-        'PingFang SC',
-        'Noto Sans CJK SC',
-        'Segoe UI Variable Text',
-        'Segoe UI',
-      ],
     );
 
     return IgnorePointer(
@@ -278,8 +274,8 @@ class _TopBarLyricBox extends StatelessWidget {
         height: 30,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
-          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(PrismWaveTheme.controlRadius),
+          gradient: PrismWaveTheme.glassGradient(alpha: 0.18),
           border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
         ),
         child: ClipRect(
@@ -376,10 +372,9 @@ class _WindowButtonState extends State<_WindowButton> {
 
   @override
   Widget build(BuildContext context) {
-    final normalBg = Colors.transparent;
     final hoverBg = widget.danger
-        ? const Color(0xFFEE3A49)
-        : Colors.white.withValues(alpha: 0.12);
+        ? PrismWaveTheme.accent
+        : Colors.white.withValues(alpha: 0.09);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -388,16 +383,32 @@ class _WindowButtonState extends State<_WindowButton> {
       child: GestureDetector(
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOutCubic,
+        child: SizedBox(
           width: 46,
           height: 44,
-          color: _hovered ? hoverBg : normalBg,
-          child: Icon(
-            widget.icon,
-            size: 18,
-            color: Colors.white.withValues(alpha: 0.88),
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
+              width: 36,
+              height: 30,
+              decoration: BoxDecoration(
+                color: _hovered ? hoverBg : Colors.transparent,
+                borderRadius: BorderRadius.circular(
+                  PrismWaveTheme.controlRadius,
+                ),
+                border: Border.all(
+                  color: _hovered
+                      ? Colors.white.withValues(alpha: 0.10)
+                      : Colors.transparent,
+                ),
+              ),
+              child: Icon(
+                widget.icon,
+                size: 18,
+                color: PrismWaveTheme.textSecondary,
+              ),
+            ),
           ),
         ),
       ),

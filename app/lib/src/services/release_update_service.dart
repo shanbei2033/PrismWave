@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-const String kCurrentReleaseVersion = 'R501';
+const String kCurrentReleaseVersion = 'R501_fix';
 
 class ReleaseUpdateInfo {
   const ReleaseUpdateInfo({
@@ -91,13 +91,16 @@ class ReleaseUpdateService {
 
   (int, int)? _parseReleaseVersion(String version) {
     final match = RegExp(
-      r'^R(\d+)(?:_fix(\d+))?$',
+      r'^R(\d+)(?:_fix(\d*))?$',
       caseSensitive: false,
     ).firstMatch(version);
     if (match == null) return null;
 
     final major = int.tryParse(match.group(1) ?? '');
-    final fix = int.tryParse(match.group(2) ?? '0') ?? 0;
+    final fixToken = match.group(2);
+    final fix = fixToken == null
+        ? 0
+        : (fixToken.isEmpty ? 1 : int.tryParse(fixToken) ?? 1);
     if (major == null) return null;
     return (major, fix);
   }

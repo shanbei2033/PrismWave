@@ -3,7 +3,7 @@
   <img src="assets/logo.png" alt="logo" width="128">
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
-  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-R501-blue" alt="Release"></a>
+  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-R501__fix-blue" alt="Release"></a>
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.29.3-blue" alt="Flutter"></a>
 </div>
 
@@ -90,7 +90,7 @@ Installer build:
 Installer output:
 
 ```text
-dist/PrismWave-Setup-R501.exe
+dist/PrismWave-Setup-R501_fix.exe
 ```
 
 ## Audio notes
@@ -120,11 +120,13 @@ queue immediately while unresolved online tracks are resolved in the background.
 If a queued online source fails at playback time, PrismWave invalidates that
 source and retries resolution from the available providers.
 
-In R501, the Home refresh button refreshes recommendation songs and albums
+In R501_fix, the Home refresh button refreshes recommendation songs and albums
 directly from the app while keeping the trending chart independent. Search and
 online playback use a broader non-video music-source resolver, and the full
 play page now auto-matches online lyrics using the current playback duration
-when available.
+when available. This fix release also refreshes the glass UI, switches the app
+font to Resource Han Rounded, speeds up automatic lyrics matching, and removes
+the red tint from the main play button and progress bar.
 
 ## Developer mode
 

@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import 'prismwave_theme.dart';
+
 class GlassPanel extends StatelessWidget {
   const GlassPanel({
     super.key,
@@ -19,10 +21,10 @@ class GlassPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final blur = lowEffects ? 7.0 : 18.0;
-    final alpha = lowEffects ? 0.16 : 0.10;
+    final alpha = lowEffects ? 0.12 : 0.08;
     final border = lowEffects
-        ? Colors.white.withValues(alpha: 0.14)
-        : Colors.white.withValues(alpha: 0.22);
+        ? Colors.white.withValues(alpha: 0.11)
+        : Colors.white.withValues(alpha: 0.16);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
@@ -31,18 +33,12 @@ class GlassPanel extends StatelessWidget {
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: const Color(0xFF0B1220).withValues(alpha: alpha),
+            gradient: PrismWaveTheme.glassGradient(alpha: alpha),
             borderRadius: BorderRadius.circular(radius),
             border: Border.all(color: border),
             boxShadow: lowEffects
                 ? null
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.10),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+                : PrismWaveTheme.panelShadow(alpha: 0.06),
           ),
           child: child,
         ),

@@ -10,6 +10,7 @@ import '../providers.dart';
 import '../services/online_media_cache_service.dart';
 import '../state/app_settings_state.dart';
 import '../state/online_state.dart';
+import 'prismwave_theme.dart';
 
 class OnlineHomePanel extends ConsumerStatefulWidget {
   const OnlineHomePanel({
@@ -56,6 +57,7 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
     final t = widget.t;
     final settings = ref.watch(appSettingsProvider);
     final home = ref.watch(onlineProvider.select((s) => s.home));
+    final canRefresh = home.status != OnlineHomeStatus.loading;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
@@ -69,19 +71,36 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
                 Text(
                   t.navHome,
                   style: const TextStyle(
+                    color: PrismWaveTheme.textPrimary,
                     fontSize: 24,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
                   ),
                 ),
                 const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.refresh_rounded),
-                  tooltip: t.onlineHomeRetry,
-                  onPressed: home.status == OnlineHomeStatus.loading
-                      ? null
-                      : () => ref
-                            .read(onlineProvider.notifier)
-                            .refreshHomeRecommendations(),
+                Tooltip(
+                  message: t.onlineHomeRetry,
+                  child: SizedBox(
+                    width: 46,
+                    height: 40,
+                    child: TextButton(
+                      onPressed: canRefresh
+                          ? () => ref
+                                .read(onlineProvider.notifier)
+                                .refreshHomeRecommendations()
+                          : null,
+                      style: PrismWaveTheme.rectangularButtonStyle(
+                        padding: EdgeInsets.zero,
+                      ),
+                      child: Icon(
+                        Icons.refresh_rounded,
+                        size: 20,
+                        color: canRefresh
+                            ? PrismWaveTheme.textSecondary
+                            : PrismWaveTheme.textMuted.withValues(alpha: 0.56),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -103,9 +122,15 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(strokeWidth: 2),
+            const CircularProgressIndicator(
+              strokeWidth: 2,
+              color: PrismWaveTheme.accent,
+            ),
             const SizedBox(height: 12),
-            Text(t.onlineHomeLoading),
+            Text(
+              t.onlineHomeLoading,
+              style: const TextStyle(color: PrismWaveTheme.textSecondary),
+            ),
           ],
         ),
       );
@@ -117,7 +142,7 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
           children: [
             Text(
               t.onlineHomeFailed,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.78)),
+              style: const TextStyle(color: PrismWaveTheme.textSecondary),
             ),
             if (home.errorMessage.isNotEmpty)
               Padding(
@@ -126,17 +151,19 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
                   home.errorMessage,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.55),
+                    color: PrismWaveTheme.textMuted.withValues(alpha: 0.9),
                     fontSize: 12,
                   ),
                 ),
               ),
             const SizedBox(height: 14),
-            FilledButton.tonal(
+            TextButton.icon(
               onPressed: () => ref
                   .read(onlineProvider.notifier)
                   .ensureHomeLoaded(forceRefresh: true),
-              child: Text(t.onlineHomeRetry),
+              style: PrismWaveTheme.rectangularButtonStyle(selected: true),
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: Text(t.onlineHomeRetry),
             ),
           ],
         ),
@@ -158,7 +185,6 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
               padding: const EdgeInsets.only(right: 8, bottom: 24),
               child: _TopPlaylistBanner(
                 t: t,
-                settings: settings,
                 playlist: topPlaylist,
                 coverCache: _coverCache,
                 onTap: widget.onOpenTopPlaylist!,
@@ -252,8 +278,10 @@ class _OnlineSection extends StatelessWidget {
                     Text(
                       section.localizedTitle(settings.language),
                       style: const TextStyle(
+                        color: PrismWaveTheme.textPrimary,
                         fontSize: 19,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
                       ),
                     ),
                   ],
@@ -312,46 +340,68 @@ class _OnlineTrackCard extends StatelessWidget {
       width: 168,
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AspectRatio(
-                  aspectRatio: 1,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: OnlineCoverImage(
-                      coverCache: coverCache,
-                      cacheKey: track.canonicalKey,
-                      coverUrl: track.coverUrl,
+        borderRadius: BorderRadius.circular(PrismWaveTheme.cardRadius),
+        clipBehavior: Clip.antiAlias,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: PrismWaveTheme.glassGradient(alpha: 0.18),
+            borderRadius: BorderRadius.circular(PrismWaveTheme.cardRadius),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(PrismWaveTheme.cardRadius),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.16),
+                          blurRadius: 18,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: OnlineCoverImage(
+                          coverCache: coverCache,
+                          cacheKey: track.canonicalKey,
+                          coverUrl: track.coverUrl,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  track.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(height: 9),
+                  Text(
+                    track.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: PrismWaveTheme.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  track.artist,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 12,
+                  const SizedBox(height: 3),
+                  Text(
+                    track.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: PrismWaveTheme.textMuted,
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -426,12 +476,25 @@ class _OnlineCoverImageState extends State<OnlineCoverImage> {
 
   Widget _placeholder() {
     return Container(
-      color: Colors.white.withValues(alpha: 0.06),
+      decoration: BoxDecoration(
+        gradient: PrismWaveTheme.glassGradient(alpha: 0.24),
+      ),
       alignment: Alignment.center,
-      child: Icon(
-        Icons.music_note_rounded,
-        size: 36,
-        color: Colors.white.withValues(alpha: 0.4),
+      child: Container(
+        width: 48,
+        height: 38,
+        decoration: BoxDecoration(
+          color: PrismWaveTheme.accent.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: PrismWaveTheme.accent.withValues(alpha: 0.16),
+          ),
+        ),
+        child: Icon(
+          Icons.music_note_rounded,
+          size: 24,
+          color: PrismWaveTheme.accentSoft.withValues(alpha: 0.8),
+        ),
       ),
     );
   }
@@ -440,14 +503,12 @@ class _OnlineCoverImageState extends State<OnlineCoverImage> {
 class _TopPlaylistBanner extends StatelessWidget {
   const _TopPlaylistBanner({
     required this.t,
-    required this.settings,
     required this.playlist,
     required this.coverCache,
     required this.onTap,
   });
 
   final AppStrings t;
-  final AppSettingsState settings;
   final OnlineSection playlist;
   final OnlineMediaCacheService coverCache;
   final VoidCallback onTap;
@@ -473,10 +534,14 @@ class _TopPlaylistBanner extends StatelessWidget {
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [
-                const Color(0xFF6E1FFF).withValues(alpha: 0.55),
-                const Color(0xFF1A4DFF).withValues(alpha: 0.45),
+                PrismWaveTheme.surfaceStrong.withValues(alpha: 0.42),
+                PrismWaveTheme.accentDeep.withValues(alpha: 0.22),
+                PrismWaveTheme.surface.withValues(alpha: 0.34),
               ],
             ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            boxShadow: PrismWaveTheme.panelShadow(alpha: 0.08),
           ),
           padding: const EdgeInsets.fromLTRB(22, 18, 18, 18),
           child: Row(
@@ -492,15 +557,19 @@ class _TopPlaylistBanner extends StatelessWidget {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(6),
+                        color: PrismWaveTheme.accent.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: PrismWaveTheme.accent.withValues(alpha: 0.24),
+                        ),
                       ),
                       child: Text(
                         t.onlineTopPlaylistBadge,
                         style: const TextStyle(
+                          color: PrismWaveTheme.accentSoft,
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          letterSpacing: 1.2,
+                          letterSpacing: 0,
                         ),
                       ),
                     ),
@@ -510,8 +579,10 @@ class _TopPlaylistBanner extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
+                        color: PrismWaveTheme.textPrimary,
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
                       ),
                     ),
                     if ((playlist.subtitle ?? '').isNotEmpty)
@@ -522,24 +593,31 @@ class _TopPlaylistBanner extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.78),
+                            color: PrismWaveTheme.textSecondary.withValues(
+                              alpha: 0.88,
+                            ),
                             fontSize: 13,
                           ),
                         ),
                       ),
                     const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        const Icon(Icons.play_circle_filled_rounded, size: 20),
-                        const SizedBox(width: 6),
-                        Text(
-                          t.onlineTopPlaylistOpen,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: onTap,
+                        style: PrismWaveTheme.rectangularButtonStyle(
+                          selected: true,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
                           ),
                         ),
-                      ],
+                        icon: const Icon(Icons.play_arrow_rounded, size: 19),
+                        label: Text(
+                          t.onlineTopPlaylistOpen,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -570,25 +648,42 @@ class _BannerCoverCollage extends StatelessWidget {
     }
 
     // 2x2 grid for 4 covers; degrades gracefully with fewer.
-    return SizedBox(
+    return Container(
       width: 132,
       height: 132,
-      child: GridView.count(
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisCount: 2,
-        mainAxisSpacing: 4,
-        crossAxisSpacing: 4,
-        children: [
-          for (final c in covers)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: OnlineCoverImage(
-                coverCache: coverCache,
-                cacheKey: c.canonicalKey,
-                coverUrl: c.coverUrl,
-              ),
-            ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: GridView.count(
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          mainAxisSpacing: 4,
+          crossAxisSpacing: 4,
+          children: [
+            for (final c in covers)
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: OnlineCoverImage(
+                  coverCache: coverCache,
+                  cacheKey: c.canonicalKey,
+                  coverUrl: c.coverUrl,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -620,8 +715,10 @@ class _AlbumRow extends StatelessWidget {
               Text(
                 t.onlineNewAlbumsTitle,
                 style: const TextStyle(
+                  color: PrismWaveTheme.textPrimary,
                   fontSize: 19,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
                 ),
               ),
             ],
@@ -680,46 +777,68 @@ class _AlbumCard extends StatelessWidget {
       width: 168,
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AspectRatio(
-                  aspectRatio: 1,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: OnlineCoverImage(
-                      coverCache: coverCache,
-                      cacheKey: album.canonicalKey,
-                      coverUrl: album.coverUrl,
+        borderRadius: BorderRadius.circular(PrismWaveTheme.cardRadius),
+        clipBehavior: Clip.antiAlias,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: PrismWaveTheme.glassGradient(alpha: 0.18),
+            borderRadius: BorderRadius.circular(PrismWaveTheme.cardRadius),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(PrismWaveTheme.cardRadius),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.16),
+                          blurRadius: 18,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: OnlineCoverImage(
+                          coverCache: coverCache,
+                          cacheKey: album.canonicalKey,
+                          coverUrl: album.coverUrl,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  album.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(height: 9),
+                  Text(
+                    album.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: PrismWaveTheme.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  album.artist.isEmpty ? t.onlinePlayAlbum : album.artist,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 12,
+                  const SizedBox(height: 3),
+                  Text(
+                    album.artist.isEmpty ? t.onlinePlayAlbum : album.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: PrismWaveTheme.textMuted,
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

@@ -525,10 +525,7 @@ class LibraryController extends StateNotifier<LibraryState> {
       return;
     }
 
-    await _ensureLocalLyricsLoaded(track);
-
     final preferred = state.preferredLyricsSourceOf(track);
-    final local = state.localLyricsByPath[track.path];
     if (preferred == LyricsSourceType.online) {
       await _ensureOnlineLyricsLoaded(
         track,
@@ -536,19 +533,28 @@ class LibraryController extends StateNotifier<LibraryState> {
         forceReload: false,
         durationHint: durationHint,
       );
+      if (state.onlineLyricsByPath[track.path] != null &&
+          !state.onlineLyricsByPath[track.path]!.isEmpty) {
+        return;
+      }
+      await _ensureLocalLyricsLoaded(track);
       return;
     }
 
+    final onlinePrefetch = _ensureOnlineLyricsLoaded(
+      track,
+      autoSelectOnline: false,
+      forceReload: false,
+      durationHint: durationHint,
+    ).catchError((_) {});
+
+    await _ensureLocalLyricsLoaded(track);
+
+    final local = state.localLyricsByPath[track.path];
     if (local != null && !local.isEmpty) return;
 
     await _setPreferredLyricsSource(track.path, LyricsSourceType.online);
-
-    await _ensureOnlineLyricsLoaded(
-      track,
-      autoSelectOnline: true,
-      forceReload: false,
-      durationHint: durationHint,
-    );
+    await onlinePrefetch;
   }
 
   Future<void> selectLyricsSource(Track track, LyricsSourceType source) async {

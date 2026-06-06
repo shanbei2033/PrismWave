@@ -1,6 +1,6 @@
 # PrismWave AI 接手文档
 
-更新时间：2026-06-06
+更新时间：2026-06-07
 
 本文档用于让其他 AI 在尽量少读上下文的情况下，快速接手当前仓库 `F:\Project\PrismWave` 的开发工作。
 
@@ -8,7 +8,7 @@
 
 ## 1. 项目概况
 
-PrismWave 是一个基于 Flutter 的 Windows 本地音乐播放器，当前发布版本 **R501**，`pubspec.yaml` 版本号 `501.0.0+501`。
+PrismWave 是一个基于 Flutter 的 Windows 本地音乐播放器，当前发布版本 **R501_fix**，`pubspec.yaml` 版本号 `501.0.1+502`。
 
 **GitHub 仓库**：
 - 主仓库：`https://github.com/shanbei2033/PrismWave`
@@ -24,6 +24,13 @@ PrismWave 是一个基于 Flutter 的 Windows 本地音乐播放器，当前发�
 - HITS 模式（节目单拉取、**10 个音源 provider**、封面歌词缓存、独立播放页、预加载）
 - Windows 专用 DSD 后端（BASS/BASSDSD/BASSASIO）
 - 开发者模式（实时日志窗口 + 本地日志文件）
+
+**R501_fix 发布主线（2026-06-07）**：
+- 玻璃拟态 UI 继续细化，整体更简约高级。
+- 全局字体改为 Resource Han Rounded CN/TW，支持简体与繁体中文。
+- 底部主播放键与播放进度条移除红色调，统一为白色玻璃质感。
+- fullplay 自动歌词匹配性能优化：避免重建重复触发、LRCLIB 优先快速返回、QQ 兜底限时与并发、旁置 `.lrc/.qrc` 优先于嵌入歌词。
+- 版本号同步到 `R501_fix`，安装包输出为 `PrismWave-Setup-R501_fix.exe`。
 
 **R501 发布主线（2026-06-06）**：
 - 首页今日趋势徽标改为 `TOP100`。
@@ -239,8 +246,8 @@ ShellExecute(0, 'open', 'cmd.exe', '/c start "" "path/to/logfile"', ...);
 
 ### 4.10 版本更新检查
 - `release_update_service.dart`: 调用 GitHub Releases API
-- 当前版本常量: `kCurrentReleaseVersion = 'R501'`
-- `installer/PrismWaveSetup.iss`: `#define MyAppVersion "R501"`
+- 当前版本常量: `kCurrentReleaseVersion = 'R501_fix'`
+- `installer/PrismWaveSetup.iss`: `#define MyAppVersion "R501_fix"`
 
 ### 4.11 在线模式（普通在线音乐）
 
@@ -679,6 +686,39 @@ python scripts/build_hits.py
 
 ## 7. 最近改动摘要
 
+### R501_fix (2026-06-07, tag `R501_fix`)
+
+#### 版本号
+- `app/pubspec.yaml`: `501.0.1+502`
+- `release_update_service.dart`: `kCurrentReleaseVersion = 'R501_fix'`
+- `installer/PrismWaveSetup.iss`: `#define MyAppVersion "R501_fix"`
+- `release_update_service.dart` 的版本比较已支持 `R501_fix`（无数字后缀）并将其视为 R501 的第一个 fix 版本。
+
+#### UI 与字体
+- 新增 `app/lib/src/ui/prismwave_theme.dart`，统一玻璃拟态主题色、按钮样式、字体 fallback。
+- 全局字体改为 Resource Han Rounded CN/TW：
+  - `app/assets/fonts/resource_han_rounded/cn/*`
+  - `app/assets/fonts/resource_han_rounded/tw/*`
+- 首页/主页面/全屏播放页/顶栏等界面改为更透明的玻璃拟态风格。
+- 移除 PrismWave 标题下方的 `R501 Music Player` 小字。
+- 主播放键从红色 selected 按钮改为白色玻璃按钮；底部播放进度条 active/thumb/overlay 均改为白色。
+- 删除/错误提示等语义性红色仍保留，不属于本次“播放控件红色调”范围。
+
+#### 自动歌词匹配性能
+- `fullplay_page.dart`：不再在每次 build 重复调用 `ensureLyricsLoaded()`，只在切歌或播放时长补齐时调度一次。
+- `library_controller.dart`：本地歌词检查和在线歌词预取并发，避免大音频嵌入标签读取拖慢在线匹配。
+- `lyrics_reader.dart`：本地歌词优先检查旁置 `.lrc/.qrc`，再读取音频嵌入歌词。
+- `online_lyrics_service.dart`：
+  - LRCLIB exact/search 优先并行，拿到可解析结果立即返回。
+  - QQ 音乐仅作为兜底；候选数从 8 收窄到 3。
+  - QQ QRC 与普通歌词接口并发，任一有效结果先返回。
+  - LRCLIB / QQ 请求加 3 秒超时，避免 fullplay 等待十几秒。
+
+#### Release
+- 安装包目标：`dist/PrismWave-Setup-R501_fix.exe`
+- Release notes：`dist/R501_fix_RELEASE_NOTES.md`
+- Release URL：`https://github.com/shanbei2033/PrismWave/releases/tag/R501_fix`
+
 ### R501 (2026-06-06, tag `R501`)
 
 #### 版本号
@@ -858,11 +898,11 @@ ca1bb92 feat: improve lyrics flow and playlist management
 
 ```
 分支: main
-当前发布: R501
-提交后应只有本地未纳入发布的工具/资源残留:
-  - app/assets/hits-loading.webp
-  - app/assets/logo.png
+当前发布: R501_fix
+提交后应只有本地未纳入发布的工具/环境残留:
   - tools/（本地 Flutter / potrace / userscripts，不要整体提交）
+  - app/.dart_tool/, app/build/ 等构建缓存
+注意：`app/assets/fonts/resource_han_rounded/` 已被 `pubspec.yaml` 引用，发布时应纳入提交；`app/assets/logo.png`、`app/assets/hits-loading.webp` 当前未被代码引用，除非后续 UI 明确使用，否则不要为了本次 release 强行提交。
 ```
 
 ---
@@ -914,4 +954,4 @@ ca1bb92 feat: improve lyrics flow and playlist management
 
 ## 12. 一句话总结
 
-PrismWave **R501** 已具备"本地播放器 + TOP100 在线首页/搜索/专辑/队列 + 应用内推荐刷新 + 更多非视频在线音源 + 在线歌词自动匹配 + HITS 10 音源电台（+ Deezer/iTunes 元数据源）+ DSD 后端 + 开发者日志"的完整形态；WASAPI Exclusive 破音通过自定义 libmpv 已修复，当前最大风险仍是多个在线 provider 的长期可用性和 DSD 设备切换不能即时重载。
+PrismWave **R501_fix** 已具备"玻璃拟态 Windows 播放器 UI + Resource Han Rounded 中文字体 + 本地播放器 + TOP100 在线首页/搜索/专辑/队列 + 应用内推荐刷新 + 更多非视频在线音源 + 更快的在线歌词自动匹配 + HITS 10 音源电台（+ Deezer/iTunes 元数据源）+ DSD 后端 + 开发者日志"的完整形态；WASAPI Exclusive 破音通过自定义 libmpv 已修复，当前最大风险仍是多个在线 provider 的长期可用性和 DSD 设备切换不能即时重载。

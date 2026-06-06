@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
-import 'dart:ui';
+import 'dart:ui' as ui;
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/material.dart';
@@ -33,6 +33,7 @@ import 'online_album_detail_panel.dart';
 import 'online_home_panel.dart';
 import 'online_search_panel.dart';
 import 'online_top_playlist_panel.dart';
+import 'prismwave_theme.dart';
 import 'window_top_bar.dart';
 
 enum MainSection { home, search, library, albums, artists, favorites, settings }
@@ -265,15 +266,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
           Positioned.fill(
             child: DecoratedBox(
               decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0x24090F1D),
-                    Color(0x240C1323),
-                    Color(0x240E1526),
-                  ],
-                ),
+                gradient: PrismWaveTheme.appGradient,
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -352,6 +345,8 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
 
     return GlassPanel(
       lowEffects: library.lowEffects,
+      radius: PrismWaveTheme.panelRadius,
+      padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 220),
         switchInCurve: Curves.easeOutCubic,
@@ -397,10 +392,15 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
       children: [
         Row(
           children: [
-            const Expanded(
-              child: Text(
+            Expanded(
+              child: const Text(
                 'PrismWave',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  color: PrismWaveTheme.textPrimary,
+                  fontSize: 23,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
               ),
             ),
           ],
@@ -456,19 +456,28 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                   Text(
                     '${t.folders}: ${library.libraryFolders.length}',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.70),
+                      color: PrismWaveTheme.textSecondary.withValues(
+                        alpha: 0.78,
+                      ),
+                      fontSize: 12,
                     ),
                   ),
                   Text(
                     '${t.tracks}: ${library.tracks.length}',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.70),
+                      color: PrismWaveTheme.textSecondary.withValues(
+                        alpha: 0.78,
+                      ),
+                      fontSize: 12,
                     ),
                   ),
                   Text(
                     '${t.favoriteCountLabel}: ${library.favoritePaths.length}',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.70),
+                      color: PrismWaveTheme.textSecondary.withValues(
+                        alpha: 0.78,
+                      ),
+                      fontSize: 12,
                     ),
                   ),
                 ],
@@ -483,29 +492,25 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
   }
 
   Widget _buildHitsNavButton(AppStrings t) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: _openHitsTransition,
-        child: SizedBox(
-          height: 44,
-          child: Row(
-            children: [
-              const SizedBox(width: 12),
-              SvgPicture.asset(
-                'assets/icons/hits.svg',
-                width: 20,
-                height: 20,
-                colorFilter: ColorFilter.mode(
-                  Colors.white.withValues(alpha: 0.94),
-                  BlendMode.srcIn,
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Text('HITS', style: TextStyle(fontSize: 15)),
-            ],
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton.icon(
+        onPressed: _openHitsTransition,
+        style: PrismWaveTheme.rectangularButtonStyle(),
+        icon: SvgPicture.asset(
+          'assets/icons/hits.svg',
+          width: 19,
+          height: 19,
+          colorFilter: const ColorFilter.mode(
+            PrismWaveTheme.textSecondary,
+            BlendMode.srcIn,
+          ),
+        ),
+        label: const Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'HITS',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
         ),
       ),
@@ -513,19 +518,29 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
   }
 
   Widget _buildSettingsActionButton(AppStrings t) {
-    return IconButton(
-      tooltip: t.settings,
-      onPressed: _openSettings,
-      icon: SvgPicture.asset(
-        'assets/icons/settings.svg',
-        width: 19,
-        height: 19,
-        colorFilter: const ColorFilter.mode(Color(0xFFB9DEFF), BlendMode.srcIn),
-      ),
-      style: IconButton.styleFrom(
-        backgroundColor: _section == MainSection.settings
-            ? Colors.white.withValues(alpha: 0.10)
-            : Colors.transparent,
+    return Tooltip(
+      message: t.settings,
+      child: SizedBox(
+        width: 46,
+        height: 42,
+        child: TextButton(
+          onPressed: _openSettings,
+          style: PrismWaveTheme.rectangularButtonStyle(
+            selected: _section == MainSection.settings,
+            padding: EdgeInsets.zero,
+          ),
+          child: SvgPicture.asset(
+            'assets/icons/settings.svg',
+            width: 19,
+            height: 19,
+            colorFilter: ColorFilter.mode(
+              _section == MainSection.settings
+                  ? PrismWaveTheme.accentSoft
+                  : PrismWaveTheme.textSecondary,
+              BlendMode.srcIn,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -642,14 +657,10 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
   }) {
     final selected = _section == section;
 
-    return Material(
-      color: selected
-          ? const Color(0xFF39C0FF).withValues(alpha: 0.16)
-          : Colors.transparent,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: () {
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton.icon(
+        onPressed: () {
           setState(() {
             _section = section;
             _selectedAlbum = null;
@@ -658,15 +669,15 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
             _openAlbumCard = null;
           });
         },
-        child: SizedBox(
-          height: 44,
-          child: Row(
-            children: [
-              const SizedBox(width: 12),
-              Icon(icon, size: 20),
-              const SizedBox(width: 10),
-              Text(label, style: const TextStyle(fontSize: 15)),
-            ],
+        style: PrismWaveTheme.rectangularButtonStyle(selected: selected),
+        icon: Icon(icon, size: 19),
+        label: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ),
@@ -1536,7 +1547,8 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
 
     return GlassPanel(
       lowEffects: library.lowEffects,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      radius: PrismWaveTheme.panelRadius,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       child: Row(
         children: [
           SizedBox(
@@ -1568,29 +1580,31 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        IconButton(
+                        _PlayerTransportButton(
+                          tooltip: 'Previous',
                           onPressed: playback.hasTrack ? ctrl.previous : null,
                           icon: const Icon(Icons.skip_previous_rounded),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         _PlaybackToggleButton(
                           onPressed: playback.hasTrack
                               ? ctrl.togglePlayPause
                               : null,
                           isPlaying: playback.isPlaying,
                         ),
-                        const SizedBox(width: 8),
-                        IconButton(
+                        const SizedBox(width: 10),
+                        _PlayerTransportButton(
+                          tooltip: 'Next',
                           onPressed: playback.hasTrack ? ctrl.next : null,
                           icon: const Icon(Icons.skip_next_rounded),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         _PlaybackModeButton(
                           t: t,
                           mode: playback.playbackMode,
                           onPressed: ctrl.cycleMode,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         _PlaybackQueueButton(
                           tooltip: t.playbackQueue,
                           onPressed: canToggleQueue
@@ -1607,6 +1621,13 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                           child: Text(
                             _formatDuration(playback.currentTime),
                             textAlign: TextAlign.right,
+                            style: TextStyle(
+                              color: PrismWaveTheme.textSecondary.withValues(
+                                alpha: 0.78,
+                              ),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                         Expanded(
@@ -1614,13 +1635,13 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                             data: SliderTheme.of(context).copyWith(
                               activeTrackColor: Colors.white,
                               inactiveTrackColor: Colors.white.withValues(
-                                alpha: 0.24,
+                                alpha: 0.16,
                               ),
                               thumbColor: Colors.white,
                               overlayColor: Colors.white.withValues(
                                 alpha: 0.14,
                               ),
-                              trackHeight: 2.6,
+                              trackHeight: 3.2,
                             ),
                             child: Slider(
                               value: safePosition,
@@ -1636,7 +1657,16 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                         ),
                         SizedBox(
                           width: 52,
-                          child: Text(_formatDuration(playback.duration)),
+                          child: Text(
+                            _formatDuration(playback.duration),
+                            style: TextStyle(
+                              color: PrismWaveTheme.textSecondary.withValues(
+                                alpha: 0.78,
+                              ),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -1649,15 +1679,19 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
             width: 190,
             child: Row(
               children: [
-                const Icon(Icons.volume_up_rounded, size: 18),
+                Icon(
+                  Icons.volume_up_rounded,
+                  size: 18,
+                  color: PrismWaveTheme.textSecondary,
+                ),
                 Expanded(
                   child: SliderTheme(
                     data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: Colors.white,
-                      inactiveTrackColor: Colors.white.withValues(alpha: 0.24),
-                      thumbColor: Colors.white,
-                      overlayColor: Colors.white.withValues(alpha: 0.14),
-                      trackHeight: 2.6,
+                      activeTrackColor: PrismWaveTheme.textPrimary,
+                      inactiveTrackColor: Colors.white.withValues(alpha: 0.15),
+                      thumbColor: PrismWaveTheme.textPrimary,
+                      overlayColor: Colors.white.withValues(alpha: 0.10),
+                      trackHeight: 3,
                     ),
                     child: Slider(
                       value: playback.volume,
@@ -1776,7 +1810,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
             builder: (context, _) {
               final progress = curved.value;
               return ImageFiltered(
-                imageFilter: ImageFilter.blur(
+                imageFilter: ui.ImageFilter.blur(
                   sigmaX: (1.0 - progress) * 18,
                   sigmaY: (1.0 - progress) * 4,
                 ),
@@ -2408,7 +2442,6 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                               child: Text(
                                                 line,
                                                 style: TextStyle(
-                                                  fontFamily: 'Consolas',
                                                   fontSize: 11,
                                                   height: 1.35,
                                                   color: Colors.white
@@ -4092,7 +4125,7 @@ class _TrackDeleteDialogState extends State<_TrackDeleteDialog> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
           child: Container(
             width: 420,
             decoration: BoxDecoration(
@@ -4224,32 +4257,12 @@ class _TrackDetailsItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const chineseFallback = [
-      'Microsoft YaHei UI',
-      'Microsoft YaHei',
-      'PingFang SC',
-      'Noto Sans CJK SC',
-    ];
-
     final valueWidget = selectable
         ? SelectableText(
             value,
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.45,
-              fontFamily: Platform.isWindows ? 'Microsoft YaHei UI' : null,
-              fontFamilyFallback: chineseFallback,
-            ),
+            style: const TextStyle(fontSize: 14, height: 1.45),
           )
-        : Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.45,
-              fontFamily: Platform.isWindows ? 'Microsoft YaHei UI' : null,
-              fontFamilyFallback: chineseFallback,
-            ),
-          );
+        : Text(value, style: const TextStyle(fontSize: 14, height: 1.45));
 
     return Container(
       width: double.infinity,
@@ -4270,8 +4283,6 @@ class _TrackDetailsItem extends StatelessWidget {
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: Colors.white.withValues(alpha: 0.72),
-                  fontFamily: Platform.isWindows ? 'Microsoft YaHei UI' : null,
-                  fontFamilyFallback: chineseFallback,
                 ),
               ),
               const Spacer(),
@@ -4331,29 +4342,73 @@ class _PlaybackModeButton extends StatelessWidget {
 
     return Tooltip(
       message: tooltip,
-      child: IconButton(
-        onPressed: onPressed,
-        icon: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          transitionBuilder: (child, animation) {
-            return FadeTransition(
-              opacity: animation,
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.92, end: 1).animate(animation),
-                child: child,
-              ),
-            );
-          },
-          child: SvgPicture.asset(
-            iconPath,
-            key: ValueKey<String>('main-playback-mode-${mode.name}'),
-            width: 18,
-            height: 18,
-            semanticsLabel: tooltip,
-            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+      child: SizedBox(
+        width: 46,
+        height: 38,
+        child: TextButton(
+          onPressed: onPressed,
+          style: PrismWaveTheme.rectangularButtonStyle(
+            padding: EdgeInsets.zero,
           ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.92, end: 1).animate(animation),
+                  child: child,
+                ),
+              );
+            },
+            child: SvgPicture.asset(
+              iconPath,
+              key: ValueKey<String>('main-playback-mode-${mode.name}'),
+              width: 18,
+              height: 18,
+              semanticsLabel: tooltip,
+              colorFilter: const ColorFilter.mode(
+                PrismWaveTheme.textSecondary,
+                BlendMode.srcIn,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlayerTransportButton extends StatelessWidget {
+  const _PlayerTransportButton({
+    required this.tooltip,
+    required this.onPressed,
+    required this.icon,
+  });
+
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final Icon icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconColor = onPressed == null
+        ? PrismWaveTheme.textMuted.withValues(alpha: 0.56)
+        : PrismWaveTheme.textSecondary;
+
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: 46,
+        height: 38,
+        child: TextButton(
+          onPressed: onPressed,
+          style: PrismWaveTheme.rectangularButtonStyle(
+            padding: EdgeInsets.zero,
+          ),
+          child: Icon(icon.icon, size: 22, color: iconColor),
         ),
       ),
     );
@@ -4375,20 +4430,28 @@ class _PlaybackQueueButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
-      child: IconButton(
-        onPressed: onPressed,
-        icon: SvgPicture.asset(
-          'assets/icons/player_queue.svg',
-          width: 18,
-          height: 18,
-          semanticsLabel: tooltip,
-          colorFilter: ColorFilter.mode(
-            isActive
-                ? const Color(0xFF39C0FF)
-                : Colors.white.withValues(
-                    alpha: onPressed == null ? 0.42 : 0.94,
-                  ),
-            BlendMode.srcIn,
+      child: SizedBox(
+        width: 46,
+        height: 38,
+        child: TextButton(
+          onPressed: onPressed,
+          style: PrismWaveTheme.rectangularButtonStyle(
+            selected: isActive,
+            padding: EdgeInsets.zero,
+          ),
+          child: SvgPicture.asset(
+            'assets/icons/player_queue.svg',
+            width: 18,
+            height: 18,
+            semanticsLabel: tooltip,
+            colorFilter: ColorFilter.mode(
+              onPressed == null
+                  ? PrismWaveTheme.textMuted.withValues(alpha: 0.56)
+                  : (isActive
+                        ? PrismWaveTheme.textPrimary
+                        : PrismWaveTheme.textSecondary),
+              BlendMode.srcIn,
+            ),
           ),
         ),
       ),
@@ -4411,16 +4474,52 @@ class _PlaybackToggleButton extends StatelessWidget {
         ? 'assets/icons/player_pause.svg'
         : 'assets/icons/player_play.svg';
 
-    return IconButton(
-      onPressed: onPressed,
-      iconSize: 28,
-      icon: SvgPicture.asset(
-        iconPath,
-        width: 28,
-        height: 28,
-        colorFilter: ColorFilter.mode(
-          Colors.white.withValues(alpha: onPressed == null ? 0.42 : 0.94),
-          BlendMode.srcIn,
+    return SizedBox(
+      width: 58,
+      height: 42,
+      child: TextButton(
+        onPressed: onPressed,
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(ui.Size(58, 42)),
+          padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.disabled)) {
+              return Colors.white.withValues(alpha: 0.045);
+            }
+            if (states.contains(WidgetState.pressed)) {
+              return Colors.white.withValues(alpha: 0.20);
+            }
+            if (states.contains(WidgetState.hovered)) {
+              return Colors.white.withValues(alpha: 0.16);
+            }
+            return Colors.white.withValues(alpha: 0.12);
+          }),
+          side: WidgetStateProperty.resolveWith((states) {
+            return BorderSide(
+              color: Colors.white.withValues(
+                alpha: states.contains(WidgetState.hovered) ? 0.26 : 0.18,
+              ),
+            );
+          }),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(PrismWaveTheme.controlRadius),
+            ),
+          ),
+          overlayColor: WidgetStatePropertyAll(
+            Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: SvgPicture.asset(
+          iconPath,
+          width: 24,
+          height: 24,
+          colorFilter: ColorFilter.mode(
+            onPressed == null
+                ? PrismWaveTheme.textMuted.withValues(alpha: 0.56)
+                : PrismWaveTheme.textPrimary,
+            BlendMode.srcIn,
+          ),
         ),
       ),
     );

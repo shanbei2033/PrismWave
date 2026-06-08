@@ -2509,17 +2509,19 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
   }
 
   Future<void> _fetchTodayChart(AppStrings t) async {
-    final ok = await ref
+    final result = await ref
         .read(onlineProvider.notifier)
         .refreshHomeRecommendations();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok ? t.onlineFetchTodayChartSucceeded : t.onlineFetchTodayChartFailed,
-        ),
-      ),
-    );
+    final message = switch (result) {
+      OnlineHomeRefreshResult.fresh => t.onlineFetchTodayChartSucceeded,
+      OnlineHomeRefreshResult.latestAvailable =>
+        t.onlineFetchTodayChartUsingLatest,
+      OnlineHomeRefreshResult.failed => t.onlineFetchTodayChartFailed,
+    };
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -2923,10 +2925,7 @@ class _SettingsOnlineRefreshTile extends StatelessWidget {
 }
 
 class _SettingsActionButton extends StatelessWidget {
-  const _SettingsActionButton({
-    required this.label,
-    required this.onPressed,
-  });
+  const _SettingsActionButton({required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback? onPressed;

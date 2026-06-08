@@ -34,6 +34,7 @@ class OnlineHomeBundle {
     required this.cachedAt,
     this.needsBackgroundRefresh = false,
     this.recommendationsUnavailable = false,
+    this.recommendationsPendingGeneration = false,
   });
 
   final OnlineHomeData data;
@@ -41,6 +42,7 @@ class OnlineHomeBundle {
   final DateTime cachedAt;
   final bool needsBackgroundRefresh;
   final bool recommendationsUnavailable;
+  final bool recommendationsPendingGeneration;
 }
 
 /// Pulls home recommendations from the generated prismwave-hits daily payload.
@@ -75,6 +77,7 @@ class NeteaseHomeService {
   Future<OnlineHomeBundle> loadBundle({
     bool forceRefresh = false,
     bool allowStaleCache = false,
+    bool allowLatestAvailable = false,
   }) async {
     if (!forceRefresh) {
       final cached = await loadCachedBundle(allowStale: allowStaleCache);
@@ -84,10 +87,17 @@ class NeteaseHomeService {
     }
 
     try {
-      final data = await _fetchFresh();
+      final data = await _fetchFresh(
+        allowLatestAvailable: allowLatestAvailable,
+      );
       final cachedAt = DateTime.now().toUtc();
       await _writeCache(data, cachedAt);
-      return OnlineHomeBundle(data: data, usedCache: false, cachedAt: cachedAt);
+      return OnlineHomeBundle(
+        data: data,
+        usedCache: false,
+        cachedAt: cachedAt,
+        recommendationsPendingGeneration: !isFreshData(data),
+      );
     } catch (error) {
       final cached = await loadYesterdayCachedBundle();
       if (cached != null) return cached;
@@ -108,14 +118,17 @@ class NeteaseHomeService {
     return null;
   }
 
-  Future<OnlineHomeBundle?> loadYesterdayCachedBundle() async {
+  Future<OnlineHomeBundle?> loadYesterdayCachedBundle({
+    bool pendingGeneration = false,
+  }) async {
     final cached = await _loadCachedForDate(_yesterdayIsoDate());
     if (cached == null) return null;
     return OnlineHomeBundle(
       data: cached.data,
       usedCache: true,
       cachedAt: cached.cachedAt,
-      recommendationsUnavailable: true,
+      recommendationsUnavailable: !pendingGeneration,
+      recommendationsPendingGeneration: pendingGeneration,
     );
   }
 
@@ -167,7 +180,9 @@ class NeteaseHomeService {
     );
   }
 
-  Future<OnlineHomeBundle> loadRemoteDailyBundle() async {
+  Future<OnlineHomeBundle> loadRemoteDailyBundle({
+    bool allowLatestAvailable = false,
+  }) async {
     final remoteHome = await _loadRemoteDailyHome();
     if (remoteHome == null || !_isUsableDailyHome(remoteHome)) {
       throw const OnlineHomeException(
@@ -178,7 +193,8 @@ class NeteaseHomeService {
     final data = _mergeDailyHome(remoteHome, const <OnlineAlbumCard>[]);
     final cachedAt = DateTime.now().toUtc();
     await _writeCache(data, cachedAt);
-    if (!isFreshData(data)) {
+    final isFresh = isFreshData(data);
+    if (!isFresh && !allowLatestAvailable) {
       throw OnlineHomeException(
         OnlineHomeErrorKind.unavailable,
         'Remote daily home payload is stale: ${data.editionDate}',
@@ -188,10 +204,13 @@ class NeteaseHomeService {
       data: data,
       usedCache: false,
       cachedAt: cachedAt,
+      recommendationsPendingGeneration: !isFresh,
     );
   }
 
-  Future<OnlineHomeBundle> refreshLiveHome() async {
+  Future<OnlineHomeBundle> refreshLiveHome({
+    bool allowLatestAvailable = false,
+  }) async {
     final remoteHome = await _loadRemoteDailyHome();
     if (remoteHome == null || !_isUsableDailyHome(remoteHome)) {
       throw const OnlineHomeException(
@@ -200,8 +219,10 @@ class NeteaseHomeService {
       );
     }
     final data = _mergeDailyHome(remoteHome, const <OnlineAlbumCard>[]);
-    if (!isFreshData(data)) {
-      await _writeCache(data, DateTime.now().toUtc());
+    final isFresh = isFreshData(data);
+    if (!isFresh && !allowLatestAvailable) {
+      final staleCachedAt = DateTime.now().toUtc();
+      await _writeCache(data, staleCachedAt);
       throw OnlineHomeException(
         OnlineHomeErrorKind.unavailable,
         'Remote daily home payload is stale: ${data.editionDate}',
@@ -214,10 +235,13 @@ class NeteaseHomeService {
       data: enriched,
       usedCache: false,
       cachedAt: cachedAt,
+      recommendationsPendingGeneration: !isFresh,
     );
   }
 
-  Future<OnlineHomeData> _fetchFresh() async {
+  Future<OnlineHomeData> _fetchFresh({
+    bool allowLatestAvailable = false,
+  }) async {
     final errors = <OnlineHomeException>[];
     final results = await Future.wait<Object?>([
       _optionalFetch(_loadRemoteDailyHome(), errors),
@@ -230,7 +254,7 @@ class NeteaseHomeService {
     if (remoteHome != null && _isUsableDailyHome(remoteHome)) {
       final data = _mergeDailyHome(remoteHome, albums);
       await _writeCache(data, DateTime.now().toUtc());
-      if (isFreshData(data)) return data;
+      if (isFreshData(data) || allowLatestAvailable) return data;
       errors.add(
         OnlineHomeException(
           OnlineHomeErrorKind.unavailable,
@@ -738,9 +762,8 @@ class NeteaseHomeService {
     return '$y-$m-$d';
   }
 
-  DateTime _beijingNow() => DateTime.now().toUtc().add(
-    const Duration(hours: 8),
-  );
+  DateTime _beijingNow() =>
+      DateTime.now().toUtc().add(const Duration(hours: 8));
 
   /// Fetches album detail and returns its full track list as candidates ready
   /// to be passed into `OnlineController.playOnlineTrack`.

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../i18n/app_strings.dart';
 import '../models/online_recommendation.dart';
@@ -44,6 +45,9 @@ class _OnlineTopPlaylistPanelState
     final recommendationsUnavailable = ref.watch(
       onlineProvider.select((s) => s.home.recommendationsUnavailable),
     );
+    final recommendationsPendingGeneration = ref.watch(
+      onlineProvider.select((s) => s.home.recommendationsPendingGeneration),
+    );
     final playlist = ref.watch(
       onlineProvider.select((s) => s.home.data?.topPlaylist),
     );
@@ -80,6 +84,7 @@ class _OnlineTopPlaylistPanelState
             coverCache: _coverCache,
             onPlayAll: () => _playAll(playlist),
             recommendationsUnavailable: recommendationsUnavailable,
+            recommendationsPendingGeneration: recommendationsPendingGeneration,
           ),
           const SizedBox(height: 18),
           Expanded(
@@ -107,15 +112,16 @@ class _OnlineTopPlaylistPanelState
     OnlineSection playlist,
     OnlineTrackCandidate picked,
   ) async {
-    await ref.read(onlineProvider.notifier).playOnlineTrack(
-          picked: picked,
-          contextTracks: playlist.tracks,
-        );
+    await ref
+        .read(onlineProvider.notifier)
+        .playOnlineTrack(picked: picked, contextTracks: playlist.tracks);
   }
 
   Future<void> _playAll(OnlineSection playlist) async {
     if (playlist.tracks.isEmpty) return;
-    await ref.read(onlineProvider.notifier).playOnlineTrack(
+    await ref
+        .read(onlineProvider.notifier)
+        .playOnlineTrack(
           picked: playlist.tracks.first,
           contextTracks: playlist.tracks,
         );
@@ -155,6 +161,7 @@ class _Header extends StatelessWidget {
     required this.coverCache,
     required this.onPlayAll,
     required this.recommendationsUnavailable,
+    required this.recommendationsPendingGeneration,
   });
 
   final AppStrings t;
@@ -163,6 +170,7 @@ class _Header extends StatelessWidget {
   final OnlineMediaCacheService coverCache;
   final VoidCallback onPlayAll;
   final bool recommendationsUnavailable;
+  final bool recommendationsPendingGeneration;
 
   @override
   Widget build(BuildContext context) {
@@ -206,15 +214,12 @@ class _Header extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (recommendationsUnavailable) ...[
+                  if (recommendationsUnavailable ||
+                      recommendationsPendingGeneration) ...[
                     const SizedBox(width: 8),
-                    Tooltip(
-                      message: t.onlineRecommendationsUnavailableTooltip,
-                      child: const Icon(
-                        Icons.warning_amber_rounded,
-                        size: 21,
-                        color: Color(0xFFFFD166),
-                      ),
+                    _ChartStatusIcon(
+                      t: t,
+                      unavailable: recommendationsUnavailable,
                     ),
                   ],
                 ],
@@ -240,6 +245,31 @@ class _Header extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ChartStatusIcon extends StatelessWidget {
+  const _ChartStatusIcon({required this.t, required this.unavailable});
+
+  final AppStrings t;
+  final bool unavailable;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = unavailable
+        ? const Color(0xFFFFD166)
+        : Colors.white.withValues(alpha: 0.72);
+    return Tooltip(
+      message: unavailable
+          ? t.onlineRecommendationsUnavailableTooltip
+          : t.onlineRecommendationsPendingTooltip,
+      child: SvgPicture.asset(
+        'assets/icons/chart_notice.svg',
+        width: 21,
+        height: 21,
+        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+      ),
     );
   }
 }

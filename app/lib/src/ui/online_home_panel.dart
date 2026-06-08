@@ -186,8 +186,6 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
                 playlist: topPlaylist,
                 coverCache: _coverCache,
                 onTap: widget.onOpenTopPlaylist!,
-                recommendationsUnavailable:
-                    home.recommendationsUnavailable,
               ),
             ),
           ),
@@ -246,12 +244,19 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
   }
 
   Future<void> _refreshHomeRecommendations() async {
-    final ok = await ref
+    final result = await ref
         .read(onlineProvider.notifier)
         .refreshHomeRecommendations();
-    if (!mounted || ok) return;
+    if (!mounted) return;
+    if (result == OnlineHomeRefreshResult.fresh) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(widget.t.onlineFetchTodayChartFailed)),
+      SnackBar(
+        content: Text(
+          result == OnlineHomeRefreshResult.latestAvailable
+              ? widget.t.onlineFetchTodayChartUsingLatest
+              : widget.t.onlineFetchTodayChartFailed,
+        ),
+      ),
     );
   }
 }
@@ -516,14 +521,12 @@ class _TopPlaylistBanner extends StatelessWidget {
     required this.playlist,
     required this.coverCache,
     required this.onTap,
-    required this.recommendationsUnavailable,
   });
 
   final AppStrings t;
   final OnlineSection playlist;
   final OnlineMediaCacheService coverCache;
   final VoidCallback onTap;
-  final bool recommendationsUnavailable;
 
   @override
   Widget build(BuildContext context) {
@@ -602,10 +605,6 @@ class _TopPlaylistBanner extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (recommendationsUnavailable) ...[
-                          const SizedBox(width: 8),
-                          _RecommendationWarningIcon(t: t),
-                        ],
                       ],
                     ),
                     if ((playlist.subtitle ?? '').isNotEmpty)
@@ -653,24 +652,6 @@ class _TopPlaylistBanner extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _RecommendationWarningIcon extends StatelessWidget {
-  const _RecommendationWarningIcon({required this.t});
-
-  final AppStrings t;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: t.onlineRecommendationsUnavailableTooltip,
-      child: const Icon(
-        Icons.warning_amber_rounded,
-        size: 20,
-        color: Color(0xFFFFD166),
       ),
     );
   }

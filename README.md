@@ -3,7 +3,7 @@
   <img src="assets/logo.png" alt="logo" width="128">
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
-  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-R501__fix2-blue" alt="Release"></a>
+  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-R502-blue" alt="Release"></a>
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.29.3-blue" alt="Flutter"></a>
 </div>
 
@@ -90,7 +90,7 @@ Installer build:
 Installer output:
 
 ```text
-dist/PrismWave-Setup-R501_fix2.exe
+dist/PrismWave-Setup-R502.exe
 ```
 
 ## Audio notes
@@ -133,6 +133,11 @@ payload from `prismwave-hits`, caches by Beijing date, falls back to a bundled
 Top 100 payload on cold start, and shows a warning when live recommendations are
 unavailable. The Windows window can also be resized freely from its frameless
 edges.
+
+In R502, chart refresh states are split more clearly: if today's chart has not
+been generated yet, PrismWave shows yesterday's chart and marks the chart detail
+page with an update-time notice; only real network or JSON failures show the
+yellow unavailable warning. The Home card stays clean without status icons.
 
 ## Developer mode
 

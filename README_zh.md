@@ -3,7 +3,7 @@
   <img src="assets/logo.png" alt="logo" width="128">
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
-  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-R501__fix2-blue" alt="Release"></a>
+  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-R502-blue" alt="Release"></a>
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.29.3-blue" alt="Flutter"></a>
 </div>
 
@@ -85,7 +85,7 @@ app/build/windows/x64/runner/Release/prismwave_demo.exe
 安装包输出路径：
 
 ```text
-dist/PrismWave-Setup-R501_fix2.exe
+dist/PrismWave-Setup-R502.exe
 ```
 
 ## 音频说明
@@ -114,6 +114,8 @@ HITS 是一个广播电台模式，按节目单播放在线内容：
 R501_fix 中，首页右上角刷新按钮会直接从应用内刷新推荐歌曲与专辑，同时保持趋势榜单独立更新。在线搜索和在线播放接入了更多非视频音乐源；fullplay 页面会在播放在线歌曲时结合当前播放时长自动匹配在线歌词。本次修复版还更新了玻璃拟态 UI、将全局字体切换为 Resource Han Rounded、优化自动歌词匹配速度，并移除了主播放键与进度条的红色调。
 
 R501_fix2 中，在线首页每日榜单改为使用 `prismwave-hits` 生成的 schema 7 Top100 JSON，按北京时间日期缓存；冷启动没有本地缓存且远程不可用时，会使用内置 Top100 兜底并显示黄色告警。无边框 Windows 窗口现在也可以从边缘自由拉伸。
+
+R502 中，今日榜单尚未生成和网络不可用被拆分为两个状态：前者默认显示昨日榜单，并只在榜单详情页标题旁显示更新时间提示；后者才显示黄色不可用告警。首页榜单卡片不再显示状态叹号。
 
 ## 开发者模式
 

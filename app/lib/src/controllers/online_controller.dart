@@ -118,6 +118,8 @@ class OnlineController extends StateNotifier<OnlineState> {
           usedCache: bundle.usedCache,
           errorMessage: '',
           recommendationsUnavailable: bundle.recommendationsUnavailable,
+          recommendationsPendingGeneration:
+              bundle.recommendationsPendingGeneration,
         ),
       );
       _debug(
@@ -129,12 +131,12 @@ class OnlineController extends StateNotifier<OnlineState> {
         'elapsedMs=${stopwatch.elapsedMilliseconds}',
         force: true,
       );
-      final autoRefreshDue = !forceRefresh && _shouldAutoRefreshHomeData(
-        bundle.data,
-      );
+      final autoRefreshDue =
+          !forceRefresh && _shouldAutoRefreshHomeData(bundle.data);
       if (!forceRefresh &&
           (bundle.needsBackgroundRefresh || autoRefreshDue) &&
-          !bundle.recommendationsUnavailable) {
+          !bundle.recommendationsUnavailable &&
+          !bundle.recommendationsPendingGeneration) {
         _refreshHomeInBackground(
           reason: bundle.needsBackgroundRefresh
               ? 'partial-fast-load'
@@ -146,7 +148,7 @@ class OnlineController extends StateNotifier<OnlineState> {
           seq: seq,
           reason: forceRefresh ? 'manual-refresh' : 'fresh-load',
         );
-      } else if (!forceRefresh) {
+      } else if (!forceRefresh && !bundle.recommendationsPendingGeneration) {
         _refreshHomeInBackground(reason: 'stale-cache');
       } else {
         _debug(
@@ -171,8 +173,10 @@ class OnlineController extends StateNotifier<OnlineState> {
     }
   }
 
-  Future<bool> refreshHomeRecommendations() async {
-    if (state.home.status == OnlineHomeStatus.loading) return false;
+  Future<OnlineHomeRefreshResult> refreshHomeRecommendations() async {
+    if (state.home.status == OnlineHomeStatus.loading) {
+      return OnlineHomeRefreshResult.failed;
+    }
 
     final seq = ++_homeSeq;
     final stopwatch = Stopwatch()..start();
@@ -189,8 +193,15 @@ class OnlineController extends StateNotifier<OnlineState> {
     );
 
     try {
-      final bundle = await _homeService.refreshLiveHome();
-      if (_disposed || seq != _homeSeq) return false;
+      final bundle = await _homeService.refreshLiveHome(
+        allowLatestAvailable: true,
+      );
+      if (_disposed || seq != _homeSeq) {
+        return OnlineHomeRefreshResult.failed;
+      }
+      final refreshResult = _homeService.isFreshBundle(bundle)
+          ? OnlineHomeRefreshResult.fresh
+          : OnlineHomeRefreshResult.latestAvailable;
       state = state.copyWith(
         home: OnlineHomeView(
           status: OnlineHomeStatus.ready,
@@ -198,10 +209,13 @@ class OnlineController extends StateNotifier<OnlineState> {
           usedCache: bundle.usedCache,
           errorMessage: '',
           recommendationsUnavailable: bundle.recommendationsUnavailable,
+          recommendationsPendingGeneration:
+              bundle.recommendationsPendingGeneration,
         ),
       );
       _debug(
         'home.manual-refresh.ready -> '
+        'result=$refreshResult '
         'topPlaylistUpdated=${bundle.data.topPlaylist != null} '
         'edition=${bundle.data.editionDate} '
         'sections=${bundle.data.sections.length} '
@@ -214,19 +228,19 @@ class OnlineController extends StateNotifier<OnlineState> {
         seq: seq,
         reason: 'manual-refresh',
       );
-      return true;
+      return refreshResult;
     } catch (error) {
-      if (_disposed || seq != _homeSeq) return false;
+      if (_disposed || seq != _homeSeq) return OnlineHomeRefreshResult.failed;
       _debug(
         'home.manual-refresh.failed -> '
         'elapsedMs=${stopwatch.elapsedMilliseconds} error=$error',
         force: true,
       );
-      final fallback = previousData != null &&
-              _homeService.isFreshData(previousData)
+      final fallback =
+          previousData != null && _homeService.isFreshData(previousData)
           ? null
           : await _homeService.loadYesterdayCachedBundle();
-      if (_disposed || seq != _homeSeq) return false;
+      if (_disposed || seq != _homeSeq) return OnlineHomeRefreshResult.failed;
       if (fallback != null) {
         state = state.copyWith(
           home: OnlineHomeView(
@@ -235,12 +249,13 @@ class OnlineController extends StateNotifier<OnlineState> {
             usedCache: fallback.usedCache,
             errorMessage: error.toString(),
             recommendationsUnavailable: true,
+            recommendationsPendingGeneration: false,
           ),
         );
-        return false;
+        return OnlineHomeRefreshResult.failed;
       }
       final bundled = await _homeService.loadBundledFallbackBundle();
-      if (_disposed || seq != _homeSeq) return false;
+      if (_disposed || seq != _homeSeq) return OnlineHomeRefreshResult.failed;
       if (bundled != null) {
         state = state.copyWith(
           home: OnlineHomeView(
@@ -249,9 +264,10 @@ class OnlineController extends StateNotifier<OnlineState> {
             usedCache: bundled.usedCache,
             errorMessage: error.toString(),
             recommendationsUnavailable: true,
+            recommendationsPendingGeneration: false,
           ),
         );
-        return false;
+        return OnlineHomeRefreshResult.failed;
       }
       state = state.copyWith(
         home: state.home.copyWith(
@@ -259,11 +275,12 @@ class OnlineController extends StateNotifier<OnlineState> {
               ? OnlineHomeStatus.failed
               : OnlineHomeStatus.ready,
           errorMessage: error.toString(),
-          recommendationsUnavailable: previousData != null &&
-              !_homeService.isFreshData(previousData),
+          recommendationsUnavailable:
+              previousData != null && !_homeService.isFreshData(previousData),
+          recommendationsPendingGeneration: false,
         ),
       );
-      return false;
+      return OnlineHomeRefreshResult.failed;
     }
   }
 
@@ -275,7 +292,10 @@ class OnlineController extends StateNotifier<OnlineState> {
     required bool forceRefresh,
   }) async {
     if (forceRefresh) {
-      return _homeService.loadBundle(forceRefresh: true);
+      return _homeService.loadBundle(
+        forceRefresh: true,
+        allowLatestAvailable: true,
+      );
     }
 
     final cached = await _homeService.loadCachedBundle(allowStale: true);
@@ -283,7 +303,9 @@ class OnlineController extends StateNotifier<OnlineState> {
 
     _debug('home.load.no-cache -> trying remote-daily-fast', force: true);
     try {
-      return await _homeService.loadRemoteDailyBundle();
+      return await _homeService.loadRemoteDailyBundle(
+        allowLatestAvailable: true,
+      );
     } catch (error) {
       _debug(
         'home.load.remote-daily-fast.failed -> fallback=yesterday-cache error=$error',
@@ -313,7 +335,10 @@ class OnlineController extends StateNotifier<OnlineState> {
       final stopwatch = Stopwatch()..start();
       _debug('home.refresh-background.start -> reason=$reason', force: true);
       try {
-        final bundle = await _homeService.loadBundle(forceRefresh: true);
+        final bundle = await _homeService.loadBundle(
+          forceRefresh: true,
+          allowLatestAvailable: true,
+        );
         if (_disposed || seq != _homeSeq) return;
         final isFresh = _homeService.isFreshBundle(bundle);
         state = state.copyWith(
@@ -323,6 +348,8 @@ class OnlineController extends StateNotifier<OnlineState> {
             usedCache: bundle.usedCache,
             errorMessage: '',
             recommendationsUnavailable: bundle.recommendationsUnavailable,
+            recommendationsPendingGeneration:
+                bundle.recommendationsPendingGeneration,
           ),
         );
         _debug(
@@ -395,8 +422,9 @@ class OnlineController extends StateNotifier<OnlineState> {
             data: bundle.data,
             usedCache: bundle.usedCache,
             errorMessage: '',
-            recommendationsUnavailable:
-                state.home.recommendationsUnavailable,
+            recommendationsUnavailable: state.home.recommendationsUnavailable,
+            recommendationsPendingGeneration:
+                state.home.recommendationsPendingGeneration,
           ),
         );
         _debug(

@@ -10,8 +10,7 @@ class AppStrings {
   String get settingsBasicTab => _tr('\u57fa\u7840', '\u57fa\u790e', 'Basic');
   String get settingsPlaybackTab =>
       _tr('\u64ad\u653e', '\u64ad\u653e', 'Playback');
-  String get settingsOnlineTab =>
-      _tr('\u5728\u7ebf', '\u7dda\u4e0a', 'Online');
+  String get settingsOnlineTab => _tr('\u5728\u7ebf', '\u7dda\u4e0a', 'Online');
   String get hits => 'HITS';
   String get hitsNoNetwork => _tr(
     '\u5f53\u524d\u65e0\u7f51\u7edc',
@@ -109,6 +108,11 @@ class AppStrings {
     '\u63a8\u85a6\u4e0d\u53ef\u7528\uff0c\u8acb\u6aa2\u67e5\u7db2\u8def\u74b0\u5883\u3002',
     'Recommendations unavailable. Please check your network.',
   );
+  String get onlineRecommendationsPendingTooltip => _tr(
+    '\u699c\u5355\u4e8eUTC+10\u66f4\u65b0',
+    '\u699c\u55ae\u65bcUTC+10\u66f4\u65b0',
+    'Chart updates at UTC+10.',
+  );
   String get onlineFetchTodayChart => _tr(
     '\u62c9\u53d6\u4eca\u65e5\u699c\u5355',
     '\u62c9\u53d6\u4eca\u65e5\u699c\u55ae',
@@ -119,12 +123,20 @@ class AppStrings {
     '\u5f9e GitHub \u62c9\u53d6\u4eca\u5929\u751f\u6210\u7684 Top100 \u63a8\u85a6 JSON\u3002',
     "Fetch today's generated Top 100 recommendation JSON from GitHub.",
   );
-  String get onlineFetchTodayChartFailed =>
-      _tr('\u62c9\u53d6\u5931\u8d25', '\u62c9\u53d6\u5931\u6557', 'Fetch failed');
+  String get onlineFetchTodayChartFailed => _tr(
+    '\u62c9\u53d6\u5931\u8d25',
+    '\u62c9\u53d6\u5931\u6557',
+    'Fetch failed',
+  );
   String get onlineFetchTodayChartSucceeded => _tr(
     '\u5df2\u62c9\u53d6\u4eca\u65e5\u699c\u5355',
     '\u5df2\u62c9\u53d6\u4eca\u65e5\u699c\u55ae',
     "Today's chart fetched",
+  );
+  String get onlineFetchTodayChartUsingLatest => _tr(
+    '\u4eca\u65e5\u699c\u5355\u5c1a\u672a\u751f\u6210\uff0c\u5df2\u663e\u793a\u6628\u65e5\u699c\u5355',
+    '\u4eca\u65e5\u699c\u55ae\u5c1a\u672a\u751f\u6210\uff0c\u5df2\u986f\u793a\u6628\u65e5\u699c\u55ae',
+    "Today's chart is not generated yet. Showing yesterday's chart.",
   );
   String get onlineSearchPlaceholder => _tr(
     '\u641c\u7d22\u5728\u7ebf\u548c\u672c\u5730\u97f3\u4e50',

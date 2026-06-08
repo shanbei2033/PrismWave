@@ -5,6 +5,8 @@ import '../services/online_search_service.dart';
 
 enum OnlineHomeStatus { idle, loading, ready, failed }
 
+enum OnlineHomeRefreshResult { fresh, latestAvailable, failed }
+
 enum OnlineSearchStatus { idle, searching, ready, failed }
 
 enum OnlineAlbumDetailStatus { idle, loading, ready, failed }
@@ -54,6 +56,7 @@ class OnlineHomeView {
     required this.usedCache,
     required this.errorMessage,
     required this.recommendationsUnavailable,
+    this.recommendationsPendingGeneration = false,
   });
 
   static const empty = OnlineHomeView(
@@ -62,6 +65,7 @@ class OnlineHomeView {
     usedCache: false,
     errorMessage: '',
     recommendationsUnavailable: false,
+    recommendationsPendingGeneration: false,
   );
 
   final OnlineHomeStatus status;
@@ -69,6 +73,7 @@ class OnlineHomeView {
   final bool usedCache;
   final String errorMessage;
   final bool recommendationsUnavailable;
+  final bool recommendationsPendingGeneration;
 
   OnlineHomeView copyWith({
     OnlineHomeStatus? status,
@@ -77,6 +82,7 @@ class OnlineHomeView {
     String? errorMessage,
     bool clearError = false,
     bool? recommendationsUnavailable,
+    bool? recommendationsPendingGeneration,
   }) {
     return OnlineHomeView(
       status: status ?? this.status,
@@ -85,6 +91,9 @@ class OnlineHomeView {
       errorMessage: clearError ? '' : (errorMessage ?? this.errorMessage),
       recommendationsUnavailable:
           recommendationsUnavailable ?? this.recommendationsUnavailable,
+      recommendationsPendingGeneration:
+          recommendationsPendingGeneration ??
+          this.recommendationsPendingGeneration,
     );
   }
 }

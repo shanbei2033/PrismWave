@@ -1,6 +1,6 @@
 # PrismWave AI 接手文档
 
-更新时间：2026-06-08
+更新时间：2026-06-09
 
 本文档用于让其他 AI 在尽量少读上下文的情况下，快速接手当前仓库 `F:\Project\PrismWave` 的开发工作。
 
@@ -8,7 +8,7 @@
 
 ## 1. 项目概况
 
-PrismWave 是一个基于 Flutter 的 Windows 本地音乐播放器，当前发布版本 **R501_fix2**，`pubspec.yaml` 版本号 `501.0.2+503`。
+PrismWave 是一个基于 Flutter 的 Windows 本地音乐播放器，当前发布版本 **R502**，`pubspec.yaml` 版本号 `502.0.0+504`。
 
 **GitHub 仓库**：
 - 主仓库：`https://github.com/shanbei2033/PrismWave`
@@ -25,10 +25,17 @@ PrismWave 是一个基于 Flutter 的 Windows 本地音乐播放器，当前发�
 - Windows 专用 DSD 后端（BASS/BASSDSD/BASSASIO）
 - 开发者模式（实时日志窗口 + 本地日志文件）
 
+**R502 发布主线（2026-06-09）**：
+- 在线首页今日榜单未生成与网络/JSON 不可用拆成两个状态。
+- 今日榜单尚未生成时默认显示昨日榜单，并只在进入榜单详情页后，在"今日趋势"标题右侧显示普通叹号 SVG，Tooltip 为"榜单于UTC+10更新"。
+- 只有网络条件不好、远程 JSON 拉取失败或 JSON 不可用时，榜单详情页才显示黄色叹号 SVG，Tooltip 为"推荐不可用，请检查网络环境。"。
+- 首页榜单卡片不再显示任何状态叹号，保持首页视觉干净。
+- 版本号同步到 `R502`，安装包输出为 `PrismWave-Setup-R502.exe`。
+
 **R501_fix2 发布主线（2026-06-08）**：
 - 在线首页改为读取 `prismwave-hits/home/latest_home.json` 的 schema 7 每日 Top100 推荐。
 - `prismwave-hits/scripts/build_home.py` 每天北京时间 10:00 由 GitHub Actions 自动生成 `home/latest_home.json` 和 `home/home_recommendations-YYYY-MM-DD.json`。
-- 首页打开在线模式时先检查本地当天缓存；没有当天缓存才拉取远程；远程失败时只回退昨天缓存，并在"今日趋势"右侧显示黄色感叹号。
+- 首页打开在线模式时先检查本地当天缓存；没有当天缓存才拉取远程；远程失败时只回退昨天缓存，并在榜单详情页"今日趋势"右侧显示黄色感叹号。
 - 设置页新增"在线"分类，包含在线模式开关和"拉取今日榜单"刷新 SVG 按钮。
 - 修复冷启动无缓存时的首页失败：app 内置 `assets/home/latest_home.json` 作为最后兜底；远程/昨天缓存都不可用时仍能进入首页，并显示黄色告警。
 - Windows 无边框窗口支持从边缘和四角自由拉伸。
@@ -260,8 +267,8 @@ ShellExecute(0, 'open', 'cmd.exe', '/c start "" "path/to/logfile"', ...);
 
 ### 4.10 版本更新检查
 - `release_update_service.dart`: 调用 GitHub Releases API
-- 当前版本常量: `kCurrentReleaseVersion = 'R501_fix2'`
-- `installer/PrismWaveSetup.iss`: `#define MyAppVersion "R501_fix2"`
+- 当前版本常量: `kCurrentReleaseVersion = 'R502'`
+- `installer/PrismWaveSetup.iss`: `#define MyAppVersion "R502"`
 
 ### 4.11 在线模式（普通在线音乐）
 
@@ -318,11 +325,13 @@ prismwave-hits/home/home_recommendations-YYYY-MM-DD.json
 - `NeteaseHomeService._kSchemaVersion = 7`
 - `editionDate` 使用北京时间日期，客户端用北京时间判断今天/昨天。
 - 启动在线首页时先查当天缓存 `home-YYYY-MM-DD.json`，命中则不拉远程。
-- 当天缓存不存在时拉取 remote `latest_home.json` 并写入当天缓存。
-- 远程拉取失败或 remote 不是当天时，只回退昨天缓存，并设置 `recommendationsUnavailable=true`。
+- 当天缓存不存在时拉取 remote `latest_home.json`，并按 remote 自身 `editionDate` 写入对应日期缓存。
+- 远程拉取失败时才回退昨天缓存/内置兜底，并设置 `recommendationsUnavailable=true`。
+- GitHub Actions 每天北京时间 10:00 生成当天 JSON；北京时间 00:00-10:00 期间 remote 通常仍是昨日 `editionDate`，这是正常窗口期，不等同于用户网络失败。
+- 当 remote JSON 可用但不是当天时，默认显示昨日榜单，并设置 `recommendationsPendingGeneration=true`；仅榜单详情页使用普通叹号 SVG，Tooltip 为"榜单于UTC+10更新"。
 - 如果没有当天缓存、没有昨天缓存，且远程不可用，会读取 app 内置 `assets/home/latest_home.json` 作为冷启动兜底，并设置 `recommendationsUnavailable=true`。
-- 使用昨天缓存时，"今日趋势"标题右侧显示黄色感叹号，Tooltip 为"推荐不可用，请检查网络环境。"。
-- 手动刷新入口：主页顶部刷新按钮、设置 > 在线 > "拉取今日榜单"刷新 SVG 按钮；失败时给用户 SnackBar 提示。
+- 只有网络/JSON 真不可用并使用缓存/内置兜底时，榜单详情页的"今日趋势"标题右侧才显示黄色叹号 SVG，Tooltip 为"推荐不可用，请检查网络环境。"。
+- 手动刷新入口：主页顶部刷新按钮、设置 > 在线 > "拉取今日榜单"刷新 SVG 按钮；只有网络/JSON 真不可用时提示"拉取失败"。
 - remote payload 必须满足 schema >= 7、`topPlaylist.tracks.length >= 100`、至少 80 首有 `coverUrl`，否则视为不可用。
 
 #### 4.11.3 在线首页启动性能修复（2026-06-06 历史记录）
@@ -496,6 +505,15 @@ remote daily home 中很多 Last.fm / Deezer / Audius section 没有大陆可访
 - remote 不可用或不是当天时不再回退网易云榜单，只回退昨天缓存，并在 UI 显示黄色告警。
 - `prismwave-hits/scripts/build_home.py` 已生成 `home/home_recommendations-2026-06-08.json` 和新的 `home/latest_home.json`，本地验证 Top100 全部有 `coverUrl`。
 - 2026-06-08 后续修复：线上 `raw.githubusercontent.com` 一度仍是 schema 1 / `daily-top-10` / 2026-06-07，导致无缓存冷启动报 `All online home requests failed`；已将 `prismwave-hits` 推送到 commit `a38efc6`，raw 已验证为 schema 7 / Top100 / coverUrl 100。
+
+2026-06-09 榜单未生成/网络失败状态拆分：
+- 用户在北京时间 00:00-10:00 本机测试时，remote `latest_home.json` 仍可能是昨日 `editionDate`，但 schema 7 / Top100 / coverUrl 均可用。
+- 旧逻辑把 `editionDate != today` 直接当作 `OnlineHomeException(unavailable)`，主页和设置页都会显示"拉取失败"，容易误判为网络问题。
+- `NeteaseHomeService.refreshLiveHome({allowLatestAvailable: true})` 和 `loadRemoteDailyBundle({allowLatestAvailable: true})` 现在可返回可用但非当天的 latest payload，并设置 `recommendationsPendingGeneration=true`。
+- `recommendationsPendingGeneration=true`：默认显示昨日榜单，仅在榜单详情页标题旁使用 `app/assets/icons/chart_notice.svg` 普通叹号，Tooltip 为"榜单于UTC+10更新"。
+- `recommendationsUnavailable=true`：仅用于网络/JSON 真不可用时的缓存/内置兜底，仅在榜单详情页标题旁使用黄色 `chart_notice.svg`，Tooltip 为"推荐不可用，请检查网络环境。"。
+- `OnlineController.refreshHomeRecommendations()` 返回 `OnlineHomeRefreshResult.fresh/latestAvailable/failed`，UI 根据结果显示成功、"今日榜单尚未生成，已显示昨日榜单"或失败。
+- 验证：`dart analyze lib\main.dart lib\src` 无问题。
 
 ### 4.12 HITS 模式（广播电台）
 
@@ -677,11 +695,14 @@ WASAPI Exclusive 模式在所有播放场景（本地文件 + HITS）的破音/�
 - 启动在线模式时先查当天 `home-YYYY-MM-DD.json`。
 - 当天缓存命中则直接显示，不主动拉远程。
 - 当天缓存不存在才拉取 `home/latest_home.json`。
-- 拉取失败或 remote 不是当天时优先使用昨天缓存；没有昨天缓存时使用 app 内置 `assets/home/latest_home.json` 冷启动兜底，并设置 `recommendationsUnavailable=true`。
-- `recommendationsUnavailable=true` 时，"今日趋势"标题旁显示黄色感叹号，Tooltip 为"推荐不可用，请检查网络环境。"。
+- remote 不是当天但 JSON 可用时显示昨日榜单，并设置 `recommendationsPendingGeneration=true`。
+- 拉取失败时优先使用昨天缓存；没有昨天缓存时使用 app 内置 `assets/home/latest_home.json` 冷启动兜底，并设置 `recommendationsUnavailable=true`。
+- 北京时间 00:00-10:00 期间，remote 可能尚未生成当天 JSON；手动刷新会使用昨日榜单并提示榜单尚未生成，不应提示网络拉取失败。
+- `recommendationsPendingGeneration=true` 时，仅榜单详情页的"今日趋势"标题旁显示普通叹号 SVG，Tooltip 为"榜单于UTC+10更新"。
+- `recommendationsUnavailable=true` 时，仅榜单详情页的"今日趋势"标题旁显示黄色叹号 SVG，Tooltip 为"推荐不可用，请检查网络环境。"。
 
 注意事项：
-- 如果用户反馈“首页显示的是昨天内容”，先看是否有黄色感叹号；有则说明当天推荐拉取失败或 remote 没有当天数据。
+- 如果用户反馈“首页显示的是昨天内容”，先看叹号颜色/Tooltip：普通叹号表示当天榜单尚未生成；黄色叹号才表示远程 JSON 拉取失败或不可用。
 - 对比 `%LOCALAPPDATA%\PrismWave\online_home_cache\home-YYYY-MM-DD.json` 的 `editionDate`、`schemaVersion`、`topPlaylist.tracks` 和 `coverUrl` 数量。
 - 如果 `home/latest_home.json` remote 当天没有更新，要检查 `prismwave-hits` GitHub Actions，而不是先改 app。
 - 无缓存冷启动失败时还要确认 `app/assets/home/latest_home.json` 是否被 `pubspec.yaml` 的 assets 打包，并检查 `build/windows/x64/runner/Release/data/flutter_assets/assets/home/latest_home.json` 是否存在。
@@ -733,6 +754,26 @@ GitHub Actions: `.github/workflows/build_home.yml`，定时 `0 2 * * *` UTC（�
 ---
 
 ## 7. 最近改动摘要
+
+### R502 (2026-06-09, tag `R502`)
+
+#### 版本号
+- `app/pubspec.yaml`: `502.0.0+504`
+- `release_update_service.dart`: `kCurrentReleaseVersion = 'R502'`
+- `installer/PrismWaveSetup.iss`: `#define MyAppVersion "R502"`
+
+#### 在线首页榜单状态
+- `NeteaseHomeService` 新增 `recommendationsPendingGeneration` 状态，用于区分"今日榜单尚未生成"与"远程 JSON 不可用"。
+- remote `latest_home.json` 可用但 `editionDate` 不是当天时，默认显示昨日榜单，并设置 `recommendationsPendingGeneration=true`。
+- 网络条件不好、远程 JSON 拉取失败或 payload 不满足 schema 7 Top100 要求时，才设置 `recommendationsUnavailable=true`。
+- 首页榜单卡片不显示状态叹号；只有进入榜单详情页后，"今日趋势"标题右侧才显示 `app/assets/icons/chart_notice.svg`。
+- 普通叹号 Tooltip 为"榜单于UTC+10更新"；黄色叹号 Tooltip 为"推荐不可用，请检查网络环境。"。
+- `OnlineController.refreshHomeRecommendations()` 返回 `OnlineHomeRefreshResult.fresh/latestAvailable/failed`，刷新提示可区分"已拉取今日榜单"、"今日榜单尚未生成，已显示昨日榜单"和"拉取失败"。
+
+#### Release
+- 安装包目标：`dist/PrismWave-Setup-R502.exe`
+- Release notes：`dist/R502_RELEASE_NOTES.md`
+- Release URL：`https://github.com/shanbei2033/PrismWave/releases/tag/R502`
 
 ### R501_fix2 (2026-06-08, tag `R501_fix2`)
 
@@ -987,11 +1028,11 @@ ca1bb92 feat: improve lyrics flow and playlist management
 
 ```
 分支: main
-当前发布: R501_fix2
+当前发布: R502
 提交后应只有本地未纳入发布的工具/环境残留:
   - tools/（本地 Flutter / potrace / userscripts，不要整体提交）
   - app/.dart_tool/, app/build/ 等构建缓存
-注意：`app/assets/fonts/resource_han_rounded/` 已被 `pubspec.yaml` 引用；`app/assets/home/latest_home.json` 和 `app/assets/icons/refresh.svg` 是 R501_fix2 需要提交的资源。`app/assets/logo.png`、`app/assets/hits-loading.webp` 当前未被代码引用，除非后续 UI 明确使用，否则不要为了本次 release 强行提交。
+注意：`app/assets/fonts/resource_han_rounded/` 已被 `pubspec.yaml` 引用；`app/assets/home/latest_home.json` 和 `app/assets/icons/refresh.svg` 是 R501_fix2 需要提交的资源；`app/assets/icons/chart_notice.svg` 是 R502 需要提交的资源。`app/assets/logo.png`、`app/assets/hits-loading.webp` 当前未被代码引用，除非后续 UI 明确使用，否则不要为了本次 release 强行提交。
 ```
 
 ---
@@ -1043,4 +1084,4 @@ ca1bb92 feat: improve lyrics flow and playlist management
 
 ## 12. 一句话总结
 
-PrismWave **R501_fix2** 已具备"玻璃拟态 Windows 播放器 UI + 可自由拉伸的无边框窗口 + Resource Han Rounded 中文字体 + 本地播放器 + schema 7 Top100 在线首页/搜索/专辑/队列 + 应用内推荐刷新 + 冷启动内置 Top100 兜底 + 更多非视频在线音源 + 更快的在线歌词自动匹配 + HITS 10 音源电台（+ Deezer/iTunes 元数据源）+ DSD 后端 + 开发者日志"的完整形态；WASAPI Exclusive 破音通过自定义 libmpv 已修复，当前最大风险仍是多个在线 provider 的长期可用性和 DSD 设备切换不能即时重载。
+PrismWave **R502** 已具备"玻璃拟态 Windows 播放器 UI + 可自由拉伸的无边框窗口 + Resource Han Rounded 中文字体 + 本地播放器 + schema 7 Top100 在线首页/搜索/专辑/队列 + 今日榜单未生成/网络不可用分离提示 + 应用内推荐刷新 + 冷启动内置 Top100 兜底 + 更多非视频在线音源 + 更快的在线歌词自动匹配 + HITS 10 音源电台（+ Deezer/iTunes 元数据源）+ DSD 后端 + 开发者日志"的完整形态；WASAPI Exclusive 破音通过自定义 libmpv 已修复，当前最大风险仍是多个在线 provider 的长期可用性和 DSD 设备切换不能即时重载。

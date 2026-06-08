@@ -53,6 +53,7 @@ class OnlineHomeView {
     required this.data,
     required this.usedCache,
     required this.errorMessage,
+    required this.recommendationsUnavailable,
   });
 
   static const empty = OnlineHomeView(
@@ -60,12 +61,14 @@ class OnlineHomeView {
     data: null,
     usedCache: false,
     errorMessage: '',
+    recommendationsUnavailable: false,
   );
 
   final OnlineHomeStatus status;
   final OnlineHomeData? data;
   final bool usedCache;
   final String errorMessage;
+  final bool recommendationsUnavailable;
 
   OnlineHomeView copyWith({
     OnlineHomeStatus? status,
@@ -73,12 +76,15 @@ class OnlineHomeView {
     bool? usedCache,
     String? errorMessage,
     bool clearError = false,
+    bool? recommendationsUnavailable,
   }) {
     return OnlineHomeView(
       status: status ?? this.status,
       data: data ?? this.data,
       usedCache: usedCache ?? this.usedCache,
       errorMessage: clearError ? '' : (errorMessage ?? this.errorMessage),
+      recommendationsUnavailable:
+          recommendationsUnavailable ?? this.recommendationsUnavailable,
     );
   }
 }

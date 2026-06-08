@@ -1,8 +1,67 @@
 #include "flutter_window.h"
 
+#include <algorithm>
+#include <flutter_windows.h>
 #include <optional>
+#include <windowsx.h>
 
 #include "flutter/generated_plugin_registrant.h"
+
+namespace {
+
+std::optional<LRESULT> HitTestResizeBorder(HWND hwnd, LPARAM lparam) {
+  if (IsZoomed(hwnd)) {
+    return std::nullopt;
+  }
+
+  RECT window_rect;
+  if (!GetWindowRect(hwnd, &window_rect)) {
+    return std::nullopt;
+  }
+
+  const POINT point = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+  const HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+  const UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
+  const int resize_border = std::max(4, MulDiv(8, dpi, 96));
+
+  const bool on_left = point.x >= window_rect.left &&
+                       point.x < window_rect.left + resize_border;
+  const bool on_right = point.x <= window_rect.right &&
+                        point.x > window_rect.right - resize_border;
+  const bool on_top = point.y >= window_rect.top &&
+                      point.y < window_rect.top + resize_border;
+  const bool on_bottom = point.y <= window_rect.bottom &&
+                         point.y > window_rect.bottom - resize_border;
+
+  if (on_top && on_left) {
+    return HTTOPLEFT;
+  }
+  if (on_top && on_right) {
+    return HTTOPRIGHT;
+  }
+  if (on_bottom && on_left) {
+    return HTBOTTOMLEFT;
+  }
+  if (on_bottom && on_right) {
+    return HTBOTTOMRIGHT;
+  }
+  if (on_left) {
+    return HTLEFT;
+  }
+  if (on_right) {
+    return HTRIGHT;
+  }
+  if (on_top) {
+    return HTTOP;
+  }
+  if (on_bottom) {
+    return HTBOTTOM;
+  }
+
+  return std::nullopt;
+}
+
+}  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -54,6 +113,13 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (message == WM_NCHITTEST) {
+    const std::optional<LRESULT> hit_test = HitTestResizeBorder(hwnd, lparam);
+    if (hit_test) {
+      return *hit_test;
+    }
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =

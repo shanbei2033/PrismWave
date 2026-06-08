@@ -23,6 +23,7 @@ import '../models/track.dart';
 import '../providers.dart';
 import '../services/audio_file_details_service.dart';
 import '../state/library_state.dart';
+import '../state/online_state.dart';
 import '../state/playback_state.dart';
 import 'fullplay_page.dart';
 import 'glass_panel.dart';
@@ -1869,7 +1870,7 @@ bool _looksLikeDsdTrack(Track? track) {
   return lowerPath.endsWith('.dsf') || lowerPath.endsWith('.dff');
 }
 
-enum _SettingsCategory { basic, playback }
+enum _SettingsCategory { basic, online, playback }
 
 class _SettingsPanel extends ConsumerStatefulWidget {
   const _SettingsPanel({required this.onClose});
@@ -1892,6 +1893,7 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
     final libraryController = ref.read(libraryProvider.notifier);
     final playback = ref.watch(playbackProvider);
     final playbackController = ref.read(playbackProvider.notifier);
+    final onlineHome = ref.watch(onlineProvider.select((s) => s.home));
     final audioDevices = playback.availableAudioOutputDevices;
     final selectedAudioDeviceId =
         audioDevices.any((device) => device.id == playback.audioOutputDeviceId)
@@ -1953,7 +1955,7 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
           ),
           const SizedBox(height: 12),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 260),
+            constraints: const BoxConstraints(maxWidth: 390),
             child: _SettingsCategoryTabs(
               selectedCategory: _selectedCategory,
               onChanged: (value) {
@@ -2073,6 +2075,42 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                         ),
                       ),
                       const SizedBox(height: 14),
+                    ],
+                    if (_selectedCategory == _SettingsCategory.online) ...[
+                      _SettingsBlock(
+                        title: t.onlineModeSettingTitle,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _SettingsToggleTile(
+                              title: t.onlineModeSettingTitle,
+                              subtitle: t.onlineModeSettingDescription,
+                              value: ref.watch(
+                                appSettingsProvider.select(
+                                  (s) => s.onlineModeEnabled,
+                                ),
+                              ),
+                              onChanged: (value) => ref
+                                  .read(appSettingsProvider.notifier)
+                                  .setOnlineModeEnabled(value),
+                            ),
+                            const SizedBox(height: 12),
+                            _SettingsOnlineRefreshTile(
+                              title: t.onlineFetchTodayChart,
+                              subtitle: t.onlineFetchTodayChartDescription,
+                              tooltip:
+                                  onlineHome.status == OnlineHomeStatus.loading
+                                  ? t.onlineHomeLoading
+                                  : t.onlineFetchTodayChart,
+                              iconAsset: 'assets/icons/refresh.svg',
+                              onPressed:
+                                  onlineHome.status == OnlineHomeStatus.loading
+                                  ? null
+                                  : () => _fetchTodayChart(t),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                     if (_selectedCategory == _SettingsCategory.playback) ...[
                       _SettingsBlock(
@@ -2273,22 +2311,6 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                       ),
                       const SizedBox(height: 14),
                       _SettingsBlock(
-                        title: t.onlineModeSettingTitle,
-                        child: _SettingsToggleTile(
-                          title: t.onlineModeSettingTitle,
-                          subtitle: t.onlineModeSettingDescription,
-                          value: ref.watch(
-                            appSettingsProvider.select(
-                              (s) => s.onlineModeEnabled,
-                            ),
-                          ),
-                          onChanged: (value) => ref
-                              .read(appSettingsProvider.notifier)
-                              .setOnlineModeEnabled(value),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      _SettingsBlock(
                         title: t.developerMode,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2485,6 +2507,20 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
       ),
     );
   }
+
+  Future<void> _fetchTodayChart(AppStrings t) async {
+    final ok = await ref
+        .read(onlineProvider.notifier)
+        .refreshHomeRecommendations();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok ? t.onlineFetchTodayChartSucceeded : t.onlineFetchTodayChartFailed,
+        ),
+      ),
+    );
+  }
 }
 
 class _SettingsCategoryTabs extends StatelessWidget {
@@ -2514,6 +2550,14 @@ class _SettingsCategoryTabs extends StatelessWidget {
               label: t.settingsBasicTab,
               selected: selectedCategory == _SettingsCategory.basic,
               onTap: () => onChanged(_SettingsCategory.basic),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _SettingsCategoryButton(
+              label: t.settingsOnlineTab,
+              selected: selectedCategory == _SettingsCategory.online,
+              onTap: () => onChanged(_SettingsCategory.online),
             ),
           ),
           const SizedBox(width: 8),
@@ -2798,8 +2842,91 @@ class _SettingsUpdateBlock extends ConsumerWidget {
   }
 }
 
+class _SettingsOnlineRefreshTile extends StatelessWidget {
+  const _SettingsOnlineRefreshTile({
+    required this.title,
+    required this.subtitle,
+    required this.tooltip,
+    required this.iconAsset,
+    required this.onPressed,
+  });
+
+  final String title;
+  final String subtitle;
+  final String tooltip;
+  final String iconAsset;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: const Color(0xFF0D1526).withValues(alpha: 0.28),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.56),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Tooltip(
+            message: tooltip,
+            child: SizedBox(
+              width: 46,
+              height: 40,
+              child: TextButton(
+                onPressed: onPressed,
+                style: PrismWaveTheme.rectangularButtonStyle(
+                  padding: EdgeInsets.zero,
+                ),
+                child: SvgPicture.asset(
+                  iconAsset,
+                  width: 18,
+                  height: 18,
+                  colorFilter: ColorFilter.mode(
+                    onPressed == null
+                        ? PrismWaveTheme.textMuted.withValues(alpha: 0.56)
+                        : PrismWaveTheme.textSecondary,
+                    BlendMode.srcIn,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SettingsActionButton extends StatelessWidget {
-  const _SettingsActionButton({required this.label, required this.onPressed});
+  const _SettingsActionButton({
+    required this.label,
+    required this.onPressed,
+  });
 
   final String label;
   final VoidCallback? onPressed;
@@ -2826,11 +2953,20 @@ class _SettingsActionButton extends StatelessWidget {
             color: fill,
             border: Border.all(color: border),
           ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(color: foreground, fontWeight: FontWeight.w600),
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: foreground,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ),

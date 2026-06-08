@@ -84,6 +84,7 @@ Future<void> _configureWindow() async {
   await windowManager.ensureInitialized();
   await windowManager.setBackgroundColor(Colors.transparent);
   await windowManager.setMinimumSize(const Size(980, 620));
+  await windowManager.setResizable(true);
   await windowManager.setTitle('PrismWave');
   await windowManager.setTitleBarStyle(
     TitleBarStyle.hidden,

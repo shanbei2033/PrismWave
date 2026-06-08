@@ -1,0 +1,4066 @@
+{
+  "schemaVersion": 7,
+  "generatorVersion": "prismwave-home/0.2.0",
+  "generatedAt": "2026-06-07T17:13:31Z",
+  "generatedAtBeijing": "2026-06-08T01:13:31+08:00",
+  "editionDate": "2026-06-08",
+  "timezone": "Asia/Shanghai",
+  "sourceSnapshot": [
+    {
+      "source": "lastfm_global",
+      "status": "missing_api_key",
+      "candidate_count": 0
+    },
+    {
+      "source": "audius_trending",
+      "status": "error:HTTPError",
+      "candidate_count": 0,
+      "playable_count": 0
+    },
+    {
+      "source": "audius_trending_monthly",
+      "status": "ok",
+      "candidate_count": 100,
+      "playable_count": 100
+    },
+    {
+      "source": "audius_genre",
+      "scope": "Electronic",
+      "status": "ok",
+      "candidate_count": 80,
+      "playable_count": 80
+    },
+    {
+      "source": "audius_genre",
+      "scope": "Hip-Hop/Rap",
+      "status": "ok",
+      "candidate_count": 60,
+      "playable_count": 60
+    },
+    {
+      "source": "audius_genre",
+      "scope": "Pop",
+      "status": "ok",
+      "candidate_count": 60,
+      "playable_count": 60
+    },
+    {
+      "source": "audius_genre",
+      "scope": "R&B/Soul",
+      "status": "ok",
+      "candidate_count": 40,
+      "playable_count": 40
+    },
+    {
+      "source": "audius_genre",
+      "scope": "Alternative",
+      "status": "ok",
+      "candidate_count": 40,
+      "playable_count": 40
+    },
+    {
+      "source": "audius_genre",
+      "scope": "Rock",
+      "status": "ok",
+      "candidate_count": 40,
+      "playable_count": 40
+    },
+    {
+      "source": "audius_genre",
+      "scope": "Ambient",
+      "status": "ok",
+      "candidate_count": 30,
+      "playable_count": 30
+    },
+    {
+      "source": "audius_genre",
+      "scope": "Jazz",
+      "status": "ok",
+      "candidate_count": 30,
+      "playable_count": 30
+    },
+    {
+      "source": "deezer_chart",
+      "status": "ok",
+      "candidate_count": 100,
+      "playable_count": 0
+    },
+    {
+      "source": "deezer_chart",
+      "scope": "Pop",
+      "status": "ok",
+      "candidate_count": 100,
+      "playable_count": 0
+    },
+    {
+      "source": "deezer_chart",
+      "scope": "Rock",
+      "status": "ok",
+      "candidate_count": 100,
+      "playable_count": 0
+    },
+    {
+      "source": "deezer_chart",
+      "scope": "Hip-Hop",
+      "status": "ok",
+      "candidate_count": 100,
+      "playable_count": 0
+    },
+    {
+      "source": "deezer_chart",
+      "scope": "Electronic",
+      "status": "ok",
+      "candidate_count": 100,
+      "playable_count": 0
+    },
+    {
+      "source": "deezer_chart",
+      "scope": "R&B",
+      "status": "ok",
+      "candidate_count": 100,
+      "playable_count": 0
+    },
+    {
+      "source": "deezer_chart",
+      "scope": "Alternative",
+      "status": "ok",
+      "candidate_count": 100,
+      "playable_count": 0
+    },
+    {
+      "source": "deezer_chart",
+      "scope": "Jazz",
+      "status": "ok",
+      "candidate_count": 100,
+      "playable_count": 0
+    },
+    {
+      "source": "itunes_rss",
+      "status": "ok",
+      "candidate_count": 80,
+      "playable_count": 0
+    },
+    {
+      "source": "audius_match",
+      "status": "skipped:home_fast_path",
+      "scanned_count": 0,
+      "resolved_count": 0,
+      "playable_count": 465
+    }
+  ],
+  "tags": [
+    {
+      "name": "deezer_chart",
+      "count": 799,
+      "weight": 1.0
+    },
+    {
+      "name": "deezer",
+      "count": 686,
+      "weight": 0.8586
+    },
+    {
+      "name": "audius",
+      "count": 465,
+      "weight": 0.582
+    },
+    {
+      "name": "audius_genre",
+      "count": 377,
+      "weight": 0.4718
+    },
+    {
+      "name": "audius_trending_monthly",
+      "count": 100,
+      "weight": 0.1252
+    },
+    {
+      "name": "itunes_search",
+      "count": 99,
+      "weight": 0.1239
+    },
+    {
+      "name": "itunes",
+      "count": 80,
+      "weight": 0.1001
+    },
+    {
+      "name": "itunes_rss",
+      "count": 80,
+      "weight": 0.1001
+    },
+    {
+      "name": "deezer_search",
+      "count": 6,
+      "weight": 0.0075
+    }
+  ],
+  "topPlaylist": {
+    "id": "daily-top-100",
+    "title": {
+      "zh-Hans": "今日趋势",
+      "zh-Hant": "今日趨勢",
+      "en-US": "Today's Trending"
+    },
+    "subtitle": "Global multi-platform Top 100",
+    "tracks": [
+      {
+        "title": "Choosin' Texas",
+        "artist": "Ella Langley",
+        "album": "Choosin' Texas - Single",
+        "durationMs": 232000,
+        "coverUrl": "https://api.deezer.com/album/837881302/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes",
+          "itunes_rss"
+        ],
+        "rankSignals": {
+          "deezer_chart": 2,
+          "deezer_chart:132": 9,
+          "itunes_rss": 2
+        },
+        "score": 0.244193
+      },
+      {
+        "title": "I Just Might",
+        "artist": "Bruno Mars",
+        "album": "The Romantic",
+        "durationMs": 212000,
+        "coverUrl": "https://api.deezer.com/album/893791002/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes",
+          "itunes_rss"
+        ],
+        "rankSignals": {
+          "deezer_chart": 9,
+          "deezer_chart:132": 3,
+          "itunes_rss": 10
+        },
+        "score": 0.227455
+      },
+      {
+        "title": "So Easy (To Fall In Love)",
+        "artist": "Olivia Dean",
+        "album": "The Art of Loving",
+        "durationMs": 169000,
+        "coverUrl": "https://api.deezer.com/album/823933891/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes",
+          "itunes_rss"
+        ],
+        "rankSignals": {
+          "deezer_chart": 10,
+          "deezer_chart:132": 4,
+          "itunes_rss": 21
+        },
+        "score": 0.219456
+      },
+      {
+        "title": "WHERE IS MY HUSBAND!",
+        "artist": "RAYE",
+        "album": "WHERE IS MY HUSBAND! - Single",
+        "durationMs": 197000,
+        "coverUrl": "https://api.deezer.com/album/818660961/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes",
+          "itunes_rss"
+        ],
+        "rankSignals": {
+          "deezer_chart": 6,
+          "deezer_chart:132": 1,
+          "itunes_rss": 40
+        },
+        "score": 0.218406
+      },
+      {
+        "title": "The Fate of Ophelia",
+        "artist": "Taylor Swift",
+        "album": "The Life of a Showgirl",
+        "durationMs": 226000,
+        "coverUrl": "https://api.deezer.com/album/829966331/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes",
+          "itunes_rss"
+        ],
+        "rankSignals": {
+          "deezer_chart": 7,
+          "deezer_chart:132": 2,
+          "itunes_rss": 54
+        },
+        "score": 0.20927
+      },
+      {
+        "title": "Man I Need",
+        "artist": "Olivia Dean",
+        "album": "The Art of Loving",
+        "durationMs": 184000,
+        "coverUrl": "https://api.deezer.com/album/803181741/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes",
+          "itunes_rss"
+        ],
+        "rankSignals": {
+          "deezer_chart": 15,
+          "deezer_chart:132": 8,
+          "itunes_rss": 22
+        },
+        "score": 0.20824
+      },
+      {
+        "title": "drop dead",
+        "artist": "Olivia Rodrigo",
+        "album": "you seem pretty sad for a girl so in love",
+        "durationMs": 225000,
+        "coverUrl": "https://api.deezer.com/album/963061451/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes",
+          "itunes_rss"
+        ],
+        "rankSignals": {
+          "deezer_chart": 13,
+          "deezer_chart:132": 6,
+          "itunes_rss": 55
+        },
+        "score": 0.196029
+      },
+      {
+        "title": "Boston",
+        "artist": "STELLA LEFTY",
+        "album": "Boston - Single",
+        "durationMs": 170000,
+        "coverUrl": "https://api.deezer.com/album/937796461/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes",
+          "itunes_rss"
+        ],
+        "rankSignals": {
+          "deezer_chart": 25,
+          "deezer_chart:132": 27,
+          "itunes_rss": 8
+        },
+        "score": 0.19229
+      },
+      {
+        "title": "Dracula (JENNIE Remix)",
+        "artist": "Tame Impala",
+        "album": "Dracula - Single",
+        "durationMs": 209000,
+        "coverUrl": "https://api.deezer.com/album/910510411/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:113",
+          "deezer_chart:85",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 5,
+          "deezer_chart:113": 2,
+          "deezer_chart:85": 2,
+          "itunes_search": 1842444457
+        },
+        "score": 0.178952
+      },
+      {
+        "title": "12 to 12",
+        "artist": "sombr",
+        "album": "12 to 12 - Single",
+        "durationMs": 242000,
+        "coverUrl": "https://api.deezer.com/album/791892231/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:85",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 1,
+          "deezer_chart:85": 1,
+          "itunes_search": 1828036635
+        },
+        "score": 0.16875
+      },
+      {
+        "title": "Folded",
+        "artist": "Kehlani",
+        "album": "Kehlani",
+        "durationMs": 238000,
+        "coverUrl": "https://api.deezer.com/album/771060011/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 3,
+          "deezer_chart:165": 1,
+          "itunes_search": 1885055409
+        },
+        "score": 0.164714
+      },
+      {
+        "title": "HELLO!",
+        "artist": "Durand Bernarr",
+        "album": "BERNARR.",
+        "durationMs": 205000,
+        "coverUrl": "https://api.deezer.com/album/960734581/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 4,
+          "deezer_chart:165": 3,
+          "itunes_search": 1893156976
+        },
+        "score": 0.162203
+      },
+      {
+        "title": "butterflies.",
+        "artist": "Brent Faiyaz",
+        "album": "Icon",
+        "durationMs": 248000,
+        "coverUrl": "https://api.deezer.com/album/894459272/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 8,
+          "deezer_chart:165": 2,
+          "itunes_search": 1867923703
+        },
+        "score": 0.154499
+      },
+      {
+        "title": "Burning Blue",
+        "artist": "Mariah The Scientist",
+        "album": "Burning Blue - Single",
+        "durationMs": 205000,
+        "coverUrl": "https://api.deezer.com/album/749591281/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "deezer_chart:152",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 21,
+          "deezer_chart:132": 33,
+          "deezer_chart:152": 1,
+          "deezer_chart:165": 27,
+          "itunes_search": 1811228836
+        },
+        "score": 0.153362
+      },
+      {
+        "title": "Stargazing",
+        "artist": "Myles Smith",
+        "album": "Stargazing - Single",
+        "durationMs": 172000,
+        "coverUrl": "https://api.deezer.com/album/575655361/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "deezer_chart:85",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 11,
+          "deezer_chart:132": 65,
+          "deezer_chart:85": 18,
+          "itunes_search": 1742275653
+        },
+        "score": 0.149413
+      },
+      {
+        "title": "YUKON",
+        "artist": "Justin Bieber",
+        "album": "SWAG",
+        "durationMs": 164000,
+        "coverUrl": "https://api.deezer.com/album/786280691/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 12,
+          "deezer_chart:132": 5,
+          "itunes_search": 1825994651
+        },
+        "score": 0.145909
+      },
+      {
+        "title": "End of Beginning",
+        "artist": "Djo",
+        "album": "DECIDE",
+        "durationMs": 159000,
+        "coverUrl": "https://api.deezer.com/album/353216957/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:152",
+          "deezer_chart:85",
+          "itunes",
+          "itunes_rss"
+        ],
+        "rankSignals": {
+          "deezer_chart": 47,
+          "deezer_chart:152": 3,
+          "deezer_chart:85": 13,
+          "itunes_rss": 74
+        },
+        "score": 0.142645
+      },
+      {
+        "title": "When Did You Get Hot?",
+        "artist": "Sabrina Carpenter",
+        "album": "Man’s Best Friend",
+        "durationMs": 145000,
+        "coverUrl": "https://api.deezer.com/album/812101581/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 14,
+          "deezer_chart:132": 7,
+          "itunes_search": 1819861167
+        },
+        "score": 0.141539
+      },
+      {
+        "title": "Sad Girls",
+        "artist": "Bebe Rexha",
+        "album": "DIRTY BLONDE",
+        "durationMs": 168000,
+        "coverUrl": "https://api.deezer.com/album/991737571/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:113",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 17,
+          "deezer_chart:113": 1,
+          "itunes_search": 1891886776
+        },
+        "score": 0.137291
+      },
+      {
+        "title": "My Life",
+        "artist": "Durand Bernarr",
+        "album": "BERNARR.",
+        "durationMs": 212000,
+        "coverUrl": "https://api.deezer.com/album/960734581/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 16,
+          "deezer_chart:165": 19,
+          "itunes_search": 1893157347
+        },
+        "score": 0.134793
+      },
+      {
+        "title": "Self Aware",
+        "artist": "Temper City",
+        "album": "Self Aware - Single",
+        "durationMs": 181000,
+        "coverUrl": "https://api.deezer.com/album/920694801/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:85",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 18,
+          "deezer_chart:85": 9,
+          "itunes_search": 1877803360
+        },
+        "score": 0.133394
+      },
+      {
+        "title": "other side.",
+        "artist": "Brent Faiyaz",
+        "album": "Icon",
+        "durationMs": 195000,
+        "coverUrl": "https://api.deezer.com/album/894459272/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 19,
+          "deezer_chart:165": 17,
+          "itunes_search": 1867923704
+        },
+        "score": 0.129564
+      },
+      {
+        "title": "touch myself",
+        "artist": "KwN",
+        "album": "and all pride aside",
+        "durationMs": 249000,
+        "coverUrl": "https://api.deezer.com/album/982917661/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 20,
+          "deezer_chart:165": 20,
+          "itunes_search": 6769881064
+        },
+        "score": 0.126969
+      },
+      {
+        "title": "Ordinary",
+        "artist": "Alex Warren",
+        "album": "Ordinary - Single",
+        "durationMs": 186000,
+        "coverUrl": "https://api.deezer.com/album/705691371/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes",
+          "itunes_rss"
+        ],
+        "rankSignals": {
+          "deezer_chart": 61,
+          "deezer_chart:132": 12,
+          "itunes_rss": 28
+        },
+        "score": 0.125334
+      },
+      {
+        "title": "Obvious",
+        "artist": "Chris Brown",
+        "album": "Obvious - Single",
+        "durationMs": 186000,
+        "coverUrl": "https://api.deezer.com/album/957252991/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 22,
+          "deezer_chart:165": 21,
+          "itunes_search": 6762150560
+        },
+        "score": 0.122989
+      },
+      {
+        "title": "Useless (Without You)",
+        "artist": "Elmiene",
+        "album": "Heat The Streets",
+        "durationMs": 167000,
+        "coverUrl": "https://api.deezer.com/album/801215151/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 26,
+          "deezer_chart:165": 5,
+          "itunes_search": 1832776367
+        },
+        "score": 0.119469
+      },
+      {
+        "title": "Bring Your Love",
+        "artist": "Madonna",
+        "album": "CONFESSIONS II",
+        "durationMs": 216000,
+        "coverUrl": "https://api.deezer.com/album/970688641/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:113",
+          "deezer_chart:132",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 33,
+          "deezer_chart:113": 3,
+          "deezer_chart:132": 34,
+          "itunes_search": 1892545227
+        },
+        "score": 0.118286
+      },
+      {
+        "title": "On Sight",
+        "artist": "Coco Jones",
+        "album": "Why Not More?",
+        "durationMs": 267000,
+        "coverUrl": "https://api.deezer.com/album/744166251/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 27,
+          "deezer_chart:165": 4,
+          "itunes_search": 1796238162
+        },
+        "score": 0.117892
+      },
+      {
+        "title": "Easy On Me",
+        "artist": "Adele",
+        "album": "30",
+        "durationMs": 224000,
+        "coverUrl": "https://api.deezer.com/album/265655342/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "deezer_chart:152",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 29,
+          "deezer_chart:132": 73,
+          "deezer_chart:152": 5,
+          "itunes_search": 1590036021
+        },
+        "score": 0.117377
+      },
+      {
+        "title": "Be Her",
+        "artist": "Ella Langley",
+        "album": "Dandelion",
+        "durationMs": 217000,
+        "coverUrl": "https://api.deezer.com/album/915466851/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "itunes",
+          "itunes_rss"
+        ],
+        "rankSignals": {
+          "deezer_chart": 64,
+          "itunes_rss": 5
+        },
+        "score": 0.117037
+      },
+      {
+        "title": "Moonlit Floor (Kiss Me)",
+        "artist": "LISA",
+        "album": "Moonlit Floor (Kiss Me) - Single",
+        "durationMs": 156000,
+        "coverUrl": "https://api.deezer.com/album/650201021/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 23,
+          "deezer_chart:132": 54,
+          "itunes_search": 1771466815
+        },
+        "score": 0.114021
+      },
+      {
+        "title": "Ashin' the Blunt",
+        "artist": "6LACK",
+        "album": "Ashin' the Blunt - Single",
+        "durationMs": 228000,
+        "coverUrl": "https://api.deezer.com/album/973460831/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 30,
+          "deezer_chart:165": 6,
+          "itunes_search": 6765466565
+        },
+        "score": 0.111965
+      },
+      {
+        "title": "luther",
+        "artist": "Kendrick Lamar",
+        "album": "GNX",
+        "durationMs": 178000,
+        "coverUrl": "https://api.deezer.com/album/673968231/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:116",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 32,
+          "deezer_chart:116": 1,
+          "itunes_search": 1781270323
+        },
+        "score": 0.109644
+      },
+      {
+        "title": "Please Don't Fall In Love With Me",
+        "artist": "Khalid",
+        "album": "Please Don't Fall In Love With Me - Single",
+        "durationMs": 181000,
+        "coverUrl": "https://api.deezer.com/album/567819151/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 31,
+          "deezer_chart:132": 76,
+          "deezer_chart:165": 35,
+          "itunes_search": 1738966810
+        },
+        "score": 0.106263
+      },
+      {
+        "title": "Better Me For You (Brown Eyes)",
+        "artist": "Max McNown",
+        "album": "Night Diving",
+        "durationMs": 194000,
+        "coverUrl": "https://api.deezer.com/album/670209551/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 24,
+          "itunes_search": 1778759151
+        },
+        "score": 0.105403
+      },
+      {
+        "title": "Might Just",
+        "artist": "Ella Mai",
+        "album": "Do You Still Love Me?",
+        "durationMs": 223000,
+        "coverUrl": "https://api.deezer.com/album/908070392/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 34,
+          "deezer_chart:165": 7,
+          "itunes_search": 1883195867
+        },
+        "score": 0.104603
+      },
+      {
+        "title": "Wildfires",
+        "artist": "Sault",
+        "album": "Untitled (Black Is)",
+        "durationMs": 206000,
+        "coverUrl": "https://api.deezer.com/album/155062392/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:152",
+          "deezer_chart:85",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 42,
+          "deezer_chart:152": 6,
+          "deezer_chart:85": 24,
+          "itunes_search": 1518680501
+        },
+        "score": 0.104248
+      },
+      {
+        "title": "AIN'T U TIRED?",
+        "artist": "Jessie Reyez",
+        "album": "AIN'T U TIRED?",
+        "durationMs": 221000,
+        "coverUrl": "https://api.deezer.com/album/968464451/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "deezer_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 35,
+          "deezer_chart:165": 8,
+          "deezer_search": 3982036791
+        },
+        "score": 0.102601
+      },
+      {
+        "title": "iloveitiloveitiloveit",
+        "artist": "Bella Kay",
+        "album": "iloveitiloveitiloveit (Originally Performed by Bella Kay) [Karaoke Version] - Single",
+        "durationMs": 183000,
+        "coverUrl": "https://api.deezer.com/album/893724362/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:85",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 36,
+          "deezer_chart:85": 10,
+          "itunes_search": 1892286260
+        },
+        "score": 0.100363
+      },
+      {
+        "title": "WNBA",
+        "artist": "Drake",
+        "album": "HABIBTI",
+        "durationMs": 178000,
+        "coverUrl": "https://api.deezer.com/album/983217461/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 37,
+          "deezer_chart:165": 9,
+          "itunes_search": 6769648018
+        },
+        "score": 0.098871
+      },
+      {
+        "title": "Golden",
+        "artist": "HUNTR/X",
+        "album": "Golden (from the Netflix film KPop Demon Hunters)",
+        "durationMs": 192000,
+        "coverUrl": "https://api.deezer.com/album/771853201/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 28,
+          "itunes_search": 1867521423
+        },
+        "score": 0.098079
+      },
+      {
+        "title": "Shoulda Never (feat. USHER)",
+        "artist": "Kehlani",
+        "album": "Kehlani",
+        "durationMs": 186000,
+        "coverUrl": "https://api.deezer.com/album/938552851/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 38,
+          "deezer_chart:165": 10,
+          "itunes_search": 6762886189
+        },
+        "score": 0.096898
+      },
+      {
+        "title": "Back and Forth (feat. Missy Elliott)",
+        "artist": "Kehlani",
+        "album": "Kehlani",
+        "durationMs": 214000,
+        "coverUrl": "https://api.deezer.com/album/958146201/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 39,
+          "deezer_chart:165": 11,
+          "itunes_search": 6762886188
+        },
+        "score": 0.094936
+      },
+      {
+        "title": "FOOL ME ONCE (feat. Leon Thomas)",
+        "artist": "Giveon",
+        "album": "BELOVED: ACT II",
+        "durationMs": 198000,
+        "coverUrl": "https://api.deezer.com/album/980662371/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 40,
+          "deezer_chart:165": 12,
+          "itunes_search": 1891467239
+        },
+        "score": 0.092984
+      },
+      {
+        "title": "Justin Bieber - One Less Lonely Girl (BONNIE X CLYDE REMIX)",
+        "artist": "BONNIE X CLYDE",
+        "album": "",
+        "durationMs": 155000,
+        "coverUrl": "https://creatornode2.audius.co/content/baeaaaiqsebwcsz44ogjz5tnx2w4gmblgozmazzrcvhsq5v4a25rekck3p2d2m/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/E6bM2N/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "E6bM2N",
+        "sourceTags": [
+          "audius",
+          "audius_genre:Electronic",
+          "audius_trending_monthly"
+        ],
+        "rankSignals": {
+          "audius_genre:Electronic": 1811,
+          "audius_trending_monthly": 1811
+        },
+        "score": 0.087713
+      },
+      {
+        "title": "Waiting Room",
+        "artist": "Jenevieve",
+        "album": "Waiting Room - Single",
+        "durationMs": 201000,
+        "coverUrl": "https://api.deezer.com/album/942180631/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 43,
+          "deezer_chart:165": 14,
+          "itunes_search": 1884548258
+        },
+        "score": 0.087435
+      },
+      {
+        "title": "Won't Let Me Leave",
+        "artist": "Chris Brown",
+        "album": "BROWN",
+        "durationMs": 178000,
+        "coverUrl": "https://api.deezer.com/album/976957691/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 45,
+          "deezer_chart:165": 13,
+          "itunes_search": 6764419287
+        },
+        "score": 0.08435
+      },
+      {
+        "title": "Send Your Loving",
+        "artist": "Ama Louise",
+        "album": "Send Your Loving - Single",
+        "durationMs": 214000,
+        "coverUrl": "https://api.deezer.com/album/604415892/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 41,
+          "deezer_chart:165": 43,
+          "itunes_search": 1753094151
+        },
+        "score": 0.084253
+      },
+      {
+        "title": "Soft Spot",
+        "artist": "keshi",
+        "album": "Requiem",
+        "durationMs": 204000,
+        "coverUrl": "https://api.deezer.com/album/639320131/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 46,
+          "deezer_chart:132": 10,
+          "itunes_search": 1755275212
+        },
+        "score": 0.083432
+      },
+      {
+        "title": "hate that i made you love me",
+        "artist": "Ariana Grande",
+        "album": "petal",
+        "durationMs": 197000,
+        "coverUrl": "https://api.deezer.com/album/991609961/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart:132",
+          "itunes",
+          "itunes_rss"
+        ],
+        "rankSignals": {
+          "deezer_chart:132": 83,
+          "itunes_rss": 3
+        },
+        "score": 0.080774
+      },
+      {
+        "title": "I Knew It, I Knew You",
+        "artist": "Taylor Swift",
+        "album": "I Knew It, I Knew You - Single",
+        "durationMs": 178186,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/34/35/6c/34356cb4-bd0b-3bac-b118-1a6d7264dc64/26UMGIM69942.rgb.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 1,
+          "itunes_search": 6775527443
+        },
+        "score": 0.08
+      },
+      {
+        "title": "Fred Again... - OK OK (bauti & Dabow flip)",
+        "artist": "bauti",
+        "album": "",
+        "durationMs": 129000,
+        "coverUrl": "https://audius-content-2.figment.io/content/baeaaaiqsebb7yuyaw3afozdaaxni5j6pk7p2c7o3vhp2aa526sldgmsxdfkis/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/93vpz2j/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "93vpz2j",
+        "sourceTags": [
+          "audius",
+          "audius_trending_monthly"
+        ],
+        "rankSignals": {
+          "audius_trending_monthly": 1305
+        },
+        "score": 0.078922
+      },
+      {
+        "title": "chaotic",
+        "artist": "Hailey Picardi",
+        "album": "scars to prove it",
+        "durationMs": 194000,
+        "coverUrl": "https://api.deezer.com/album/988522301/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 44,
+          "deezer_chart:132": 47,
+          "itunes_search": 6767629281
+        },
+        "score": 0.078391
+      },
+      {
+        "title": "Magnet And Steel (feat. Little Big Town)",
+        "artist": "Keith Urban",
+        "album": "flow state",
+        "durationMs": 271568,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e5/d0/1d/e5d01d5c-18da-ff6a-2214-f90a5e7222f4/26UMGIM44897.rgb.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 4,
+          "itunes_search": 6763360721
+        },
+        "score": 0.078384
+      },
+      {
+        "title": "Vienna Calling 100 - 2025-11-21",
+        "artist": "Van Snyder",
+        "album": "",
+        "durationMs": 420000,
+        "coverUrl": "https://creatornode2.audius.co/content/baeaaaiqseddm7chfbwrbei4bhzewq5vj2nzyestci3haoa2cwsxjrqwi64nc2/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/Yaqlvv7/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "Yaqlvv7",
+        "sourceTags": [
+          "audius",
+          "audius_trending_monthly"
+        ],
+        "rankSignals": {
+          "audius_trending_monthly": 3332
+        },
+        "score": 0.077848
+      },
+      {
+        "title": "Robbed You",
+        "artist": "Summer Walker",
+        "album": "Finally Over It",
+        "durationMs": 198000,
+        "coverUrl": "https://api.deezer.com/album/858694152/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 49,
+          "deezer_chart:165": 15,
+          "itunes_search": 1853728610
+        },
+        "score": 0.077339
+      },
+      {
+        "title": "Love Sensation",
+        "artist": "Madonna",
+        "album": "CONFESSIONS II",
+        "durationMs": 228629,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/eb/8f/5d/eb8f5dcf-aec1-1f58-fbea-dc0bb086f1c8/093624819837.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 6,
+          "itunes_search": 1892545237
+        },
+        "score": 0.077312
+      },
+      {
+        "title": "Palming Sand",
+        "artist": "DISKADE",
+        "album": "Palming Sand - Single",
+        "durationMs": 200000,
+        "coverUrl": "https://audius-content-10.figment.io/content/baeaaaiqseb5xlx4scxr3tgpw67n3r5ew7n754zlo6dsmazrazn64nyctiltv6/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/z8bb2bp/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "z8bb2bp",
+        "sourceTags": [
+          "audius",
+          "audius_trending_monthly",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "audius_trending_monthly": 909,
+          "itunes_search": 6771222804
+        },
+        "score": 0.076777
+      },
+      {
+        "title": "I Can't Love You Anymore",
+        "artist": "Ella Langley & Morgan Wallen",
+        "album": "Dandelion",
+        "durationMs": 228837,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/26/35/03/26350323-d656-4817-49e6-4d658af8363a/196874332917.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 7,
+          "itunes_search": 6763091996
+        },
+        "score": 0.076777
+      },
+      {
+        "title": "RAIVA",
+        "artist": "NAZAAR",
+        "album": "RAIVA",
+        "durationMs": 164000,
+        "coverUrl": "https://audius-creator-1.theblueprint.xyz/content/baeaaaiqseah6oencrbearrwn47cyifknfg7atzeokfncykdlo6ohsqy5ex62c/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/31Jyo9q/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "31Jyo9q",
+        "sourceTags": [
+          "audius",
+          "audius_trending_monthly",
+          "deezer_search"
+        ],
+        "rankSignals": {
+          "audius_trending_monthly": 904,
+          "deezer_search": 2663543102
+        },
+        "score": 0.075711
+      },
+      {
+        "title": "The Puerto Rico Song",
+        "artist": "Saxboy Billy",
+        "album": "The Puerto Rico Song - Single",
+        "durationMs": 120366,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/22/9c/91/229c91aa-f6bc-b90b-3a35-71d4eb13c732/26SYMIM30323.rgb.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 9,
+          "itunes_search": 6766473605
+        },
+        "score": 0.075711
+      },
+      {
+        "title": "Love Me Not",
+        "artist": "Ravyn Lenae",
+        "album": "Bird's Eye",
+        "durationMs": 213000,
+        "coverUrl": "https://api.deezer.com/album/574707311/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 50,
+          "deezer_chart:165": 16,
+          "itunes_search": 1743852427
+        },
+        "score": 0.075494
+      },
+      {
+        "title": "you look like you love me",
+        "artist": "Ella Langley & Riley Green",
+        "album": "hungover",
+        "durationMs": 224280,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/62/33/40/62334080-6129-4d0c-086b-921cc956cb7a/196872090895.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 11,
+          "itunes_search": 1749121123
+        },
+        "score": 0.074648
+      },
+      {
+        "title": "Chief Keef - Hate Being Sober (Neotek Droptopgundam Flip)",
+        "artist": "NEOTEK",
+        "album": "",
+        "durationMs": 198000,
+        "coverUrl": "https://audius.rickyrombo.com/content/baeaaaiqsea5w2riw3k3cynmgbt75xzxgots7jsgegbgw7jkrv4yj77sfdnlsq/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/v27mjE6/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "v27mjE6",
+        "sourceTags": [
+          "audius",
+          "audius_trending_monthly"
+        ],
+        "rankSignals": {
+          "audius_trending_monthly": 690
+        },
+        "score": 0.074648
+      },
+      {
+        "title": "Freakin’ Out",
+        "artist": "Dexter and The Moonrocks",
+        "album": "Freakin’ Out - Single",
+        "durationMs": 217000,
+        "coverUrl": "https://api.deezer.com/album/932053241/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart:152",
+          "itunes",
+          "itunes_rss"
+        ],
+        "rankSignals": {
+          "deezer_chart:152": 4,
+          "itunes_rss": 47
+        },
+        "score": 0.07421
+      },
+      {
+        "title": "Billie Jean",
+        "artist": "Michael Jackson",
+        "album": "Thriller",
+        "durationMs": 293802,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/32/4f/fd/324ffda2-9e51-8f6a-0c2d-c6fd2b41ac55/074643811224.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 12,
+          "itunes_search": 269573364
+        },
+        "score": 0.074118
+      },
+      {
+        "title": "Kingdom of Fear",
+        "artist": "Cameron Whitcomb",
+        "album": "Deep Water - EP",
+        "durationMs": 161075,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/7e/33/73/7e337333-0802-d7b5-8848-d20fdbdf993c/075679584731.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 13,
+          "itunes_search": 1887606227
+        },
+        "score": 0.073589
+      },
+      {
+        "title": "slow nights",
+        "artist": "zaza",
+        "album": "slow nights - Single",
+        "durationMs": 129000,
+        "coverUrl": "https://audius-content-11.figment.io/content/baeaaaiqsea5utxnyiuo5q6dzzrxqxnfbt7dqd3mpx5y7a7buxybf24owqu6cw/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/gYlGO8k/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "gYlGO8k",
+        "sourceTags": [
+          "audius",
+          "audius_trending_monthly",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "audius_trending_monthly": 1164,
+          "itunes_search": 6771091629
+        },
+        "score": 0.073589
+      },
+      {
+        "title": "Celebrate Me",
+        "artist": "IngaRose",
+        "album": "Celebrate Me - Single",
+        "durationMs": 217440,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/0e/67/16/0e671638-8b02-39a2-0482-c0190c936540/825393077961.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 14,
+          "itunes_search": 6766714852
+        },
+        "score": 0.073061
+      },
+      {
+        "title": "Work The Pressure",
+        "artist": "@iLLPeTiLL",
+        "album": "",
+        "durationMs": 180000,
+        "coverUrl": "https://creatornode2.audius.co/content/01KR4G767EC8XJTW5E2HY79E4M/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/R6zZP0X/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "R6zZP0X",
+        "sourceTags": [
+          "audius",
+          "audius_trending_monthly"
+        ],
+        "rankSignals": {
+          "audius_trending_monthly": 2360
+        },
+        "score": 0.072534
+      },
+      {
+        "title": "Nightshift Superstar",
+        "artist": "Muse",
+        "album": "The Wow! Signal",
+        "durationMs": 247145,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/5f/8f/4b/5f8f4b32-9d11-b416-a6f9-3fb23e045dd0/5026854898216.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 15,
+          "itunes_search": 1885607719
+        },
+        "score": 0.072534
+      },
+      {
+        "title": "PASSENGER",
+        "artist": "Alex Warren",
+        "album": "WILDCHILD",
+        "durationMs": 159771,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/4d/1e/25/4d1e2526-aaf4-f95d-4200-fef4dcfa88ed/075679574220.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 16,
+          "itunes_search": 6773456081
+        },
+        "score": 0.072008
+      },
+      {
+        "title": "Classic",
+        "artist": "Drake",
+        "album": "HABIBTI",
+        "durationMs": 179000,
+        "coverUrl": "https://api.deezer.com/album/983217461/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 52,
+          "deezer_chart:165": 18,
+          "itunes_search": 6769648028
+        },
+        "score": 0.071841
+      },
+      {
+        "title": "Pump",
+        "artist": "Ciara Graves",
+        "album": "Pump - Single",
+        "durationMs": 178000,
+        "coverUrl": "https://creatornode2.audius.co/content/baeaaaiqsedsizcslowgerwnc7mrwvbzkiog6mckhc77vlk5iplt2tqhddwtoy/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/BqpPKMP/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "BqpPKMP",
+        "sourceTags": [
+          "audius",
+          "audius_trending_monthly",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "audius_trending_monthly": 217,
+          "itunes_search": 6770988154
+        },
+        "score": 0.071483
+      },
+      {
+        "title": "Phone, Keys, Wallet",
+        "artist": "Lainey Wilson & John Mayer",
+        "album": "Phone, Keys, Wallet - Single",
+        "durationMs": 172747,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/43/99/8b/43998b40-7612-a2d7-5a54-da5e7870af99/4099964268270.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 17,
+          "itunes_search": 6770622562
+        },
+        "score": 0.071483
+      },
+      {
+        "title": "Be By You",
+        "artist": "Luke Combs",
+        "album": "The Way I Am",
+        "durationMs": 197655,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/4c/b6/e5/4cb6e5b1-2db0-88c0-f025-b79cad3b8fab/196873832111.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 18,
+          "itunes_search": 1862634805
+        },
+        "score": 0.070959
+      },
+      {
+        "title": "Sienna",
+        "artist": "The Marías",
+        "album": "Submarine",
+        "durationMs": 224000,
+        "coverUrl": "https://api.deezer.com/album/591265602/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:85",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 55,
+          "deezer_chart:85": 3,
+          "itunes_search": 1733731168
+        },
+        "score": 0.070825
+      },
+      {
+        "title": "FEVER DREAM",
+        "artist": "Alex Warren",
+        "album": "WILDCHILD",
+        "durationMs": 153430,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/4d/1e/25/4d1e2526-aaf4-f95d-4200-fef4dcfa88ed/075679574220.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 19,
+          "itunes_search": 1879983789
+        },
+        "score": 0.070436
+      },
+      {
+        "title": "Gerard Hollow - YNS2 (feat. Zavalaa) (G4BBA Remix)",
+        "artist": "G4BBA",
+        "album": "",
+        "durationMs": 201000,
+        "coverUrl": "https://audius-content-8.figment.io/content/baeaaaiqsedaofbon364vgxq37kgihrzqtso2dlsuihm5mmu43uhmoigrhl2c6/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/9mdWXGO/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "9mdWXGO",
+        "sourceTags": [
+          "audius",
+          "audius_trending_monthly"
+        ],
+        "rankSignals": {
+          "audius_trending_monthly": 514
+        },
+        "score": 0.070436
+      },
+      {
+        "title": "Dont Be Shy - Rixx, Mr Strings",
+        "artist": "Rixx",
+        "album": "Dont Be Shy",
+        "durationMs": 288000,
+        "coverUrl": "https://cn1.mainnet.audiusindex.org/content/baeaaaiqsedxyehqxldgqcf7x2xbboycl6ggspfj6dyctkvtqytpfunb4gej2g/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/dpb3Elm/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "dpb3Elm",
+        "sourceTags": [
+          "audius",
+          "audius_genre:Electronic",
+          "audius_trending_monthly",
+          "deezer_search"
+        ],
+        "rankSignals": {
+          "audius_genre:Electronic": 413,
+          "audius_trending_monthly": 413,
+          "deezer_search": 4000025461
+        },
+        "score": 0.070156
+      },
+      {
+        "title": "OKAY!",
+        "artist": "Forrest Frank",
+        "album": "OKAY! - Single",
+        "durationMs": 274694,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/b8/cb/d1/b8cbd17a-95c3-3a1e-f019-1bb4e93050f6/075679577122.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 20,
+          "itunes_search": 6765792669
+        },
+        "score": 0.069914
+      },
+      {
+        "title": "Torch Bearers",
+        "artist": "Zaiaku",
+        "album": "Torch Bearers - Single",
+        "durationMs": 293000,
+        "coverUrl": "https://creatornode2.audius.co/content/baeaaaiqsedd2bzffrcplhsnxvgdlodkzlefusx54tbnuwi4fv246df6hybzkq/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/l4843wZ/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "l4843wZ",
+        "sourceTags": [
+          "audius",
+          "audius_trending_monthly",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "audius_trending_monthly": 774,
+          "itunes_search": 1881796794
+        },
+        "score": 0.069393
+      },
+      {
+        "title": "Pink Pony Club",
+        "artist": "Chappell Roan",
+        "album": "Pink Pony Club - Single",
+        "durationMs": 258000,
+        "coverUrl": "https://api.deezer.com/album/488063815/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes",
+          "itunes_rss"
+        ],
+        "rankSignals": {
+          "deezer_chart": 97,
+          "deezer_chart:132": 25,
+          "itunes_rss": 52
+        },
+        "score": 0.068655
+      },
+      {
+        "title": "Somewhere Along The Way",
+        "artist": "Eddie Dalton",
+        "album": "The Years Between",
+        "durationMs": 276000,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/3e/85/a6/3e85a627-135a-5fca-eba9-655e645c364c/artwork.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 23,
+          "itunes_search": 1890389604
+        },
+        "score": 0.068354
+      },
+      {
+        "title": "mésures de haine remix",
+        "artist": "med mc",
+        "album": "",
+        "durationMs": 120000,
+        "coverUrl": "https://validator.stuffisup.com/content/baeaaaiqsed5lcwpergliyksi53owvefhimayxz4m43j6ridlqh44fqwl6ex6g/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/klQ4l3K/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "klQ4l3K",
+        "sourceTags": [
+          "audius",
+          "audius_trending_monthly"
+        ],
+        "rankSignals": {
+          "audius_trending_monthly": 2118
+        },
+        "score": 0.068354
+      },
+      {
+        "title": "Golden",
+        "artist": "HUNTR/X, EJAE, AUDREY NUNA, REI AMI & KPop Demon Hunters Cast",
+        "album": "KPop Demon Hunters (Soundtrack from the Netflix Film)",
+        "durationMs": 194608,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e1/15/42/e1154273-8ecd-5702-e6e6-597f28001681/25UMGIM82363.rgb.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 24,
+          "itunes_search": 1820264150
+        },
+        "score": 0.067836
+      },
+      {
+        "title": "God I'm Just Grateful",
+        "artist": "Elevation Worship & Chandler Moore",
+        "album": "God I'm Just Grateful - Single",
+        "durationMs": 299583,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/51/42/01/51420110-806a-86c5-7025-5016e5a2bd57/196873750729.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 25,
+          "itunes_search": 1848400240
+        },
+        "score": 0.06732
+      },
+      {
+        "title": "sailorr - down bad (thatskenny flip)",
+        "artist": "thatskenny",
+        "album": "",
+        "durationMs": 124000,
+        "coverUrl": "https://cn4.mainnet.audiusindex.org/content/baeaaaiqseclusat6fymkl7snr6ht6dcs47i7t4kpxwrgsbwv3zxhe7kp3is7k/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/95qq8W0/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "95qq8W0",
+        "sourceTags": [
+          "audius",
+          "audius_trending_monthly"
+        ],
+        "rankSignals": {
+          "audius_trending_monthly": 692
+        },
+        "score": 0.06732
+      },
+      {
+        "title": "Risk It All",
+        "artist": "Bruno Mars",
+        "album": "The Romantic",
+        "durationMs": 204068,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/ed/46/bf/ed46bf4e-7cb9-965a-54f3-03059977fe6c/075679589293.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 26,
+          "itunes_search": 1866732797
+        },
+        "score": 0.066804
+      },
+      {
+        "title": "Gucci purse - Krxnic",
+        "artist": "Krxnic",
+        "album": "Gucci Purse",
+        "durationMs": 192000,
+        "coverUrl": "https://audius-04.staked.cloud/content/baeaaaiqseclra5ykajsoazmpbxofjtjfco7gugu4dkriejotqfmurql7nytdu/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/r4NVNKO/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "r4NVNKO",
+        "sourceTags": [
+          "audius",
+          "audius_genre:Hip-Hop/Rap",
+          "audius_trending_monthly",
+          "deezer_search"
+        ],
+        "rankSignals": {
+          "audius_genre:Hip-Hop/Rap": 395,
+          "audius_trending_monthly": 395,
+          "deezer_search": 4043382701
+        },
+        "score": 0.066591
+      },
+      {
+        "title": "Anxiety",
+        "artist": "Doechii",
+        "album": "Anxiety - Single",
+        "durationMs": 249000,
+        "coverUrl": "https://api.deezer.com/album/722247851/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:116",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 58,
+          "deezer_chart:116": 2,
+          "itunes_search": 1800308810
+        },
+        "score": 0.066501
+      },
+      {
+        "title": "RIDE",
+        "artist": "CURE97 X YZENIA",
+        "album": "",
+        "durationMs": 145000,
+        "coverUrl": "https://audius-discovery-3.altego.net/content/baeaaaiqsecskwe2dodmls26i7y7xnliig63olr7rd4j4blc652bx2wmusfibe/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/50NaZGY/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "50NaZGY",
+        "sourceTags": [
+          "audius",
+          "audius_trending_monthly"
+        ],
+        "rankSignals": {
+          "audius_trending_monthly": 488
+        },
+        "score": 0.066289
+      },
+      {
+        "title": "Summer Breeze",
+        "artist": "Keith Urban",
+        "album": "flow state",
+        "durationMs": 240364,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e5/d0/1d/e5d01d5c-18da-ff6a-2214-f90a5e7222f4/26UMGIM44897.rgb.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 27,
+          "itunes_search": 6763360727
+        },
+        "score": 0.066289
+      },
+      {
+        "title": "2023-11-25",
+        "artist": "Van Snyder LIVE on ViBE 99.7 FM Las Vegas",
+        "album": "",
+        "durationMs": 420000,
+        "coverUrl": "https://audius-content-5.figment.io/content/baeaaaiqseav4734axaypfar3h7xetjhuf4ilg6u5i7l3ky4kf75s3lhi6m4u4/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/9PYK4Mo/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "9PYK4Mo",
+        "sourceTags": [
+          "audius",
+          "audius_genre:Electronic",
+          "audius_trending_monthly"
+        ],
+        "rankSignals": {
+          "audius_genre:Electronic": 434,
+          "audius_trending_monthly": 434
+        },
+        "score": 0.066066
+      },
+      {
+        "title": "The Most",
+        "artist": "Sinead Harnett",
+        "album": "Boundaries",
+        "durationMs": 178000,
+        "coverUrl": "https://api.deezer.com/album/551411822/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:165",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 54,
+          "deezer_chart:165": 32,
+          "itunes_search": 1737805977
+        },
+        "score": 0.06549
+      },
+      {
+        "title": "TEXAS HOLD 'EM",
+        "artist": "Beyoncé",
+        "album": "TEXAS HOLD 'EM - Single",
+        "durationMs": 233000,
+        "coverUrl": "https://api.deezer.com/album/546733702/image",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "deezer",
+          "deezer_chart",
+          "deezer_chart:132",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "deezer_chart": 51,
+          "deezer_chart:132": 55,
+          "itunes_search": 1730410734
+        },
+        "score": 0.065416
+      },
+      {
+        "title": "Dandelion",
+        "artist": "Ella Langley",
+        "album": "Dandelion",
+        "durationMs": 240946,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/a1/ba/64/a1ba6484-f462-1b88-ddff-d4c014d5f265/196874018361.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 29,
+          "itunes_search": 1869436838
+        },
+        "score": 0.065262
+      },
+      {
+        "title": "SYMMETRY 2026 DJ COMP",
+        "artist": "Kill Your Utopia",
+        "album": "",
+        "durationMs": 420000,
+        "coverUrl": "https://audius-content-2.figment.io/content/baeaaaiqsedfq5pgiy5cp5wfb7aiw6z4mysqffhoz6groltchwbjrhorr6jkrw/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/ZPoPxo7/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "ZPoPxo7",
+        "sourceTags": [
+          "audius",
+          "audius_trending_monthly"
+        ],
+        "rankSignals": {
+          "audius_trending_monthly": 1043
+        },
+        "score": 0.065262
+      },
+      {
+        "title": "Beat It",
+        "artist": "Michael Jackson",
+        "album": "Thriller",
+        "durationMs": 258297,
+        "coverUrl": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/32/4f/fd/324ffda2-9e51-8f6a-0c2d-c6fd2b41ac55/074643811224.jpg/170x170bb.png",
+        "audioUrl": null,
+        "audioProvider": null,
+        "providerTrackId": null,
+        "sourceTags": [
+          "itunes",
+          "itunes_rss",
+          "itunes_search"
+        ],
+        "rankSignals": {
+          "itunes_rss": 30,
+          "itunes_search": 269573341
+        },
+        "score": 0.064751
+      },
+      {
+        "title": "Oye Como Va-Santana (Roger Montiel edti)",
+        "artist": "Roger Montiel",
+        "album": "",
+        "durationMs": 164000,
+        "coverUrl": "https://creatornode2.audius.co/content/baeaaaiqsedjb2oofezxsuicnss3d7n6gulmcufzc3bcmtxhzqnizohrzg3krm/1000x1000.jpg",
+        "audioUrl": "https://api.audius.co/v1/tracks/wMvx9j/stream",
+        "audioProvider": "audius",
+        "providerTrackId": "wMvx9j",
+        "sourceTags": [
+          "audius",
+          "audius_trending_monthly"
+        ],
+        "rankSignals": {
+          "audius_trending_monthly": 451
+        },
+        "score": 0.06424
+      }
+    ]
+  },
+  "sections": [
+    {
+      "id": "global-hot",
+      "title": {
+        "zh-Hans": "全球热门",
+        "zh-Hant": "全球熱門",
+        "en-US": "Global Hot"
+      },
+      "subtitle": "Top signals from Last.fm, Deezer, iTunes and Audius",
+      "tracks": [
+        {
+          "title": "Choosin' Texas",
+          "artist": "Ella Langley",
+          "album": "Choosin' Texas - Single",
+          "durationMs": 232000,
+          "coverUrl": "https://api.deezer.com/album/837881302/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 2,
+            "deezer_chart:132": 9,
+            "itunes_rss": 2
+          },
+          "score": 0.244193
+        },
+        {
+          "title": "I Just Might",
+          "artist": "Bruno Mars",
+          "album": "The Romantic",
+          "durationMs": 212000,
+          "coverUrl": "https://api.deezer.com/album/893791002/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 9,
+            "deezer_chart:132": 3,
+            "itunes_rss": 10
+          },
+          "score": 0.227455
+        },
+        {
+          "title": "So Easy (To Fall In Love)",
+          "artist": "Olivia Dean",
+          "album": "The Art of Loving",
+          "durationMs": 169000,
+          "coverUrl": "https://api.deezer.com/album/823933891/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 10,
+            "deezer_chart:132": 4,
+            "itunes_rss": 21
+          },
+          "score": 0.219456
+        },
+        {
+          "title": "WHERE IS MY HUSBAND!",
+          "artist": "RAYE",
+          "album": "WHERE IS MY HUSBAND! - Single",
+          "durationMs": 197000,
+          "coverUrl": "https://api.deezer.com/album/818660961/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 6,
+            "deezer_chart:132": 1,
+            "itunes_rss": 40
+          },
+          "score": 0.218406
+        },
+        {
+          "title": "The Fate of Ophelia",
+          "artist": "Taylor Swift",
+          "album": "The Life of a Showgirl",
+          "durationMs": 226000,
+          "coverUrl": "https://api.deezer.com/album/829966331/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 7,
+            "deezer_chart:132": 2,
+            "itunes_rss": 54
+          },
+          "score": 0.20927
+        },
+        {
+          "title": "Man I Need",
+          "artist": "Olivia Dean",
+          "album": "The Art of Loving",
+          "durationMs": 184000,
+          "coverUrl": "https://api.deezer.com/album/803181741/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 15,
+            "deezer_chart:132": 8,
+            "itunes_rss": 22
+          },
+          "score": 0.20824
+        },
+        {
+          "title": "drop dead",
+          "artist": "Olivia Rodrigo",
+          "album": "you seem pretty sad for a girl so in love",
+          "durationMs": 225000,
+          "coverUrl": "https://api.deezer.com/album/963061451/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 13,
+            "deezer_chart:132": 6,
+            "itunes_rss": 55
+          },
+          "score": 0.196029
+        },
+        {
+          "title": "Boston",
+          "artist": "STELLA LEFTY",
+          "album": "Boston - Single",
+          "durationMs": 170000,
+          "coverUrl": "https://api.deezer.com/album/937796461/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 25,
+            "deezer_chart:132": 27,
+            "itunes_rss": 8
+          },
+          "score": 0.19229
+        },
+        {
+          "title": "Dracula (JENNIE Remix)",
+          "artist": "Tame Impala",
+          "album": "Dracula - Single",
+          "durationMs": 209000,
+          "coverUrl": "https://api.deezer.com/album/910510411/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:113",
+            "deezer_chart:85",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 5,
+            "deezer_chart:113": 2,
+            "deezer_chart:85": 2,
+            "itunes_search": 1842444457
+          },
+          "score": 0.178952
+        },
+        {
+          "title": "12 to 12",
+          "artist": "sombr",
+          "album": "12 to 12 - Single",
+          "durationMs": 242000,
+          "coverUrl": "https://api.deezer.com/album/791892231/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:85",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 1,
+            "deezer_chart:85": 1,
+            "itunes_search": 1828036635
+          },
+          "score": 0.16875
+        },
+        {
+          "title": "Folded",
+          "artist": "Kehlani",
+          "album": "Kehlani",
+          "durationMs": 238000,
+          "coverUrl": "https://api.deezer.com/album/771060011/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:165",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 3,
+            "deezer_chart:165": 1,
+            "itunes_search": 1885055409
+          },
+          "score": 0.164714
+        },
+        {
+          "title": "HELLO!",
+          "artist": "Durand Bernarr",
+          "album": "BERNARR.",
+          "durationMs": 205000,
+          "coverUrl": "https://api.deezer.com/album/960734581/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:165",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 4,
+            "deezer_chart:165": 3,
+            "itunes_search": 1893156976
+          },
+          "score": 0.162203
+        },
+        {
+          "title": "butterflies.",
+          "artist": "Brent Faiyaz",
+          "album": "Icon",
+          "durationMs": 248000,
+          "coverUrl": "https://api.deezer.com/album/894459272/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:165",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 8,
+            "deezer_chart:165": 2,
+            "itunes_search": 1867923703
+          },
+          "score": 0.154499
+        },
+        {
+          "title": "Burning Blue",
+          "artist": "Mariah The Scientist",
+          "album": "Burning Blue - Single",
+          "durationMs": 205000,
+          "coverUrl": "https://api.deezer.com/album/749591281/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "deezer_chart:152",
+            "deezer_chart:165",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 21,
+            "deezer_chart:132": 33,
+            "deezer_chart:152": 1,
+            "deezer_chart:165": 27,
+            "itunes_search": 1811228836
+          },
+          "score": 0.153362
+        },
+        {
+          "title": "Stargazing",
+          "artist": "Myles Smith",
+          "album": "Stargazing - Single",
+          "durationMs": 172000,
+          "coverUrl": "https://api.deezer.com/album/575655361/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "deezer_chart:85",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 11,
+            "deezer_chart:132": 65,
+            "deezer_chart:85": 18,
+            "itunes_search": 1742275653
+          },
+          "score": 0.149413
+        },
+        {
+          "title": "YUKON",
+          "artist": "Justin Bieber",
+          "album": "SWAG",
+          "durationMs": 164000,
+          "coverUrl": "https://api.deezer.com/album/786280691/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 12,
+            "deezer_chart:132": 5,
+            "itunes_search": 1825994651
+          },
+          "score": 0.145909
+        },
+        {
+          "title": "End of Beginning",
+          "artist": "Djo",
+          "album": "DECIDE",
+          "durationMs": 159000,
+          "coverUrl": "https://api.deezer.com/album/353216957/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:152",
+            "deezer_chart:85",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 47,
+            "deezer_chart:152": 3,
+            "deezer_chart:85": 13,
+            "itunes_rss": 74
+          },
+          "score": 0.142645
+        },
+        {
+          "title": "When Did You Get Hot?",
+          "artist": "Sabrina Carpenter",
+          "album": "Man’s Best Friend",
+          "durationMs": 145000,
+          "coverUrl": "https://api.deezer.com/album/812101581/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 14,
+            "deezer_chart:132": 7,
+            "itunes_search": 1819861167
+          },
+          "score": 0.141539
+        },
+        {
+          "title": "Sad Girls",
+          "artist": "Bebe Rexha",
+          "album": "DIRTY BLONDE",
+          "durationMs": 168000,
+          "coverUrl": "https://api.deezer.com/album/991737571/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:113",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 17,
+            "deezer_chart:113": 1,
+            "itunes_search": 1891886776
+          },
+          "score": 0.137291
+        },
+        {
+          "title": "My Life",
+          "artist": "Durand Bernarr",
+          "album": "BERNARR.",
+          "durationMs": 212000,
+          "coverUrl": "https://api.deezer.com/album/960734581/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:165",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 16,
+            "deezer_chart:165": 19,
+            "itunes_search": 1893157347
+          },
+          "score": 0.134793
+        }
+      ]
+    },
+    {
+      "id": "streamable-now",
+      "title": {
+        "zh-Hans": "可直接播放",
+        "zh-Hant": "可直接播放",
+        "en-US": "Streamable Now"
+      },
+      "subtitle": "Resolved Audius streams",
+      "tracks": [
+        {
+          "title": "Justin Bieber - One Less Lonely Girl (BONNIE X CLYDE REMIX)",
+          "artist": "BONNIE X CLYDE",
+          "album": "",
+          "durationMs": 155000,
+          "coverUrl": "https://creatornode2.audius.co/content/baeaaaiqsebwcsz44ogjz5tnx2w4gmblgozmazzrcvhsq5v4a25rekck3p2d2m/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/E6bM2N/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "E6bM2N",
+          "sourceTags": [
+            "audius",
+            "audius_genre:Electronic",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_genre:Electronic": 1811,
+            "audius_trending_monthly": 1811
+          },
+          "score": 0.087713
+        },
+        {
+          "title": "Fred Again... - OK OK (bauti & Dabow flip)",
+          "artist": "bauti",
+          "album": "",
+          "durationMs": 129000,
+          "coverUrl": "https://audius-content-2.figment.io/content/baeaaaiqsebb7yuyaw3afozdaaxni5j6pk7p2c7o3vhp2aa526sldgmsxdfkis/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/93vpz2j/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "93vpz2j",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 1305
+          },
+          "score": 0.078922
+        },
+        {
+          "title": "Vienna Calling 100 - 2025-11-21",
+          "artist": "Van Snyder",
+          "album": "",
+          "durationMs": 420000,
+          "coverUrl": "https://creatornode2.audius.co/content/baeaaaiqseddm7chfbwrbei4bhzewq5vj2nzyestci3haoa2cwsxjrqwi64nc2/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/Yaqlvv7/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "Yaqlvv7",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 3332
+          },
+          "score": 0.077848
+        },
+        {
+          "title": "Palming Sand",
+          "artist": "DISKADE",
+          "album": "Palming Sand - Single",
+          "durationMs": 200000,
+          "coverUrl": "https://audius-content-10.figment.io/content/baeaaaiqseb5xlx4scxr3tgpw67n3r5ew7n754zlo6dsmazrazn64nyctiltv6/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/z8bb2bp/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "z8bb2bp",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 909,
+            "itunes_search": 6771222804
+          },
+          "score": 0.076777
+        },
+        {
+          "title": "RAIVA",
+          "artist": "NAZAAR",
+          "album": "RAIVA",
+          "durationMs": 164000,
+          "coverUrl": "https://audius-creator-1.theblueprint.xyz/content/baeaaaiqseah6oencrbearrwn47cyifknfg7atzeokfncykdlo6ohsqy5ex62c/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/31Jyo9q/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "31Jyo9q",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly",
+            "deezer_search"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 904,
+            "deezer_search": 2663543102
+          },
+          "score": 0.075711
+        },
+        {
+          "title": "Chief Keef - Hate Being Sober (Neotek Droptopgundam Flip)",
+          "artist": "NEOTEK",
+          "album": "",
+          "durationMs": 198000,
+          "coverUrl": "https://audius.rickyrombo.com/content/baeaaaiqsea5w2riw3k3cynmgbt75xzxgots7jsgegbgw7jkrv4yj77sfdnlsq/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/v27mjE6/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "v27mjE6",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 690
+          },
+          "score": 0.074648
+        },
+        {
+          "title": "slow nights",
+          "artist": "zaza",
+          "album": "slow nights - Single",
+          "durationMs": 129000,
+          "coverUrl": "https://audius-content-11.figment.io/content/baeaaaiqsea5utxnyiuo5q6dzzrxqxnfbt7dqd3mpx5y7a7buxybf24owqu6cw/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/gYlGO8k/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "gYlGO8k",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 1164,
+            "itunes_search": 6771091629
+          },
+          "score": 0.073589
+        },
+        {
+          "title": "Work The Pressure",
+          "artist": "@iLLPeTiLL",
+          "album": "",
+          "durationMs": 180000,
+          "coverUrl": "https://creatornode2.audius.co/content/01KR4G767EC8XJTW5E2HY79E4M/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/R6zZP0X/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "R6zZP0X",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 2360
+          },
+          "score": 0.072534
+        },
+        {
+          "title": "Pump",
+          "artist": "Ciara Graves",
+          "album": "Pump - Single",
+          "durationMs": 178000,
+          "coverUrl": "https://creatornode2.audius.co/content/baeaaaiqsedsizcslowgerwnc7mrwvbzkiog6mckhc77vlk5iplt2tqhddwtoy/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/BqpPKMP/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "BqpPKMP",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 217,
+            "itunes_search": 6770988154
+          },
+          "score": 0.071483
+        },
+        {
+          "title": "Gerard Hollow - YNS2 (feat. Zavalaa) (G4BBA Remix)",
+          "artist": "G4BBA",
+          "album": "",
+          "durationMs": 201000,
+          "coverUrl": "https://audius-content-8.figment.io/content/baeaaaiqsedaofbon364vgxq37kgihrzqtso2dlsuihm5mmu43uhmoigrhl2c6/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/9mdWXGO/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "9mdWXGO",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 514
+          },
+          "score": 0.070436
+        },
+        {
+          "title": "Dont Be Shy - Rixx, Mr Strings",
+          "artist": "Rixx",
+          "album": "Dont Be Shy",
+          "durationMs": 288000,
+          "coverUrl": "https://cn1.mainnet.audiusindex.org/content/baeaaaiqsedxyehqxldgqcf7x2xbboycl6ggspfj6dyctkvtqytpfunb4gej2g/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/dpb3Elm/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "dpb3Elm",
+          "sourceTags": [
+            "audius",
+            "audius_genre:Electronic",
+            "audius_trending_monthly",
+            "deezer_search"
+          ],
+          "rankSignals": {
+            "audius_genre:Electronic": 413,
+            "audius_trending_monthly": 413,
+            "deezer_search": 4000025461
+          },
+          "score": 0.070156
+        },
+        {
+          "title": "Torch Bearers",
+          "artist": "Zaiaku",
+          "album": "Torch Bearers - Single",
+          "durationMs": 293000,
+          "coverUrl": "https://creatornode2.audius.co/content/baeaaaiqsedd2bzffrcplhsnxvgdlodkzlefusx54tbnuwi4fv246df6hybzkq/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/l4843wZ/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "l4843wZ",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 774,
+            "itunes_search": 1881796794
+          },
+          "score": 0.069393
+        },
+        {
+          "title": "mésures de haine remix",
+          "artist": "med mc",
+          "album": "",
+          "durationMs": 120000,
+          "coverUrl": "https://validator.stuffisup.com/content/baeaaaiqsed5lcwpergliyksi53owvefhimayxz4m43j6ridlqh44fqwl6ex6g/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/klQ4l3K/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "klQ4l3K",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 2118
+          },
+          "score": 0.068354
+        },
+        {
+          "title": "sailorr - down bad (thatskenny flip)",
+          "artist": "thatskenny",
+          "album": "",
+          "durationMs": 124000,
+          "coverUrl": "https://cn4.mainnet.audiusindex.org/content/baeaaaiqseclusat6fymkl7snr6ht6dcs47i7t4kpxwrgsbwv3zxhe7kp3is7k/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/95qq8W0/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "95qq8W0",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 692
+          },
+          "score": 0.06732
+        },
+        {
+          "title": "Gucci purse - Krxnic",
+          "artist": "Krxnic",
+          "album": "Gucci Purse",
+          "durationMs": 192000,
+          "coverUrl": "https://audius-04.staked.cloud/content/baeaaaiqseclra5ykajsoazmpbxofjtjfco7gugu4dkriejotqfmurql7nytdu/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/r4NVNKO/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "r4NVNKO",
+          "sourceTags": [
+            "audius",
+            "audius_genre:Hip-Hop/Rap",
+            "audius_trending_monthly",
+            "deezer_search"
+          ],
+          "rankSignals": {
+            "audius_genre:Hip-Hop/Rap": 395,
+            "audius_trending_monthly": 395,
+            "deezer_search": 4043382701
+          },
+          "score": 0.066591
+        },
+        {
+          "title": "RIDE",
+          "artist": "CURE97 X YZENIA",
+          "album": "",
+          "durationMs": 145000,
+          "coverUrl": "https://audius-discovery-3.altego.net/content/baeaaaiqsecskwe2dodmls26i7y7xnliig63olr7rd4j4blc652bx2wmusfibe/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/50NaZGY/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "50NaZGY",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 488
+          },
+          "score": 0.066289
+        },
+        {
+          "title": "2023-11-25",
+          "artist": "Van Snyder LIVE on ViBE 99.7 FM Las Vegas",
+          "album": "",
+          "durationMs": 420000,
+          "coverUrl": "https://audius-content-5.figment.io/content/baeaaaiqseav4734axaypfar3h7xetjhuf4ilg6u5i7l3ky4kf75s3lhi6m4u4/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/9PYK4Mo/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "9PYK4Mo",
+          "sourceTags": [
+            "audius",
+            "audius_genre:Electronic",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_genre:Electronic": 434,
+            "audius_trending_monthly": 434
+          },
+          "score": 0.066066
+        },
+        {
+          "title": "SYMMETRY 2026 DJ COMP",
+          "artist": "Kill Your Utopia",
+          "album": "",
+          "durationMs": 420000,
+          "coverUrl": "https://audius-content-2.figment.io/content/baeaaaiqsedfq5pgiy5cp5wfb7aiw6z4mysqffhoz6groltchwbjrhorr6jkrw/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/ZPoPxo7/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "ZPoPxo7",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 1043
+          },
+          "score": 0.065262
+        },
+        {
+          "title": "Oye Como Va-Santana (Roger Montiel edti)",
+          "artist": "Roger Montiel",
+          "album": "",
+          "durationMs": 164000,
+          "coverUrl": "https://creatornode2.audius.co/content/baeaaaiqsedjb2oofezxsuicnss3d7n6gulmcufzc3bcmtxhzqnizohrzg3krm/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/wMvx9j/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "wMvx9j",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 451
+          },
+          "score": 0.06424
+        },
+        {
+          "title": "FORTNITE EVERY NIGHT",
+          "artist": "Ronnie Stelly",
+          "album": "",
+          "durationMs": 156000,
+          "coverUrl": "https://audius-discovery-1.altego.net/content/baeaaaiqsed64gqdp5oflmorg3foiticsuatb62v5fjqppyqohsznaqivf7e4m/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/lwaNJJK/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "lwaNJJK",
+          "sourceTags": [
+            "audius",
+            "audius_genre:Hip-Hop/Rap",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_genre:Hip-Hop/Rap": 299,
+            "audius_trending_monthly": 299
+          },
+          "score": 0.06261
+        }
+      ]
+    },
+    {
+      "id": "world-charts",
+      "title": {
+        "zh-Hans": "环球榜单",
+        "zh-Hant": "環球榜單",
+        "en-US": "World Charts"
+      },
+      "subtitle": "Deezer and iTunes chart signals",
+      "tracks": [
+        {
+          "title": "Choosin' Texas",
+          "artist": "Ella Langley",
+          "album": "Choosin' Texas - Single",
+          "durationMs": 232000,
+          "coverUrl": "https://api.deezer.com/album/837881302/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 2,
+            "deezer_chart:132": 9,
+            "itunes_rss": 2
+          },
+          "score": 0.244193
+        },
+        {
+          "title": "I Just Might",
+          "artist": "Bruno Mars",
+          "album": "The Romantic",
+          "durationMs": 212000,
+          "coverUrl": "https://api.deezer.com/album/893791002/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 9,
+            "deezer_chart:132": 3,
+            "itunes_rss": 10
+          },
+          "score": 0.227455
+        },
+        {
+          "title": "So Easy (To Fall In Love)",
+          "artist": "Olivia Dean",
+          "album": "The Art of Loving",
+          "durationMs": 169000,
+          "coverUrl": "https://api.deezer.com/album/823933891/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 10,
+            "deezer_chart:132": 4,
+            "itunes_rss": 21
+          },
+          "score": 0.219456
+        },
+        {
+          "title": "WHERE IS MY HUSBAND!",
+          "artist": "RAYE",
+          "album": "WHERE IS MY HUSBAND! - Single",
+          "durationMs": 197000,
+          "coverUrl": "https://api.deezer.com/album/818660961/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 6,
+            "deezer_chart:132": 1,
+            "itunes_rss": 40
+          },
+          "score": 0.218406
+        },
+        {
+          "title": "The Fate of Ophelia",
+          "artist": "Taylor Swift",
+          "album": "The Life of a Showgirl",
+          "durationMs": 226000,
+          "coverUrl": "https://api.deezer.com/album/829966331/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 7,
+            "deezer_chart:132": 2,
+            "itunes_rss": 54
+          },
+          "score": 0.20927
+        },
+        {
+          "title": "Man I Need",
+          "artist": "Olivia Dean",
+          "album": "The Art of Loving",
+          "durationMs": 184000,
+          "coverUrl": "https://api.deezer.com/album/803181741/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 15,
+            "deezer_chart:132": 8,
+            "itunes_rss": 22
+          },
+          "score": 0.20824
+        },
+        {
+          "title": "drop dead",
+          "artist": "Olivia Rodrigo",
+          "album": "you seem pretty sad for a girl so in love",
+          "durationMs": 225000,
+          "coverUrl": "https://api.deezer.com/album/963061451/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 13,
+            "deezer_chart:132": 6,
+            "itunes_rss": 55
+          },
+          "score": 0.196029
+        },
+        {
+          "title": "Boston",
+          "artist": "STELLA LEFTY",
+          "album": "Boston - Single",
+          "durationMs": 170000,
+          "coverUrl": "https://api.deezer.com/album/937796461/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 25,
+            "deezer_chart:132": 27,
+            "itunes_rss": 8
+          },
+          "score": 0.19229
+        },
+        {
+          "title": "Dracula (JENNIE Remix)",
+          "artist": "Tame Impala",
+          "album": "Dracula - Single",
+          "durationMs": 209000,
+          "coverUrl": "https://api.deezer.com/album/910510411/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:113",
+            "deezer_chart:85",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 5,
+            "deezer_chart:113": 2,
+            "deezer_chart:85": 2,
+            "itunes_search": 1842444457
+          },
+          "score": 0.178952
+        },
+        {
+          "title": "12 to 12",
+          "artist": "sombr",
+          "album": "12 to 12 - Single",
+          "durationMs": 242000,
+          "coverUrl": "https://api.deezer.com/album/791892231/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:85",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 1,
+            "deezer_chart:85": 1,
+            "itunes_search": 1828036635
+          },
+          "score": 0.16875
+        },
+        {
+          "title": "Folded",
+          "artist": "Kehlani",
+          "album": "Kehlani",
+          "durationMs": 238000,
+          "coverUrl": "https://api.deezer.com/album/771060011/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:165",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 3,
+            "deezer_chart:165": 1,
+            "itunes_search": 1885055409
+          },
+          "score": 0.164714
+        },
+        {
+          "title": "HELLO!",
+          "artist": "Durand Bernarr",
+          "album": "BERNARR.",
+          "durationMs": 205000,
+          "coverUrl": "https://api.deezer.com/album/960734581/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:165",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 4,
+            "deezer_chart:165": 3,
+            "itunes_search": 1893156976
+          },
+          "score": 0.162203
+        },
+        {
+          "title": "butterflies.",
+          "artist": "Brent Faiyaz",
+          "album": "Icon",
+          "durationMs": 248000,
+          "coverUrl": "https://api.deezer.com/album/894459272/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:165",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 8,
+            "deezer_chart:165": 2,
+            "itunes_search": 1867923703
+          },
+          "score": 0.154499
+        },
+        {
+          "title": "Burning Blue",
+          "artist": "Mariah The Scientist",
+          "album": "Burning Blue - Single",
+          "durationMs": 205000,
+          "coverUrl": "https://api.deezer.com/album/749591281/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "deezer_chart:152",
+            "deezer_chart:165",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 21,
+            "deezer_chart:132": 33,
+            "deezer_chart:152": 1,
+            "deezer_chart:165": 27,
+            "itunes_search": 1811228836
+          },
+          "score": 0.153362
+        },
+        {
+          "title": "Stargazing",
+          "artist": "Myles Smith",
+          "album": "Stargazing - Single",
+          "durationMs": 172000,
+          "coverUrl": "https://api.deezer.com/album/575655361/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "deezer_chart:85",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 11,
+            "deezer_chart:132": 65,
+            "deezer_chart:85": 18,
+            "itunes_search": 1742275653
+          },
+          "score": 0.149413
+        },
+        {
+          "title": "YUKON",
+          "artist": "Justin Bieber",
+          "album": "SWAG",
+          "durationMs": 164000,
+          "coverUrl": "https://api.deezer.com/album/786280691/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 12,
+            "deezer_chart:132": 5,
+            "itunes_search": 1825994651
+          },
+          "score": 0.145909
+        },
+        {
+          "title": "End of Beginning",
+          "artist": "Djo",
+          "album": "DECIDE",
+          "durationMs": 159000,
+          "coverUrl": "https://api.deezer.com/album/353216957/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:152",
+            "deezer_chart:85",
+            "itunes",
+            "itunes_rss"
+          ],
+          "rankSignals": {
+            "deezer_chart": 47,
+            "deezer_chart:152": 3,
+            "deezer_chart:85": 13,
+            "itunes_rss": 74
+          },
+          "score": 0.142645
+        },
+        {
+          "title": "When Did You Get Hot?",
+          "artist": "Sabrina Carpenter",
+          "album": "Man’s Best Friend",
+          "durationMs": 145000,
+          "coverUrl": "https://api.deezer.com/album/812101581/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:132",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 14,
+            "deezer_chart:132": 7,
+            "itunes_search": 1819861167
+          },
+          "score": 0.141539
+        },
+        {
+          "title": "Sad Girls",
+          "artist": "Bebe Rexha",
+          "album": "DIRTY BLONDE",
+          "durationMs": 168000,
+          "coverUrl": "https://api.deezer.com/album/991737571/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:113",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 17,
+            "deezer_chart:113": 1,
+            "itunes_search": 1891886776
+          },
+          "score": 0.137291
+        },
+        {
+          "title": "My Life",
+          "artist": "Durand Bernarr",
+          "album": "BERNARR.",
+          "durationMs": 212000,
+          "coverUrl": "https://api.deezer.com/album/960734581/image",
+          "audioUrl": null,
+          "audioProvider": null,
+          "providerTrackId": null,
+          "sourceTags": [
+            "deezer",
+            "deezer_chart",
+            "deezer_chart:165",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "deezer_chart": 16,
+            "deezer_chart:165": 19,
+            "itunes_search": 1893157347
+          },
+          "score": 0.134793
+        }
+      ]
+    },
+    {
+      "id": "audius-trending",
+      "title": {
+        "zh-Hans": "Audius 流行",
+        "zh-Hant": "Audius 流行",
+        "en-US": "Audius Trending"
+      },
+      "subtitle": "Independent streaming trends",
+      "tracks": [
+        {
+          "title": "Justin Bieber - One Less Lonely Girl (BONNIE X CLYDE REMIX)",
+          "artist": "BONNIE X CLYDE",
+          "album": "",
+          "durationMs": 155000,
+          "coverUrl": "https://creatornode2.audius.co/content/baeaaaiqsebwcsz44ogjz5tnx2w4gmblgozmazzrcvhsq5v4a25rekck3p2d2m/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/E6bM2N/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "E6bM2N",
+          "sourceTags": [
+            "audius",
+            "audius_genre:Electronic",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_genre:Electronic": 1811,
+            "audius_trending_monthly": 1811
+          },
+          "score": 0.087713
+        },
+        {
+          "title": "Fred Again... - OK OK (bauti & Dabow flip)",
+          "artist": "bauti",
+          "album": "",
+          "durationMs": 129000,
+          "coverUrl": "https://audius-content-2.figment.io/content/baeaaaiqsebb7yuyaw3afozdaaxni5j6pk7p2c7o3vhp2aa526sldgmsxdfkis/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/93vpz2j/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "93vpz2j",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 1305
+          },
+          "score": 0.078922
+        },
+        {
+          "title": "Vienna Calling 100 - 2025-11-21",
+          "artist": "Van Snyder",
+          "album": "",
+          "durationMs": 420000,
+          "coverUrl": "https://creatornode2.audius.co/content/baeaaaiqseddm7chfbwrbei4bhzewq5vj2nzyestci3haoa2cwsxjrqwi64nc2/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/Yaqlvv7/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "Yaqlvv7",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 3332
+          },
+          "score": 0.077848
+        },
+        {
+          "title": "Palming Sand",
+          "artist": "DISKADE",
+          "album": "Palming Sand - Single",
+          "durationMs": 200000,
+          "coverUrl": "https://audius-content-10.figment.io/content/baeaaaiqseb5xlx4scxr3tgpw67n3r5ew7n754zlo6dsmazrazn64nyctiltv6/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/z8bb2bp/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "z8bb2bp",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 909,
+            "itunes_search": 6771222804
+          },
+          "score": 0.076777
+        },
+        {
+          "title": "RAIVA",
+          "artist": "NAZAAR",
+          "album": "RAIVA",
+          "durationMs": 164000,
+          "coverUrl": "https://audius-creator-1.theblueprint.xyz/content/baeaaaiqseah6oencrbearrwn47cyifknfg7atzeokfncykdlo6ohsqy5ex62c/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/31Jyo9q/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "31Jyo9q",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly",
+            "deezer_search"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 904,
+            "deezer_search": 2663543102
+          },
+          "score": 0.075711
+        },
+        {
+          "title": "Chief Keef - Hate Being Sober (Neotek Droptopgundam Flip)",
+          "artist": "NEOTEK",
+          "album": "",
+          "durationMs": 198000,
+          "coverUrl": "https://audius.rickyrombo.com/content/baeaaaiqsea5w2riw3k3cynmgbt75xzxgots7jsgegbgw7jkrv4yj77sfdnlsq/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/v27mjE6/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "v27mjE6",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 690
+          },
+          "score": 0.074648
+        },
+        {
+          "title": "slow nights",
+          "artist": "zaza",
+          "album": "slow nights - Single",
+          "durationMs": 129000,
+          "coverUrl": "https://audius-content-11.figment.io/content/baeaaaiqsea5utxnyiuo5q6dzzrxqxnfbt7dqd3mpx5y7a7buxybf24owqu6cw/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/gYlGO8k/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "gYlGO8k",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 1164,
+            "itunes_search": 6771091629
+          },
+          "score": 0.073589
+        },
+        {
+          "title": "Work The Pressure",
+          "artist": "@iLLPeTiLL",
+          "album": "",
+          "durationMs": 180000,
+          "coverUrl": "https://creatornode2.audius.co/content/01KR4G767EC8XJTW5E2HY79E4M/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/R6zZP0X/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "R6zZP0X",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 2360
+          },
+          "score": 0.072534
+        },
+        {
+          "title": "Pump",
+          "artist": "Ciara Graves",
+          "album": "Pump - Single",
+          "durationMs": 178000,
+          "coverUrl": "https://creatornode2.audius.co/content/baeaaaiqsedsizcslowgerwnc7mrwvbzkiog6mckhc77vlk5iplt2tqhddwtoy/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/BqpPKMP/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "BqpPKMP",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 217,
+            "itunes_search": 6770988154
+          },
+          "score": 0.071483
+        },
+        {
+          "title": "Gerard Hollow - YNS2 (feat. Zavalaa) (G4BBA Remix)",
+          "artist": "G4BBA",
+          "album": "",
+          "durationMs": 201000,
+          "coverUrl": "https://audius-content-8.figment.io/content/baeaaaiqsedaofbon364vgxq37kgihrzqtso2dlsuihm5mmu43uhmoigrhl2c6/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/9mdWXGO/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "9mdWXGO",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 514
+          },
+          "score": 0.070436
+        },
+        {
+          "title": "Dont Be Shy - Rixx, Mr Strings",
+          "artist": "Rixx",
+          "album": "Dont Be Shy",
+          "durationMs": 288000,
+          "coverUrl": "https://cn1.mainnet.audiusindex.org/content/baeaaaiqsedxyehqxldgqcf7x2xbboycl6ggspfj6dyctkvtqytpfunb4gej2g/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/dpb3Elm/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "dpb3Elm",
+          "sourceTags": [
+            "audius",
+            "audius_genre:Electronic",
+            "audius_trending_monthly",
+            "deezer_search"
+          ],
+          "rankSignals": {
+            "audius_genre:Electronic": 413,
+            "audius_trending_monthly": 413,
+            "deezer_search": 4000025461
+          },
+          "score": 0.070156
+        },
+        {
+          "title": "Torch Bearers",
+          "artist": "Zaiaku",
+          "album": "Torch Bearers - Single",
+          "durationMs": 293000,
+          "coverUrl": "https://creatornode2.audius.co/content/baeaaaiqsedd2bzffrcplhsnxvgdlodkzlefusx54tbnuwi4fv246df6hybzkq/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/l4843wZ/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "l4843wZ",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly",
+            "itunes_search"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 774,
+            "itunes_search": 1881796794
+          },
+          "score": 0.069393
+        },
+        {
+          "title": "mésures de haine remix",
+          "artist": "med mc",
+          "album": "",
+          "durationMs": 120000,
+          "coverUrl": "https://validator.stuffisup.com/content/baeaaaiqsed5lcwpergliyksi53owvefhimayxz4m43j6ridlqh44fqwl6ex6g/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/klQ4l3K/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "klQ4l3K",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 2118
+          },
+          "score": 0.068354
+        },
+        {
+          "title": "sailorr - down bad (thatskenny flip)",
+          "artist": "thatskenny",
+          "album": "",
+          "durationMs": 124000,
+          "coverUrl": "https://cn4.mainnet.audiusindex.org/content/baeaaaiqseclusat6fymkl7snr6ht6dcs47i7t4kpxwrgsbwv3zxhe7kp3is7k/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/95qq8W0/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "95qq8W0",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 692
+          },
+          "score": 0.06732
+        },
+        {
+          "title": "Gucci purse - Krxnic",
+          "artist": "Krxnic",
+          "album": "Gucci Purse",
+          "durationMs": 192000,
+          "coverUrl": "https://audius-04.staked.cloud/content/baeaaaiqseclra5ykajsoazmpbxofjtjfco7gugu4dkriejotqfmurql7nytdu/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/r4NVNKO/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "r4NVNKO",
+          "sourceTags": [
+            "audius",
+            "audius_genre:Hip-Hop/Rap",
+            "audius_trending_monthly",
+            "deezer_search"
+          ],
+          "rankSignals": {
+            "audius_genre:Hip-Hop/Rap": 395,
+            "audius_trending_monthly": 395,
+            "deezer_search": 4043382701
+          },
+          "score": 0.066591
+        },
+        {
+          "title": "RIDE",
+          "artist": "CURE97 X YZENIA",
+          "album": "",
+          "durationMs": 145000,
+          "coverUrl": "https://audius-discovery-3.altego.net/content/baeaaaiqsecskwe2dodmls26i7y7xnliig63olr7rd4j4blc652bx2wmusfibe/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/50NaZGY/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "50NaZGY",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 488
+          },
+          "score": 0.066289
+        },
+        {
+          "title": "2023-11-25",
+          "artist": "Van Snyder LIVE on ViBE 99.7 FM Las Vegas",
+          "album": "",
+          "durationMs": 420000,
+          "coverUrl": "https://audius-content-5.figment.io/content/baeaaaiqseav4734axaypfar3h7xetjhuf4ilg6u5i7l3ky4kf75s3lhi6m4u4/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/9PYK4Mo/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "9PYK4Mo",
+          "sourceTags": [
+            "audius",
+            "audius_genre:Electronic",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_genre:Electronic": 434,
+            "audius_trending_monthly": 434
+          },
+          "score": 0.066066
+        },
+        {
+          "title": "SYMMETRY 2026 DJ COMP",
+          "artist": "Kill Your Utopia",
+          "album": "",
+          "durationMs": 420000,
+          "coverUrl": "https://audius-content-2.figment.io/content/baeaaaiqsedfq5pgiy5cp5wfb7aiw6z4mysqffhoz6groltchwbjrhorr6jkrw/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/ZPoPxo7/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "ZPoPxo7",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 1043
+          },
+          "score": 0.065262
+        },
+        {
+          "title": "Oye Como Va-Santana (Roger Montiel edti)",
+          "artist": "Roger Montiel",
+          "album": "",
+          "durationMs": 164000,
+          "coverUrl": "https://creatornode2.audius.co/content/baeaaaiqsedjb2oofezxsuicnss3d7n6gulmcufzc3bcmtxhzqnizohrzg3krm/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/wMvx9j/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "wMvx9j",
+          "sourceTags": [
+            "audius",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_trending_monthly": 451
+          },
+          "score": 0.06424
+        },
+        {
+          "title": "FORTNITE EVERY NIGHT",
+          "artist": "Ronnie Stelly",
+          "album": "",
+          "durationMs": 156000,
+          "coverUrl": "https://audius-discovery-1.altego.net/content/baeaaaiqsed64gqdp5oflmorg3foiticsuatb62v5fjqppyqohsznaqivf7e4m/1000x1000.jpg",
+          "audioUrl": "https://api.audius.co/v1/tracks/lwaNJJK/stream",
+          "audioProvider": "audius",
+          "providerTrackId": "lwaNJJK",
+          "sourceTags": [
+            "audius",
+            "audius_genre:Hip-Hop/Rap",
+            "audius_trending_monthly"
+          ],
+          "rankSignals": {
+            "audius_genre:Hip-Hop/Rap": 299,
+            "audius_trending_monthly": 299
+          },
+          "score": 0.06261
+        }
+      ]
+    }
+  ],
+  "albumRecommendations": []
+}

@@ -41,6 +41,9 @@ class OnlineController extends StateNotifier<OnlineState> {
       if (_disposed) return;
       unawaited(_resolver.warmUp());
     });
+    _homeAutoRefreshTimer = Timer.periodic(_homeAutoRefreshInterval, (_) {
+      _maybeAutoRefreshHome(reason: 'periodic');
+    });
   }
 
   final PlaybackController _playbackController;
@@ -52,6 +55,8 @@ class OnlineController extends StateNotifier<OnlineState> {
 
   Timer? _searchDebounce;
   Timer? _resolverWarmUpTimer;
+  Timer? _homeAutoRefreshTimer;
+  DateTime? _lastHomeAutoRefreshAttemptAt;
   int _homeSeq = 0;
   int _searchSeq = 0;
   int _playbackSeq = 0;
@@ -62,6 +67,7 @@ class OnlineController extends StateNotifier<OnlineState> {
   final Set<String> _forceRefreshCandidateKeys = <String>{};
   final Set<String> _homeCoverEnrichmentKeysInFlight = <String>{};
   static const Duration _searchDebounceWindow = Duration(milliseconds: 320);
+  static const Duration _homeAutoRefreshInterval = Duration(minutes: 30);
   static const int _queueResolveConcurrency = 3;
 
   Future<void> ensureHomeLoaded({bool forceRefresh = false}) async {
@@ -71,6 +77,10 @@ class OnlineController extends StateNotifier<OnlineState> {
         state.home.data != null) {
       if (!_homeService.isFreshData(state.home.data!)) {
         _refreshHomeInBackground(reason: 'ready-state');
+        return;
+      }
+      if (_shouldAutoRefreshHomeData(state.home.data!)) {
+        _refreshHomeInBackground(reason: 'ready-auto-age');
         return;
       }
       _enrichHomeCoversIfNeeded(
@@ -107,6 +117,7 @@ class OnlineController extends StateNotifier<OnlineState> {
           data: bundle.data,
           usedCache: bundle.usedCache,
           errorMessage: '',
+          recommendationsUnavailable: bundle.recommendationsUnavailable,
         ),
       );
       _debug(
@@ -118,14 +129,16 @@ class OnlineController extends StateNotifier<OnlineState> {
         'elapsedMs=${stopwatch.elapsedMilliseconds}',
         force: true,
       );
-      final needsCompletion =
-          bundle.needsBackgroundRefresh ||
-          bundle.data.albumRecommendations.isEmpty;
-      if (!forceRefresh && needsCompletion) {
+      final autoRefreshDue = !forceRefresh && _shouldAutoRefreshHomeData(
+        bundle.data,
+      );
+      if (!forceRefresh &&
+          (bundle.needsBackgroundRefresh || autoRefreshDue) &&
+          !bundle.recommendationsUnavailable) {
         _refreshHomeInBackground(
           reason: bundle.needsBackgroundRefresh
               ? 'partial-fast-load'
-              : 'missing-albums',
+              : 'auto-refresh-due',
         );
       } else if (isFresh) {
         _enrichHomeCoversIfNeeded(
@@ -158,8 +171,8 @@ class OnlineController extends StateNotifier<OnlineState> {
     }
   }
 
-  Future<void> refreshHomeRecommendations() async {
-    if (state.home.status == OnlineHomeStatus.loading) return;
+  Future<bool> refreshHomeRecommendations() async {
+    if (state.home.status == OnlineHomeStatus.loading) return false;
 
     final seq = ++_homeSeq;
     final stopwatch = Stopwatch()..start();
@@ -176,21 +189,21 @@ class OnlineController extends StateNotifier<OnlineState> {
     );
 
     try {
-      final bundle = await _homeService.refreshRecommendations(
-        preserveTopPlaylist: previousData?.topPlaylist,
-      );
-      if (_disposed || seq != _homeSeq) return;
+      final bundle = await _homeService.refreshLiveHome();
+      if (_disposed || seq != _homeSeq) return false;
       state = state.copyWith(
         home: OnlineHomeView(
           status: OnlineHomeStatus.ready,
           data: bundle.data,
           usedCache: bundle.usedCache,
           errorMessage: '',
+          recommendationsUnavailable: bundle.recommendationsUnavailable,
         ),
       );
       _debug(
         'home.manual-refresh.ready -> '
-        'topPlaylistKept=${previousData?.topPlaylist != null} '
+        'topPlaylistUpdated=${bundle.data.topPlaylist != null} '
+        'edition=${bundle.data.editionDate} '
         'sections=${bundle.data.sections.length} '
         'albums=${bundle.data.albumRecommendations.length} '
         'elapsedMs=${stopwatch.elapsedMilliseconds}',
@@ -201,21 +214,56 @@ class OnlineController extends StateNotifier<OnlineState> {
         seq: seq,
         reason: 'manual-refresh',
       );
+      return true;
     } catch (error) {
-      if (_disposed || seq != _homeSeq) return;
+      if (_disposed || seq != _homeSeq) return false;
       _debug(
         'home.manual-refresh.failed -> '
         'elapsedMs=${stopwatch.elapsedMilliseconds} error=$error',
         force: true,
       );
+      final fallback = previousData != null &&
+              _homeService.isFreshData(previousData)
+          ? null
+          : await _homeService.loadYesterdayCachedBundle();
+      if (_disposed || seq != _homeSeq) return false;
+      if (fallback != null) {
+        state = state.copyWith(
+          home: OnlineHomeView(
+            status: OnlineHomeStatus.ready,
+            data: fallback.data,
+            usedCache: fallback.usedCache,
+            errorMessage: error.toString(),
+            recommendationsUnavailable: true,
+          ),
+        );
+        return false;
+      }
+      final bundled = await _homeService.loadBundledFallbackBundle();
+      if (_disposed || seq != _homeSeq) return false;
+      if (bundled != null) {
+        state = state.copyWith(
+          home: OnlineHomeView(
+            status: OnlineHomeStatus.ready,
+            data: bundled.data,
+            usedCache: bundled.usedCache,
+            errorMessage: error.toString(),
+            recommendationsUnavailable: true,
+          ),
+        );
+        return false;
+      }
       state = state.copyWith(
         home: state.home.copyWith(
           status: previousData == null
               ? OnlineHomeStatus.failed
               : OnlineHomeStatus.ready,
           errorMessage: error.toString(),
+          recommendationsUnavailable: previousData != null &&
+              !_homeService.isFreshData(previousData),
         ),
       );
+      return false;
     }
   }
 
@@ -238,9 +286,13 @@ class OnlineController extends StateNotifier<OnlineState> {
       return await _homeService.loadRemoteDailyBundle();
     } catch (error) {
       _debug(
-        'home.load.remote-daily-fast.failed -> fallback=full-load error=$error',
+        'home.load.remote-daily-fast.failed -> fallback=yesterday-cache error=$error',
         force: true,
       );
+      final yesterday = await _homeService.loadYesterdayCachedBundle();
+      if (yesterday != null) return yesterday;
+      final bundled = await _homeService.loadBundledFallbackBundle();
+      if (bundled != null) return bundled;
       return _homeService.loadBundle(forceRefresh: false);
     }
   }
@@ -255,6 +307,7 @@ class OnlineController extends StateNotifier<OnlineState> {
     }
 
     _homeBackgroundRefreshRunning = true;
+    _lastHomeAutoRefreshAttemptAt = DateTime.now().toUtc();
     final seq = ++_homeSeq;
     unawaited(() async {
       final stopwatch = Stopwatch()..start();
@@ -269,6 +322,7 @@ class OnlineController extends StateNotifier<OnlineState> {
             data: bundle.data,
             usedCache: bundle.usedCache,
             errorMessage: '',
+            recommendationsUnavailable: bundle.recommendationsUnavailable,
           ),
         );
         _debug(
@@ -296,6 +350,27 @@ class OnlineController extends StateNotifier<OnlineState> {
     }());
   }
 
+  void _maybeAutoRefreshHome({required String reason}) {
+    if (_disposed ||
+        _homeBackgroundRefreshRunning ||
+        state.home.status == OnlineHomeStatus.loading) {
+      return;
+    }
+    final data = state.home.data;
+    if (data == null || !_shouldAutoRefreshHomeData(data)) return;
+    _refreshHomeInBackground(reason: reason);
+  }
+
+  bool _shouldAutoRefreshHomeData(OnlineHomeData data) {
+    final now = DateTime.now().toUtc();
+    final lastAttempt = _lastHomeAutoRefreshAttemptAt;
+    if (lastAttempt != null &&
+        now.difference(lastAttempt) < _homeAutoRefreshInterval) {
+      return false;
+    }
+    return !_homeService.isFreshData(data);
+  }
+
   void _enrichHomeCoversIfNeeded(
     OnlineHomeData data, {
     required int seq,
@@ -320,6 +395,8 @@ class OnlineController extends StateNotifier<OnlineState> {
             data: bundle.data,
             usedCache: bundle.usedCache,
             errorMessage: '',
+            recommendationsUnavailable:
+                state.home.recommendationsUnavailable,
           ),
         );
         _debug(
@@ -1015,6 +1092,7 @@ class OnlineController extends StateNotifier<OnlineState> {
     _disposed = true;
     _searchDebounce?.cancel();
     _resolverWarmUpTimer?.cancel();
+    _homeAutoRefreshTimer?.cancel();
     _playbackController.setQueueTrackResolver(null);
     _playbackController.setQueueTrackFailureHandler(null);
     _homeService.dispose();

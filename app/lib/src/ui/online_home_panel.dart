@@ -85,9 +85,7 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
                     height: 40,
                     child: TextButton(
                       onPressed: canRefresh
-                          ? () => ref
-                                .read(onlineProvider.notifier)
-                                .refreshHomeRecommendations()
+                          ? _refreshHomeRecommendations
                           : null,
                       style: PrismWaveTheme.rectangularButtonStyle(
                         padding: EdgeInsets.zero,
@@ -188,6 +186,8 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
                 playlist: topPlaylist,
                 coverCache: _coverCache,
                 onTap: widget.onOpenTopPlaylist!,
+                recommendationsUnavailable:
+                    home.recommendationsUnavailable,
               ),
             ),
           ),
@@ -243,6 +243,16 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
     // Fallback: if no router callback is wired, fall back to playing the
     // album directly so the UI stays usable.
     await ref.read(onlineProvider.notifier).playOnlineAlbum(album);
+  }
+
+  Future<void> _refreshHomeRecommendations() async {
+    final ok = await ref
+        .read(onlineProvider.notifier)
+        .refreshHomeRecommendations();
+    if (!mounted || ok) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(widget.t.onlineFetchTodayChartFailed)),
+    );
   }
 }
 
@@ -506,12 +516,14 @@ class _TopPlaylistBanner extends StatelessWidget {
     required this.playlist,
     required this.coverCache,
     required this.onTap,
+    required this.recommendationsUnavailable,
   });
 
   final AppStrings t;
   final OnlineSection playlist;
   final OnlineMediaCacheService coverCache;
   final VoidCallback onTap;
+  final bool recommendationsUnavailable;
 
   @override
   Widget build(BuildContext context) {
@@ -574,16 +586,27 @@ class _TopPlaylistBanner extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      t.onlineTopPlaylistTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: PrismWaveTheme.textPrimary,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            t.onlineTopPlaylistTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: PrismWaveTheme.textPrimary,
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ),
+                        if (recommendationsUnavailable) ...[
+                          const SizedBox(width: 8),
+                          _RecommendationWarningIcon(t: t),
+                        ],
+                      ],
                     ),
                     if ((playlist.subtitle ?? '').isNotEmpty)
                       Padding(
@@ -630,6 +653,24 @@ class _TopPlaylistBanner extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _RecommendationWarningIcon extends StatelessWidget {
+  const _RecommendationWarningIcon({required this.t});
+
+  final AppStrings t;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: t.onlineRecommendationsUnavailableTooltip,
+      child: const Icon(
+        Icons.warning_amber_rounded,
+        size: 20,
+        color: Color(0xFFFFD166),
       ),
     );
   }

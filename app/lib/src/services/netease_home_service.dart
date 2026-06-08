@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:path/path.dart' as p;
 
 import '../models/online_recommendation.dart';
@@ -32,30 +33,25 @@ class OnlineHomeBundle {
     required this.usedCache,
     required this.cachedAt,
     this.needsBackgroundRefresh = false,
+    this.recommendationsUnavailable = false,
   });
 
   final OnlineHomeData data;
   final bool usedCache;
   final DateTime cachedAt;
   final bool needsBackgroundRefresh;
+  final bool recommendationsUnavailable;
 }
 
-/// Pulls home recommendations from the generated prismwave-hits daily payload,
-/// then supplements it with NetEase album cards. Song sections come from:
+/// Pulls home recommendations from the generated prismwave-hits daily payload.
+/// Song sections come from:
 ///
 /// - https://raw.githubusercontent.com/shanbei2033/prismwave-hits/main/home/latest_home.json
 ///
-/// If the generated payload is unavailable, the service falls back to the
-/// original direct music.163.com endpoints:
-///
-/// - top-100 banner    → /api/v6/playlist/detail (热歌榜 id=3778678, n=100)
-/// - new albums        → /api/album/new (12 cards, no embedded tracks)
-/// - hot songs         → /api/personalized/newsong (24 inlined songs)
-/// - 7 style segments  → /api/playlist/list (find hot playlist per cat) →
-///                       /api/v6/playlist/detail (n=20)
-///
-/// Network results are cached on disk by `editionDate`; a stale cache is served
-/// on any failure.
+/// Results are cached by Beijing `editionDate`. The app uses today's cache
+/// when present, fetches the remote payload when today's cache is missing, and
+/// falls back only to yesterday's cache with a UI warning when the remote
+/// payload is unavailable.
 class NeteaseHomeService {
   NeteaseHomeService({HttpClient? httpClient})
     : _httpClient =
@@ -64,21 +60,9 @@ class NeteaseHomeService {
 
   final HttpClient _httpClient;
 
-  static const int _topChartPlaylistId = 3778678; // 云音乐热歌榜
-  static const int _topChartTrackCount = 100;
-  static const int _kSchemaVersion = 6;
+  static const int _kSchemaVersion = 7;
   static const int _coverSearchConcurrency = 4;
-  static const int _manualRefreshAlbumPageSize = 12;
-  static const int _manualRefreshAlbumPageCount = 4;
-  static const int _manualRefreshNewSongOffsetLimit = 36;
-  static const int _manualRefreshPlaylistOffsetLimit = 16;
-  static const List<String> _manualRefreshAlbumAreas = <String>[
-    'ALL',
-    'ZH',
-    'EA',
-    'KR',
-    'JP',
-  ];
+  static const String _bundledHomeAsset = 'assets/home/latest_home.json';
   static final Uri _remoteHomeUri = Uri.https(
     'raw.githubusercontent.com',
     '/shanbei2033/prismwave-hits/main/home/latest_home.json',
@@ -87,61 +71,6 @@ class NeteaseHomeService {
     HttpHeaders.userAgentHeader: 'Mozilla/5.0 PrismWave/1.0.0',
     HttpHeaders.acceptHeader: 'application/json',
   };
-
-  /// Pinned style buckets. The order here is the order they render on home.
-  /// Categories use NetEase Cloud Music's Chinese category names; the API
-  /// understands them as URL-encoded UTF-8.
-  static const List<_StyleBucket> _styleBuckets = <_StyleBucket>[
-    _StyleBucket(
-      id: 'style-pop',
-      category: '流行',
-      titleZh: '流行',
-      titleZhTw: '流行',
-      titleEn: 'Pop',
-    ),
-    _StyleBucket(
-      id: 'style-rock',
-      category: '摇滚',
-      titleZh: '摇滚',
-      titleZhTw: '搖滾',
-      titleEn: 'Rock',
-    ),
-    _StyleBucket(
-      id: 'style-electronic',
-      category: '电子',
-      titleZh: '电子',
-      titleZhTw: '電子',
-      titleEn: 'Electronic',
-    ),
-    _StyleBucket(
-      id: 'style-indie',
-      category: '独立',
-      titleZh: '独立',
-      titleZhTw: '獨立',
-      titleEn: 'Indie',
-    ),
-    _StyleBucket(
-      id: 'style-hiphop',
-      category: '说唱',
-      titleZh: '嘻哈',
-      titleZhTw: '嘻哈',
-      titleEn: 'Hip-Hop',
-    ),
-    _StyleBucket(
-      id: 'style-rnb',
-      category: 'R&B/Soul',
-      titleZh: 'R&B / 灵魂乐',
-      titleZhTw: 'R&B / 靈魂樂',
-      titleEn: 'R&B / Soul',
-    ),
-    _StyleBucket(
-      id: 'style-folk',
-      category: '民谣',
-      titleZh: '民谣',
-      titleZhTw: '民謠',
-      titleEn: 'Folk',
-    ),
-  ];
 
   Future<OnlineHomeBundle> loadBundle({
     bool forceRefresh = false,
@@ -160,8 +89,10 @@ class NeteaseHomeService {
       await _writeCache(data, cachedAt);
       return OnlineHomeBundle(data: data, usedCache: false, cachedAt: cachedAt);
     } catch (error) {
-      final cached = await _loadCached();
+      final cached = await loadYesterdayCachedBundle();
       if (cached != null) return cached;
+      final bundled = await loadBundledFallbackBundle();
+      if (bundled != null) return bundled;
       if (error is OnlineHomeException) rethrow;
       throw OnlineHomeException(
         OnlineHomeErrorKind.unavailable,
@@ -171,10 +102,39 @@ class NeteaseHomeService {
   }
 
   Future<OnlineHomeBundle?> loadCachedBundle({bool allowStale = false}) async {
-    final cached = await _loadCached();
+    final cached = await _loadCachedForDate(_todayIsoDate());
     if (cached == null) return null;
     if (allowStale || _isFresh(cached)) return cached;
     return null;
+  }
+
+  Future<OnlineHomeBundle?> loadYesterdayCachedBundle() async {
+    final cached = await _loadCachedForDate(_yesterdayIsoDate());
+    if (cached == null) return null;
+    return OnlineHomeBundle(
+      data: cached.data,
+      usedCache: true,
+      cachedAt: cached.cachedAt,
+      recommendationsUnavailable: true,
+    );
+  }
+
+  Future<OnlineHomeBundle?> loadBundledFallbackBundle() async {
+    try {
+      final body = await rootBundle.loadString(_bundledHomeAsset);
+      final decoded = jsonDecode(body);
+      if (decoded is! Map<String, dynamic>) return null;
+      final data = OnlineHomeData.fromJson(decoded);
+      if (!_isUsableDailyHome(data)) return null;
+      return OnlineHomeBundle(
+        data: data,
+        usedCache: true,
+        cachedAt: data.generatedAt,
+        recommendationsUnavailable: true,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   bool isFreshBundle(OnlineHomeBundle bundle) => _isFresh(bundle);
@@ -209,7 +169,7 @@ class NeteaseHomeService {
 
   Future<OnlineHomeBundle> loadRemoteDailyBundle() async {
     final remoteHome = await _loadRemoteDailyHome();
-    if (remoteHome == null || !_hasSongPayload(remoteHome)) {
+    if (remoteHome == null || !_isUsableDailyHome(remoteHome)) {
       throw const OnlineHomeException(
         OnlineHomeErrorKind.unavailable,
         'Remote daily home payload is unavailable',
@@ -218,23 +178,43 @@ class NeteaseHomeService {
     final data = _mergeDailyHome(remoteHome, const <OnlineAlbumCard>[]);
     final cachedAt = DateTime.now().toUtc();
     await _writeCache(data, cachedAt);
+    if (!isFreshData(data)) {
+      throw OnlineHomeException(
+        OnlineHomeErrorKind.unavailable,
+        'Remote daily home payload is stale: ${data.editionDate}',
+      );
+    }
     return OnlineHomeBundle(
       data: data,
       usedCache: false,
       cachedAt: cachedAt,
-      needsBackgroundRefresh: true,
     );
   }
 
-  Future<OnlineHomeBundle> refreshRecommendations({
-    OnlineSection? preserveTopPlaylist,
-  }) async {
-    final data = await _fetchManualRefreshHome(
-      preserveTopPlaylist: preserveTopPlaylist,
-    );
+  Future<OnlineHomeBundle> refreshLiveHome() async {
+    final remoteHome = await _loadRemoteDailyHome();
+    if (remoteHome == null || !_isUsableDailyHome(remoteHome)) {
+      throw const OnlineHomeException(
+        OnlineHomeErrorKind.unavailable,
+        'Remote daily home payload is unavailable',
+      );
+    }
+    final data = _mergeDailyHome(remoteHome, const <OnlineAlbumCard>[]);
+    if (!isFreshData(data)) {
+      await _writeCache(data, DateTime.now().toUtc());
+      throw OnlineHomeException(
+        OnlineHomeErrorKind.unavailable,
+        'Remote daily home payload is stale: ${data.editionDate}',
+      );
+    }
+    final enriched = await _withMainlandCoverFallbacks(data);
     final cachedAt = DateTime.now().toUtc();
-    await _writeCache(data, cachedAt);
-    return OnlineHomeBundle(data: data, usedCache: false, cachedAt: cachedAt);
+    await _writeCache(enriched, cachedAt);
+    return OnlineHomeBundle(
+      data: enriched,
+      usedCache: false,
+      cachedAt: cachedAt,
+    );
   }
 
   Future<OnlineHomeData> _fetchFresh() async {
@@ -247,14 +227,16 @@ class NeteaseHomeService {
     final albums =
         results[1] as List<OnlineAlbumCard>? ?? const <OnlineAlbumCard>[];
 
-    if (remoteHome != null && _hasSongPayload(remoteHome)) {
-      return _mergeDailyHome(remoteHome, albums);
-    }
-
-    try {
-      return await _fetchNeteaseFallbackHome(preloadedAlbums: albums);
-    } on OnlineHomeException catch (error) {
-      errors.add(error);
+    if (remoteHome != null && _isUsableDailyHome(remoteHome)) {
+      final data = _mergeDailyHome(remoteHome, albums);
+      await _writeCache(data, DateTime.now().toUtc());
+      if (isFreshData(data)) return data;
+      errors.add(
+        OnlineHomeException(
+          OnlineHomeErrorKind.unavailable,
+          'Remote daily home payload is stale: ${data.editionDate}',
+        ),
+      );
     }
 
     final firstNoNetwork = errors.where(
@@ -333,14 +315,7 @@ class NeteaseHomeService {
   bool _needsMainlandCoverFallback(String? coverUrl) {
     final trimmed = coverUrl?.trim() ?? '';
     if (trimmed.isEmpty) return true;
-    final host = Uri.tryParse(trimmed)?.host.toLowerCase() ?? '';
-    if (host.endsWith('music.126.net') || host.endsWith('music.163.com')) {
-      return false;
-    }
-    if (host.endsWith('dmhmusic.com') || host.endsWith('taihe.com')) {
-      return false;
-    }
-    return true;
+    return false;
   }
 
   OnlineTrackCandidate _copyTrackWithCover(
@@ -471,7 +446,7 @@ class NeteaseHomeService {
     );
     if (json == null) return null;
     final data = OnlineHomeData.fromJson(json);
-    if (!_hasSongPayload(data)) return null;
+    if (!_isUsableDailyHome(data)) return null;
     return data;
   }
 
@@ -488,147 +463,9 @@ class NeteaseHomeService {
       tags: dailyHome.tags,
       sections: dailyHome.sections,
       topPlaylist: dailyHome.topPlaylist,
-      albumRecommendations: List.unmodifiable(albums),
-    );
-  }
-
-  Future<OnlineHomeData> _fetchNeteaseFallbackHome({
-    required List<OnlineAlbumCard> preloadedAlbums,
-  }) async {
-    final topChartFuture = _loadTopChart();
-    final newSongsFuture = _loadNewSongsSection();
-    final styleFutures = _styleBuckets.map(_loadStyleSection).toList();
-
-    final results = await Future.wait<Object?>([
-      topChartFuture,
-      newSongsFuture,
-      ...styleFutures,
-    ]);
-
-    final topChart = results[0] as OnlineSection?;
-    final newSongs = results[1] as OnlineSection?;
-    final styleSections = results
-        .sublist(2)
-        .whereType<OnlineSection>()
-        .toList(growable: false);
-
-    final sections = <OnlineSection>[?newSongs, ...styleSections];
-
-    if (topChart == null && preloadedAlbums.isEmpty && sections.isEmpty) {
-      throw const OnlineHomeException(
-        OnlineHomeErrorKind.unavailable,
-        'All NetEase home requests failed',
-      );
-    }
-
-    return OnlineHomeData(
-      schemaVersion: _kSchemaVersion,
-      generatedAt: DateTime.now().toUtc(),
-      editionDate: _todayIsoDate(),
-      tags: const <OnlineTag>[],
-      sections: List.unmodifiable(sections),
-      topPlaylist: topChart,
-      albumRecommendations: List.unmodifiable(preloadedAlbums),
-    );
-  }
-
-  Future<OnlineHomeData> _fetchManualRefreshHome({
-    required OnlineSection? preserveTopPlaylist,
-  }) async {
-    final errors = <OnlineHomeException>[];
-    final seed = DateTime.now().millisecondsSinceEpoch;
-    final albumArea =
-        _manualRefreshAlbumAreas[(seed ~/ 997) %
-            _manualRefreshAlbumAreas.length];
-    final albumOffset =
-        ((seed ~/ 1543) % _manualRefreshAlbumPageCount) *
-        _manualRefreshAlbumPageSize;
-    final newSongOffset = (seed ~/ 811) % _manualRefreshNewSongOffsetLimit;
-
-    final results = await Future.wait<Object?>([
-      _optionalListFetch(
-        _loadNewAlbums(
-          area: albumArea,
-          limit: _manualRefreshAlbumPageSize,
-          offset: albumOffset,
-        ),
-        errors,
-      ),
-      _optionalFetch(_loadNewSongsSection(offset: newSongOffset), errors),
-      ..._styleBuckets.asMap().entries.map((entry) {
-        final playlistOffset =
-            ((seed ~/ (1237 + entry.key * 97)) %
-            _manualRefreshPlaylistOffsetLimit);
-        return _optionalFetch(
-          _loadStyleSection(entry.value, playlistOffset: playlistOffset),
-          errors,
-        );
-      }),
-    ]);
-
-    final albums =
-        results[0] as List<OnlineAlbumCard>? ?? const <OnlineAlbumCard>[];
-    final newSongs = results[1] as OnlineSection?;
-    final styleSections = results
-        .sublist(2)
-        .whereType<OnlineSection>()
-        .toList(growable: false);
-    final sections = <OnlineSection>[?newSongs, ...styleSections];
-
-    if (sections.isEmpty && albums.isEmpty) {
-      final firstNoNetwork = errors.where(
-        (error) => error.kind == OnlineHomeErrorKind.noNetwork,
-      );
-      if (firstNoNetwork.isNotEmpty) throw firstNoNetwork.first;
-      throw const OnlineHomeException(
-        OnlineHomeErrorKind.unavailable,
-        'All manual home refresh requests failed',
-      );
-    }
-
-    return OnlineHomeData(
-      schemaVersion: _kSchemaVersion,
-      generatedAt: DateTime.now().toUtc(),
-      editionDate: _todayIsoDate(),
-      tags: const <OnlineTag>[],
-      sections: List.unmodifiable(sections),
-      topPlaylist: preserveTopPlaylist,
-      albumRecommendations: List.unmodifiable(albums),
-    );
-  }
-
-  Future<OnlineSection?> _loadTopChart() async {
-    final json = await _safeGetJson(
-      neteasePlaylistDetailUri(
-        playlistId: _topChartPlaylistId,
-        n: _topChartTrackCount,
-      ),
-    );
-    if (json == null) return null;
-
-    final playlist = json['playlist'];
-    if (playlist is! Map) return null;
-    final tracks = playlist['tracks'];
-    if (tracks is! List) return null;
-
-    final candidates = <Map<String, dynamic>>[];
-    for (var i = 0; i < tracks.length; i++) {
-      final raw = tracks[i];
-      if (raw is! Map) continue;
-      final track = _candidateFromPlaylistTrack(raw.cast<String, dynamic>());
-      if (track != null) candidates.add(track);
-    }
-    if (candidates.isEmpty) return null;
-
-    return OnlineSection.fromJson(
-      _sectionJson(
-        id: 'netease-top-chart',
-        titleZh: '今日趋势',
-        titleZhTw: '今日趨勢',
-        titleEn: "Today's Trending",
-        subtitle: (playlist['updateFrequency'] as String?) ?? '',
-        tracks: candidates,
-      ),
+      albumRecommendations: albums.isEmpty
+          ? dailyHome.albumRecommendations
+          : List.unmodifiable(albums),
     );
   }
 
@@ -695,99 +532,6 @@ class NeteaseHomeService {
         upgradeCoverUrl(album['blurPicUrl'] as String?);
   }
 
-  Future<OnlineSection?> _loadNewSongsSection({
-    int limit = 24,
-    int offset = 0,
-  }) async {
-    final requestLimit = limit + offset;
-    final json = await _safeGetJson(
-      neteasePersonalizedNewSongUri(limit: requestLimit),
-    );
-    if (json == null) return null;
-
-    final result = json['result'];
-    if (result is! List) return null;
-
-    final candidates = <Map<String, dynamic>>[];
-    final windowed = result.skip(offset).take(limit).toList();
-    final selected = windowed.isEmpty && offset > 0
-        ? result.take(limit)
-        : windowed;
-
-    for (final raw in selected) {
-      if (raw is! Map) continue;
-      final entry = raw.cast<String, dynamic>();
-      final song = entry['song'];
-      if (song is! Map) continue;
-
-      final track = _candidateFromPlaylistTrack(
-        song.cast<String, dynamic>(),
-        fallbackPicUrl: entry['picUrl'] as String?,
-      );
-      if (track != null) candidates.add(track);
-    }
-    if (candidates.isEmpty) return null;
-
-    return OnlineSection.fromJson(
-      _sectionJson(
-        id: 'netease-new-songs',
-        titleZh: '歌曲推荐',
-        titleZhTw: '歌曲推薦',
-        titleEn: 'New Songs For You',
-        subtitle: '',
-        tracks: candidates,
-      ),
-    );
-  }
-
-  Future<OnlineSection?> _loadStyleSection(
-    _StyleBucket bucket, {
-    int playlistOffset = 0,
-  }) async {
-    final listJson = await _safeGetJson(
-      neteasePlaylistByCategoryUri(
-        category: bucket.category,
-        limit: 1,
-        offset: playlistOffset,
-      ),
-    );
-    if (listJson == null) return null;
-    final playlists = listJson['playlists'];
-    if (playlists is! List || playlists.isEmpty) return null;
-    final first = playlists.first;
-    if (first is! Map) return null;
-    final playlistId = (first['id'] as num?)?.toInt();
-    if (playlistId == null || playlistId <= 0) return null;
-
-    final detail = await _safeGetJson(
-      neteasePlaylistDetailUri(playlistId: playlistId, n: 20),
-    );
-    if (detail == null) return null;
-    final playlist = detail['playlist'];
-    if (playlist is! Map) return null;
-    final tracks = playlist['tracks'];
-    if (tracks is! List) return null;
-
-    final candidates = <Map<String, dynamic>>[];
-    for (final raw in tracks) {
-      if (raw is! Map) continue;
-      final c = _candidateFromPlaylistTrack(raw.cast<String, dynamic>());
-      if (c != null) candidates.add(c);
-    }
-    if (candidates.isEmpty) return null;
-
-    return OnlineSection.fromJson(
-      _sectionJson(
-        id: bucket.id,
-        titleZh: bucket.titleZh,
-        titleZhTw: bucket.titleZhTw,
-        titleEn: bucket.titleEn,
-        subtitle: (first['name'] as String?) ?? '',
-        tracks: candidates,
-      ),
-    );
-  }
-
   /// Pulls the fields we need from a NetEase playlist track. The shape varies
   /// slightly between `/api/v6/playlist/detail` (uses `al` / `ar` / `dt`) and
   /// `/api/personalized/newsong`'s embedded `song` (same compact form). The
@@ -834,26 +578,6 @@ class NeteaseHomeService {
       'audioProvider': 'netease',
       'providerTrackId': '$id',
       'sourceTags': const <String>['netease'],
-    };
-  }
-
-  Map<String, dynamic> _sectionJson({
-    required String id,
-    required String titleZh,
-    required String titleZhTw,
-    required String titleEn,
-    required String subtitle,
-    required List<Map<String, dynamic>> tracks,
-  }) {
-    return <String, dynamic>{
-      'id': id,
-      'title': <String, String>{
-        'zh-Hans': titleZh,
-        'zh-Hant': titleZhTw,
-        'en-US': titleEn,
-      },
-      if (subtitle.isNotEmpty) 'subtitle': subtitle,
-      'tracks': tracks,
     };
   }
 
@@ -912,27 +636,29 @@ class NeteaseHomeService {
     }
   }
 
-  bool _hasSongPayload(OnlineHomeData data) {
-    return data.sections.isNotEmpty || data.topPlaylist != null;
+  bool _isUsableDailyHome(OnlineHomeData data) {
+    if (data.schemaVersion < _kSchemaVersion) return false;
+    final topPlaylist = data.topPlaylist;
+    if (topPlaylist == null || topPlaylist.tracks.length < 100) return false;
+    final tracksWithCover = topPlaylist.tracks.where(
+      (track) => (track.coverUrl ?? '').trim().isNotEmpty,
+    );
+    return tracksWithCover.length >= 80;
   }
 
   bool _isFresh(OnlineHomeBundle cached) {
     return cached.data.editionDate.trim() == _todayIsoDate();
   }
 
-  Future<OnlineHomeBundle?> _loadCached() async {
-    final file = await _resolveCacheFile('home.json');
+  Future<OnlineHomeBundle?> _loadCachedForDate(String editionDate) async {
+    final file = await _resolveCacheFile('home-$editionDate.json');
     if (!file.existsSync()) return null;
 
     try {
-      final body = await file.readAsString();
-      final decoded = jsonDecode(body);
-      if (decoded is! Map<String, dynamic>) return null;
-      final cachedSchema = (decoded['schemaVersion'] as num?)?.toInt() ?? 0;
-      if (cachedSchema != _kSchemaVersion) return null;
-      final data = OnlineHomeData.fromJson(decoded);
+      final data = await _readCachedDataFile(file, expectedDate: editionDate);
+      if (data == null) return null;
 
-      final stamp = await _resolveCacheFile('home.stamp');
+      final stamp = await _resolveCacheFile('home-$editionDate.stamp');
       DateTime cachedAt = file.statSync().modified.toUtc();
       if (stamp.existsSync()) {
         final stampText = await stamp.readAsString();
@@ -945,12 +671,36 @@ class NeteaseHomeService {
     }
   }
 
+  Future<OnlineHomeData?> _readCachedDataFile(
+    File file, {
+    required String expectedDate,
+  }) async {
+    final body = await file.readAsString();
+    final decoded = jsonDecode(body);
+    if (decoded is! Map<String, dynamic>) return null;
+    final cachedSchema = (decoded['schemaVersion'] as num?)?.toInt() ?? 0;
+    if (cachedSchema != _kSchemaVersion) return null;
+    final data = OnlineHomeData.fromJson(decoded);
+    if (data.editionDate.trim() != expectedDate) return null;
+    if (!_isUsableDailyHome(data)) return null;
+    return data;
+  }
+
   Future<void> _writeCache(OnlineHomeData data, DateTime cachedAt) async {
-    final file = await _resolveCacheFile('home.json');
-    await file.parent.create(recursive: true);
-    await file.writeAsString(jsonEncode(data.toJson()), flush: true);
-    final stamp = await _resolveCacheFile('home.stamp');
-    await stamp.writeAsString(cachedAt.toIso8601String(), flush: true);
+    final dateKey = data.editionDate.trim().isEmpty
+        ? _todayIsoDate()
+        : data.editionDate.trim();
+    final archive = await _resolveCacheFile('home-$dateKey.json');
+    await archive.parent.create(recursive: true);
+    final body = jsonEncode(data.toJson());
+    await archive.writeAsString(body, flush: true);
+    final archiveStamp = await _resolveCacheFile('home-$dateKey.stamp');
+    await archiveStamp.writeAsString(cachedAt.toIso8601String(), flush: true);
+
+    final latest = await _resolveCacheFile('home.json');
+    await latest.writeAsString(body, flush: true);
+    final latestStamp = await _resolveCacheFile('home.stamp');
+    await latestStamp.writeAsString(cachedAt.toIso8601String(), flush: true);
   }
 
   Future<File> _resolveCacheFile(String fileName) async {
@@ -973,12 +723,24 @@ class NeteaseHomeService {
   }
 
   String _todayIsoDate() {
-    final now = DateTime.now().toUtc();
+    final now = _beijingNow();
     final y = now.year.toString().padLeft(4, '0');
     final m = now.month.toString().padLeft(2, '0');
     final d = now.day.toString().padLeft(2, '0');
     return '$y-$m-$d';
   }
+
+  String _yesterdayIsoDate() {
+    final yesterday = _beijingNow().subtract(const Duration(days: 1));
+    final y = yesterday.year.toString().padLeft(4, '0');
+    final m = yesterday.month.toString().padLeft(2, '0');
+    final d = yesterday.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  DateTime _beijingNow() => DateTime.now().toUtc().add(
+    const Duration(hours: 8),
+  );
 
   /// Fetches album detail and returns its full track list as candidates ready
   /// to be passed into `OnlineController.playOnlineTrack`.
@@ -1011,20 +773,4 @@ class NeteaseHomeService {
   void dispose() {
     _httpClient.close(force: true);
   }
-}
-
-class _StyleBucket {
-  const _StyleBucket({
-    required this.id,
-    required this.category,
-    required this.titleZh,
-    required this.titleZhTw,
-    required this.titleEn,
-  });
-
-  final String id;
-  final String category;
-  final String titleZh;
-  final String titleZhTw;
-  final String titleEn;
 }

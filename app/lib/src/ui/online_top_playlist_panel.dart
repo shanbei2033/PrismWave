@@ -41,6 +41,9 @@ class _OnlineTopPlaylistPanelState
   Widget build(BuildContext context) {
     final t = widget.t;
     final settings = ref.watch(appSettingsProvider);
+    final recommendationsUnavailable = ref.watch(
+      onlineProvider.select((s) => s.home.recommendationsUnavailable),
+    );
     final playlist = ref.watch(
       onlineProvider.select((s) => s.home.data?.topPlaylist),
     );
@@ -76,6 +79,7 @@ class _OnlineTopPlaylistPanelState
             playlist: playlist,
             coverCache: _coverCache,
             onPlayAll: () => _playAll(playlist),
+            recommendationsUnavailable: recommendationsUnavailable,
           ),
           const SizedBox(height: 18),
           Expanded(
@@ -150,6 +154,7 @@ class _Header extends StatelessWidget {
     required this.playlist,
     required this.coverCache,
     required this.onPlayAll,
+    required this.recommendationsUnavailable,
   });
 
   final AppStrings t;
@@ -157,6 +162,7 @@ class _Header extends StatelessWidget {
   final OnlineSection playlist;
   final OnlineMediaCacheService coverCache;
   final VoidCallback onPlayAll;
+  final bool recommendationsUnavailable;
 
   @override
   Widget build(BuildContext context) {
@@ -186,14 +192,32 @@ class _Header extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                t.onlineTopPlaylistTitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      t.onlineTopPlaylistTitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  if (recommendationsUnavailable) ...[
+                    const SizedBox(width: 8),
+                    Tooltip(
+                      message: t.onlineRecommendationsUnavailableTooltip,
+                      child: const Icon(
+                        Icons.warning_amber_rounded,
+                        size: 21,
+                        color: Color(0xFFFFD166),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               if ((playlist.subtitle ?? '').isNotEmpty)
                 Padding(

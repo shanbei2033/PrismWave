@@ -5,10 +5,27 @@ import '../models/app_language.dart';
 class PrismWaveTheme {
   const PrismWaveTheme._();
 
-  static const String fontFamilyCn = 'Resource Han Rounded CN';
-  static const String fontFamilyTw = 'Resource Han Rounded TW';
+  static const String fontFamilyEn = 'Inter';
+  static const String fontFamilyCn = 'Noto Sans SC';
+  static const String fontFamilyTw = 'Noto Sans TC';
+  static const String fontFamilyRoundedCn = 'Resource Han Rounded CN';
+  static const String fontFamilyRoundedTw = 'Resource Han Rounded TW';
+  static const List<String> fontFallbackEn = [
+    fontFamilyCn,
+    fontFamilyTw,
+    fontFamilyRoundedCn,
+    fontFamilyRoundedTw,
+    'SF Pro Text',
+    'Segoe UI Variable Text',
+    'Segoe UI',
+    'Microsoft YaHei UI',
+    'Microsoft YaHei',
+  ];
   static const List<String> fontFallbackCn = [
     fontFamilyTw,
+    fontFamilyRoundedCn,
+    fontFamilyRoundedTw,
+    'PingFang SC',
     'Microsoft YaHei UI',
     'Microsoft YaHei',
     'Segoe UI Variable Text',
@@ -16,23 +33,24 @@ class PrismWaveTheme {
   ];
   static const List<String> fontFallbackTw = [
     fontFamilyCn,
+    fontFamilyRoundedTw,
+    fontFamilyRoundedCn,
     'PingFang SC',
-    'Noto Sans CJK SC',
     'Segoe UI Variable Text',
     'Segoe UI',
   ];
 
   static String fontFamilyFor(AppLanguage language) {
     return switch (language) {
-      AppLanguage.zhTw => fontFamilyTw,
-      AppLanguage.zhCn || AppLanguage.enUs => fontFamilyCn,
+      AppLanguage.zhTw || AppLanguage.zhCn || AppLanguage.enUs => fontFamilyEn,
     };
   }
 
   static List<String> fontFallbackFor(AppLanguage language) {
     return switch (language) {
       AppLanguage.zhTw => fontFallbackTw,
-      AppLanguage.zhCn || AppLanguage.enUs => fontFallbackCn,
+      AppLanguage.zhCn => fontFallbackCn,
+      AppLanguage.enUs => fontFallbackEn,
     };
   }
 

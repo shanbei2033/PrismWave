@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/online_recommendation.dart';
 import '../models/track.dart';
@@ -27,13 +29,14 @@ class OnlineController extends StateNotifier<OnlineState> {
        _readLibraryState = readLibraryState,
        _debugLog = debugLog,
        _resolver = resolver ?? HitsAudioResolverService(debugLog: debugLog),
-       _homeService = homeService ?? NeteaseHomeService(),
+       _homeService = homeService ?? NeteaseHomeService(debugLog: debugLog),
        super(const OnlineState()) {
     _searchService = searchService ?? OnlineSearchService(_resolver);
     _playbackController.setQueueTrackResolver(_resolveQueuedPlaybackTrack);
     _playbackController.setQueueTrackFailureHandler(
       _handleQueuedPlaybackFailure,
     );
+    Future<void>.microtask(_loadSearchHistory);
     // Keep startup responsive: the app opens online Home by default, so
     // resolver warm-up waits until the first frame and home cache load have a
     // chance to settle.
@@ -69,6 +72,8 @@ class OnlineController extends StateNotifier<OnlineState> {
   static const Duration _searchDebounceWindow = Duration(milliseconds: 320);
   static const Duration _homeAutoRefreshInterval = Duration(minutes: 30);
   static const int _queueResolveConcurrency = 3;
+  static const int _searchHistoryLimit = 15;
+  static const String _prefSearchHistory = 'online.searchHistory';
 
   Future<void> ensureHomeLoaded({bool forceRefresh = false}) async {
     if (state.home.status == OnlineHomeStatus.loading) return;
@@ -111,10 +116,11 @@ class OnlineController extends StateNotifier<OnlineState> {
       );
       if (_disposed || seq != _homeSeq) return;
       final isFresh = _homeService.isFreshBundle(bundle);
+      final displayData = _shuffleHomeSections(bundle.data);
       state = state.copyWith(
         home: OnlineHomeView(
           status: OnlineHomeStatus.ready,
-          data: bundle.data,
+          data: displayData,
           usedCache: bundle.usedCache,
           errorMessage: '',
           recommendationsUnavailable: bundle.recommendationsUnavailable,
@@ -144,7 +150,7 @@ class OnlineController extends StateNotifier<OnlineState> {
         );
       } else if (isFresh) {
         _enrichHomeCoversIfNeeded(
-          bundle.data,
+          displayData,
           seq: seq,
           reason: forceRefresh ? 'manual-refresh' : 'fresh-load',
         );
@@ -193,6 +199,11 @@ class OnlineController extends StateNotifier<OnlineState> {
     );
 
     try {
+      _debug(
+        'home.manual-refresh.remote-fetch -> version=mirror-schema-compat-v3 '
+        'allowLatestAvailable=true',
+        force: true,
+      );
       final bundle = await _homeService.refreshLiveHome(
         allowLatestAvailable: true,
       );
@@ -202,10 +213,11 @@ class OnlineController extends StateNotifier<OnlineState> {
       final refreshResult = _homeService.isFreshBundle(bundle)
           ? OnlineHomeRefreshResult.fresh
           : OnlineHomeRefreshResult.latestAvailable;
+      final shuffledData = _shuffleHomeSections(bundle.data);
       state = state.copyWith(
         home: OnlineHomeView(
           status: OnlineHomeStatus.ready,
-          data: bundle.data,
+          data: shuffledData,
           usedCache: bundle.usedCache,
           errorMessage: '',
           recommendationsUnavailable: bundle.recommendationsUnavailable,
@@ -224,7 +236,7 @@ class OnlineController extends StateNotifier<OnlineState> {
         force: true,
       );
       _enrichHomeCoversIfNeeded(
-        bundle.data,
+        shuffledData,
         seq: seq,
         reason: 'manual-refresh',
       );
@@ -236,36 +248,65 @@ class OnlineController extends StateNotifier<OnlineState> {
         'elapsedMs=${stopwatch.elapsedMilliseconds} error=$error',
         force: true,
       );
+      final pendingGenerationFallback = _homeService
+          .isDailyGenerationPendingWindow();
       final fallback =
           previousData != null && _homeService.isFreshData(previousData)
           ? null
-          : await _homeService.loadYesterdayCachedBundle();
+          : await _homeService.loadYesterdayCachedBundle(
+              pendingGeneration: pendingGenerationFallback,
+            );
       if (_disposed || seq != _homeSeq) return OnlineHomeRefreshResult.failed;
       if (fallback != null) {
+        final displayData = _shuffleHomeSections(fallback.data);
+        final fallbackResult = fallback.recommendationsPendingGeneration
+            ? OnlineHomeRefreshResult.latestAvailable
+            : OnlineHomeRefreshResult.failed;
         state = state.copyWith(
           home: OnlineHomeView(
             status: OnlineHomeStatus.ready,
-            data: fallback.data,
+            data: displayData,
             usedCache: fallback.usedCache,
-            errorMessage: error.toString(),
-            recommendationsUnavailable: true,
-            recommendationsPendingGeneration: false,
+            errorMessage: fallback.recommendationsPendingGeneration
+                ? ''
+                : error.toString(),
+            recommendationsUnavailable: fallback.recommendationsUnavailable,
+            recommendationsPendingGeneration:
+                fallback.recommendationsPendingGeneration,
           ),
         );
-        return OnlineHomeRefreshResult.failed;
+        _debug(
+          'home.manual-refresh.fallback-ready -> result=$fallbackResult '
+          'edition=${fallback.data.editionDate} '
+          'pendingGeneration=${fallback.recommendationsPendingGeneration} '
+          'elapsedMs=${stopwatch.elapsedMilliseconds}',
+          force: true,
+        );
+        _enrichHomeCoversIfNeeded(
+          displayData,
+          seq: seq,
+          reason: 'manual-refresh-fallback',
+        );
+        return fallbackResult;
       }
       final bundled = await _homeService.loadBundledFallbackBundle();
       if (_disposed || seq != _homeSeq) return OnlineHomeRefreshResult.failed;
       if (bundled != null) {
+        final displayData = _shuffleHomeSections(bundled.data);
         state = state.copyWith(
           home: OnlineHomeView(
             status: OnlineHomeStatus.ready,
-            data: bundled.data,
+            data: displayData,
             usedCache: bundled.usedCache,
             errorMessage: error.toString(),
             recommendationsUnavailable: true,
             recommendationsPendingGeneration: false,
           ),
+        );
+        _enrichHomeCoversIfNeeded(
+          displayData,
+          seq: seq,
+          reason: 'manual-refresh-bundled',
         );
         return OnlineHomeRefreshResult.failed;
       }
@@ -341,10 +382,11 @@ class OnlineController extends StateNotifier<OnlineState> {
         );
         if (_disposed || seq != _homeSeq) return;
         final isFresh = _homeService.isFreshBundle(bundle);
+        final displayData = _shuffleHomeSections(bundle.data);
         state = state.copyWith(
           home: OnlineHomeView(
             status: OnlineHomeStatus.ready,
-            data: bundle.data,
+            data: displayData,
             usedCache: bundle.usedCache,
             errorMessage: '',
             recommendationsUnavailable: bundle.recommendationsUnavailable,
@@ -361,7 +403,7 @@ class OnlineController extends StateNotifier<OnlineState> {
           force: true,
         );
         _enrichHomeCoversIfNeeded(
-          bundle.data,
+          displayData,
           seq: seq,
           reason: 'background-refresh',
         );
@@ -404,7 +446,7 @@ class OnlineController extends StateNotifier<OnlineState> {
     required String reason,
   }) {
     if (!_homeService.needsMainlandCoverFallbacks(data)) return;
-    final key = _homeDataRefreshKey(data);
+    final key = '${_homeDataRefreshKey(data)}|seq=$seq';
     if (!_homeCoverEnrichmentKeysInFlight.add(key)) {
       _debug('home.cover-enrich.skip -> reason=$reason key=$key');
       return;
@@ -463,11 +505,12 @@ class OnlineController extends StateNotifier<OnlineState> {
     if (cleaned.isEmpty) {
       _searchSeq++;
       state = state.copyWith(
-        search: const OnlineSearchView(
+        search: state.search.copyWith(
           query: '',
           status: OnlineSearchStatus.idle,
           results: <OnlineSearchResult>[],
           errorMessage: '',
+          clearError: true,
         ),
       );
       return;
@@ -485,6 +528,83 @@ class OnlineController extends StateNotifier<OnlineState> {
       _searchDebounceWindow,
       () => _runSearch(cleaned, seq),
     );
+  }
+
+  Future<void> commitSearchHistory(String query) async {
+    final normalized = _normalizeSearchHistoryQuery(query);
+    if (normalized.isEmpty) return;
+
+    final nextHistory = <String>[normalized];
+    final normalizedKey = normalized.toLowerCase();
+    for (final item in state.search.history) {
+      if (_normalizeSearchHistoryQuery(item).toLowerCase() == normalizedKey) {
+        continue;
+      }
+      nextHistory.add(item);
+      if (nextHistory.length >= _searchHistoryLimit) break;
+    }
+
+    state = state.copyWith(
+      search: state.search.copyWith(history: List.unmodifiable(nextHistory)),
+    );
+    await _saveSearchHistory(nextHistory);
+  }
+
+  Future<void> removeSearchHistory(String query) async {
+    final normalizedKey = _normalizeSearchHistoryQuery(query).toLowerCase();
+    if (normalizedKey.isEmpty) return;
+
+    final nextHistory = state.search.history
+        .where(
+          (item) =>
+              _normalizeSearchHistoryQuery(item).toLowerCase() != normalizedKey,
+        )
+        .take(_searchHistoryLimit)
+        .toList(growable: false);
+
+    state = state.copyWith(
+      search: state.search.copyWith(history: List.unmodifiable(nextHistory)),
+    );
+    await _saveSearchHistory(nextHistory);
+  }
+
+  Future<void> _loadSearchHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getStringList(_prefSearchHistory) ?? const <String>[];
+    if (_disposed) return;
+    final nextHistory = _sanitizeSearchHistory([
+      ...state.search.history,
+      ...stored,
+    ]);
+    state = state.copyWith(
+      search: state.search.copyWith(history: List.unmodifiable(nextHistory)),
+    );
+  }
+
+  Future<void> _saveSearchHistory(List<String> history) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _prefSearchHistory,
+      _sanitizeSearchHistory(history),
+    );
+  }
+
+  List<String> _sanitizeSearchHistory(Iterable<String> values) {
+    final result = <String>[];
+    final seen = <String>{};
+    for (final value in values) {
+      final normalized = _normalizeSearchHistoryQuery(value);
+      if (normalized.isEmpty) continue;
+      final key = normalized.toLowerCase();
+      if (!seen.add(key)) continue;
+      result.add(normalized);
+      if (result.length >= _searchHistoryLimit) break;
+    }
+    return result;
+  }
+
+  String _normalizeSearchHistoryQuery(String value) {
+    return value.trim().replaceAll(RegExp(r'\s+'), ' ');
   }
 
   Future<void> _runSearch(String query, int seq) async {
@@ -1112,6 +1232,31 @@ class OnlineController extends StateNotifier<OnlineState> {
               !isNonPlayableAudioUrl(candidate.audioUrl))
           ? candidate.audioUrl
           : null,
+    );
+  }
+
+  OnlineHomeData _shuffleHomeSections(OnlineHomeData data) {
+    if (data.sections.isEmpty) return data;
+    final rng = Random();
+    final shuffled = data.sections.map((section) {
+      if (section.tracks.length <= 1) return section;
+      final tracks = List<OnlineTrackCandidate>.from(section.tracks);
+      tracks.shuffle(rng);
+      return OnlineSection(
+        id: section.id,
+        titleByLang: section.titleByLang,
+        subtitle: section.subtitle,
+        tracks: List.unmodifiable(tracks),
+      );
+    }).toList();
+    return OnlineHomeData(
+      schemaVersion: data.schemaVersion,
+      generatedAt: data.generatedAt,
+      editionDate: data.editionDate,
+      tags: data.tags,
+      sections: List.unmodifiable(shuffled),
+      topPlaylist: data.topPlaylist,
+      albumRecommendations: data.albumRecommendations,
     );
   }
 

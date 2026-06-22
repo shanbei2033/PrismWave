@@ -22,7 +22,7 @@ std::optional<LRESULT> HitTestResizeBorder(HWND hwnd, LPARAM lparam) {
   const POINT point = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
   const HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
   const UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
-  const int resize_border = std::max(4, MulDiv(8, dpi, 96));
+  const int resize_border = std::max(10, MulDiv(16, dpi, 96));
 
   const bool on_left = point.x >= window_rect.left &&
                        point.x < window_rect.left + resize_border;

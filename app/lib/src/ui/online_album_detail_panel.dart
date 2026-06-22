@@ -27,8 +27,6 @@ class OnlineAlbumDetailPanel extends ConsumerStatefulWidget {
 
 class _OnlineAlbumDetailPanelState
     extends ConsumerState<OnlineAlbumDetailPanel> {
-  final OnlineMediaCacheService _coverCache = OnlineMediaCacheService();
-
   @override
   void initState() {
     super.initState();
@@ -38,23 +36,21 @@ class _OnlineAlbumDetailPanelState
   }
 
   @override
-  void dispose() {
-    _coverCache.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final t = widget.t;
+    final coverCache = ref.watch(onlineCoverCacheProvider);
     final detail = ref.watch(onlineProvider.select((s) => s.albumDetail));
     final showingThisAlbum =
         detail.album?.canonicalKey == widget.album.canonicalKey;
-    final tracks = showingThisAlbum ? detail.tracks : const <OnlineTrackCandidate>[];
-    final loading = !showingThisAlbum ||
+    final tracks = showingThisAlbum
+        ? detail.tracks
+        : const <OnlineTrackCandidate>[];
+    final loading =
+        !showingThisAlbum ||
         detail.status == OnlineAlbumDetailStatus.loading ||
         detail.status == OnlineAlbumDetailStatus.idle;
-    final failed = showingThisAlbum &&
-        detail.status == OnlineAlbumDetailStatus.failed;
+    final failed =
+        showingThisAlbum && detail.status == OnlineAlbumDetailStatus.failed;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
@@ -66,7 +62,7 @@ class _OnlineAlbumDetailPanelState
           _Header(
             t: t,
             album: widget.album,
-            coverCache: _coverCache,
+            coverCache: coverCache,
             trackCount: tracks.length,
             onPlayAll: tracks.isEmpty ? null : () => _playAll(tracks),
           ),
@@ -77,11 +73,12 @@ class _OnlineAlbumDetailPanelState
               loading: loading,
               failed: failed,
               tracks: tracks,
-              coverCache: _coverCache,
+              coverCache: coverCache,
               errorMessage: detail.errorMessage,
               onTapTrack: (track) => _playOne(tracks, track),
-              onRetry: () =>
-                  ref.read(onlineProvider.notifier).loadAlbumDetail(widget.album),
+              onRetry: () => ref
+                  .read(onlineProvider.notifier)
+                  .loadAlbumDetail(widget.album),
             ),
           ),
         ],
@@ -93,18 +90,16 @@ class _OnlineAlbumDetailPanelState
     List<OnlineTrackCandidate> tracks,
     OnlineTrackCandidate picked,
   ) async {
-    await ref.read(onlineProvider.notifier).playOnlineTrack(
-          picked: picked,
-          contextTracks: tracks,
-        );
+    await ref
+        .read(onlineProvider.notifier)
+        .playOnlineTrack(picked: picked, contextTracks: tracks);
   }
 
   Future<void> _playAll(List<OnlineTrackCandidate> tracks) async {
     if (tracks.isEmpty) return;
-    await ref.read(onlineProvider.notifier).playOnlineTrack(
-          picked: tracks.first,
-          contextTracks: tracks,
-        );
+    await ref
+        .read(onlineProvider.notifier)
+        .playOnlineTrack(picked: tracks.first, contextTracks: tracks);
   }
 }
 

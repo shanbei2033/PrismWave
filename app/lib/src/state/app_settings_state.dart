@@ -15,6 +15,7 @@ class AppSettingsState {
     this.latestReleaseUrl = '',
     this.latestInstallerUrl = '',
     this.releaseUpdateError = '',
+    this.experimentalFeaturesEnabled = false,
     this.onlineModeEnabled = true,
   });
 
@@ -28,6 +29,7 @@ class AppSettingsState {
   final String latestReleaseUrl;
   final String latestInstallerUrl;
   final String releaseUpdateError;
+  final bool experimentalFeaturesEnabled;
   final bool onlineModeEnabled;
 
   AppSettingsState copyWith({
@@ -42,6 +44,7 @@ class AppSettingsState {
     String? latestInstallerUrl,
     String? releaseUpdateError,
     bool clearReleaseUpdateError = false,
+    bool? experimentalFeaturesEnabled,
     bool? onlineModeEnabled,
   }) {
     return AppSettingsState(
@@ -57,6 +60,8 @@ class AppSettingsState {
       releaseUpdateError: clearReleaseUpdateError
           ? ''
           : (releaseUpdateError ?? this.releaseUpdateError),
+      experimentalFeaturesEnabled:
+          experimentalFeaturesEnabled ?? this.experimentalFeaturesEnabled,
       onlineModeEnabled: onlineModeEnabled ?? this.onlineModeEnabled,
     );
   }

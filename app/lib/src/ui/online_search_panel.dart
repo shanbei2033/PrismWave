@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -5,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../i18n/app_strings.dart';
-import '../models/online_recommendation.dart';
 import '../providers.dart';
 import '../services/online_search_service.dart';
 import '../state/library_state.dart';
@@ -34,8 +34,6 @@ class _OnlineSearchPanelState extends ConsumerState<OnlineSearchPanel> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _focusNode.requestFocus();
-      // Trigger an empty load so the home recommendations service warms up.
-      ref.read(onlineProvider.notifier).ensureHomeLoaded();
     });
   }
 
@@ -56,13 +54,17 @@ class _OnlineSearchPanelState extends ConsumerState<OnlineSearchPanel> {
     ref.read(onlineProvider.notifier).setSearchQuery(value);
   }
 
+  void _submitSearch(String value) {
+    final controller = ref.read(onlineProvider.notifier);
+    controller.setSearchQuery(value);
+    unawaited(controller.commitSearchHistory(value));
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = widget.t;
     final search = ref.watch(onlineProvider.select((s) => s.search));
-    final home = ref.watch(onlineProvider.select((s) => s.home));
     final library = ref.watch(libraryProvider);
-    final tags = home.data?.tags ?? const <OnlineTag>[];
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -80,12 +82,20 @@ class _OnlineSearchPanelState extends ConsumerState<OnlineSearchPanel> {
             placeholder: t.onlineSearchPlaceholder,
             onChanged: (value) =>
                 ref.read(onlineProvider.notifier).setSearchQuery(value),
+            onSubmitted: _submitSearch,
             onClear: () => _applyQuery(''),
           ),
           const SizedBox(height: 18),
           Expanded(
             child: search.query.trim().isEmpty
-                ? _TagCloud(t: t, tags: tags, onSelect: _applyQuery)
+                ? _SearchHistoryList(
+                    t: t,
+                    history: search.history,
+                    onSelect: _applyQuery,
+                    onRemove: (value) => ref
+                        .read(onlineProvider.notifier)
+                        .removeSearchHistory(value),
+                  )
                 : _SearchResults(
                     t: t,
                     state: search,
@@ -100,6 +110,7 @@ class _OnlineSearchPanelState extends ConsumerState<OnlineSearchPanel> {
 
   Future<void> _playResult(OnlineSearchResult result) async {
     final controller = ref.read(onlineProvider.notifier);
+    await controller.commitSearchHistory(ref.read(onlineProvider).search.query);
     if (result.source == OnlineSearchResultSource.local) {
       // Build a local-only context: every local hit in the current results.
       final results = ref.read(onlineProvider).search.results;
@@ -131,6 +142,7 @@ class _SearchTextField extends StatelessWidget {
     required this.focusNode,
     required this.placeholder,
     required this.onChanged,
+    required this.onSubmitted,
     required this.onClear,
   });
 
@@ -138,6 +150,7 @@ class _SearchTextField extends StatelessWidget {
   final FocusNode focusNode;
   final String placeholder;
   final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
   final VoidCallback onClear;
 
   @override
@@ -150,6 +163,7 @@ class _SearchTextField extends StatelessWidget {
           controller: controller,
           focusNode: focusNode,
           onChanged: onChanged,
+          onSubmitted: onSubmitted,
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
             hintText: placeholder,
@@ -175,23 +189,25 @@ class _SearchTextField extends StatelessWidget {
   }
 }
 
-class _TagCloud extends StatelessWidget {
-  const _TagCloud({
+class _SearchHistoryList extends StatelessWidget {
+  const _SearchHistoryList({
     required this.t,
-    required this.tags,
     required this.onSelect,
+    required this.onRemove,
+    required this.history,
   });
 
   final AppStrings t;
-  final List<OnlineTag> tags;
+  final List<String> history;
   final ValueChanged<String> onSelect;
+  final ValueChanged<String> onRemove;
 
   @override
   Widget build(BuildContext context) {
-    if (tags.isEmpty) {
+    if (history.isEmpty) {
       return Center(
         child: Text(
-          t.onlinePopularTags,
+          t.onlineSearchHistoryEmpty,
           style: TextStyle(color: Colors.white.withValues(alpha: 0.55)),
         ),
       );
@@ -202,7 +218,7 @@ class _TagCloud extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            t.onlinePopularTags,
+            t.onlineSearchHistory,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.7),
               fontSize: 14,
@@ -210,12 +226,17 @@ class _TagCloud extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
+          Column(
             children: [
-              for (final tag in tags)
-                _TagChip(tag: tag, onTap: () => onSelect(tag.name)),
+              for (final item in history) ...[
+                _SearchHistoryTile(
+                  value: item,
+                  removeTooltip: t.onlineSearchHistoryRemove,
+                  onTap: () => onSelect(item),
+                  onRemove: () => onRemove(item),
+                ),
+                const SizedBox(height: 8),
+              ],
             ],
           ),
         ],
@@ -224,32 +245,74 @@ class _TagCloud extends StatelessWidget {
   }
 }
 
-class _TagChip extends StatelessWidget {
-  const _TagChip({required this.tag, required this.onTap});
+class _SearchHistoryTile extends StatelessWidget {
+  const _SearchHistoryTile({
+    required this.value,
+    required this.removeTooltip,
+    required this.onTap,
+    required this.onRemove,
+  });
 
-  final OnlineTag tag;
+  final String value;
+  final String removeTooltip;
   final VoidCallback onTap;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
-    final intensity = (0.18 + tag.weight * 0.4).clamp(0.18, 0.7);
-    final fontSize = (13 + tag.weight * 4).clamp(13, 19).toDouble();
     return Material(
-      color: Colors.white.withValues(alpha: intensity * 0.18),
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Text(
-            tag.name,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.78 + intensity * 0.2),
-              fontSize: fontSize,
-              fontWeight: FontWeight.w500,
+      color: Colors.white.withValues(alpha: 0.055),
+      borderRadius: BorderRadius.circular(14),
+      child: Ink(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(14),
+                ),
+                onTap: onTap,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.history_rounded,
+                        size: 17,
+                        color: Colors.white.withValues(alpha: 0.48),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.82),
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
+            Tooltip(
+              message: removeTooltip,
+              child: IconButton(
+                onPressed: onRemove,
+                icon: const Icon(Icons.close_rounded, size: 17),
+                color: Colors.white.withValues(alpha: 0.54),
+                splashRadius: 18,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:win32/win32.dart';
 
 import '../i18n/app_strings.dart';
@@ -38,6 +39,62 @@ import 'prismwave_theme.dart';
 import 'window_top_bar.dart';
 
 enum MainSection { home, search, library, albums, artists, favorites, settings }
+
+class _MainPageLayoutScale {
+  const _MainPageLayoutScale({
+    required this.scale,
+    required this.contentPadding,
+    required this.sidebarWidth,
+    required this.columnGap,
+    required this.sectionTopInset,
+    required this.bottomGap,
+    required this.brandFontSize,
+    required this.navFontSize,
+    required this.sidebarStatsFontSize,
+    required this.sectionTitleFontSize,
+    required this.playerInfoWidth,
+    required this.playerCenterWidth,
+    required this.playerRightWidth,
+  });
+
+  final double scale;
+  final double contentPadding;
+  final double sidebarWidth;
+  final double columnGap;
+  final double sectionTopInset;
+  final double bottomGap;
+  final double brandFontSize;
+  final double navFontSize;
+  final double sidebarStatsFontSize;
+  final double sectionTitleFontSize;
+  final double playerInfoWidth;
+  final double playerCenterWidth;
+  final double playerRightWidth;
+
+  static _MainPageLayoutScale fromSize(ui.Size size) {
+    final widthScale = (size.width / 1280).clamp(0.82, 1.36);
+    final heightScale = (size.height / 720).clamp(0.84, 1.28);
+    final scale = (((widthScale + heightScale) / 2).clamp(
+      0.84,
+      1.32,
+    )).toDouble();
+    return _MainPageLayoutScale(
+      scale: scale,
+      contentPadding: (16 * scale).toDouble(),
+      sidebarWidth: ((260 * scale).clamp(220, 360)).toDouble(),
+      columnGap: (14 * scale).toDouble(),
+      sectionTopInset: (32 * scale).toDouble(),
+      bottomGap: (14 * scale).toDouble(),
+      brandFontSize: (23 * scale).toDouble(),
+      navFontSize: (14 * scale).toDouble(),
+      sidebarStatsFontSize: (12 * scale).toDouble(),
+      sectionTitleFontSize: (22 * scale).toDouble(),
+      playerInfoWidth: ((280 * scale).clamp(220, 360)).toDouble(),
+      playerCenterWidth: ((700 * scale).clamp(420, 920)).toDouble(),
+      playerRightWidth: ((190 * scale).clamp(150, 260)).toDouble(),
+    );
+  }
+}
 
 Future<void> _openExternalUrl(String url) async {
   final trimmed = url.trim();
@@ -72,6 +129,9 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
   bool _topPlaylistOpen = false;
   OnlineAlbumCard? _openAlbumCard;
   bool _showPlaybackQueue = false;
+  _MainPageLayoutScale _layoutScale = _MainPageLayoutScale.fromSize(
+    const ui.Size(1280, 720),
+  );
 
   @override
   void initState() {
@@ -120,6 +180,16 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
         _hidePlaybackQueue();
       });
     }
+  }
+
+  bool _isOnlineSection(MainSection section) {
+    return section == MainSection.home || section == MainSection.search;
+  }
+
+  void _moveToLibraryFromOnlineSection() {
+    _section = MainSection.library;
+    _topPlaylistOpen = false;
+    _openAlbumCard = null;
   }
 
   Future<void> _openTrackDetails({
@@ -220,18 +290,16 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
       }
     });
 
-    ref.listen<bool>(appSettingsProvider.select((s) => s.onlineModeEnabled), (
-      previous,
-      next,
-    ) {
-      if (!next && mounted) {
-        if (_section == MainSection.home || _section == MainSection.search) {
-          setState(() {
-            _section = MainSection.library;
-          });
+    ref.listen<bool>(
+      appSettingsProvider.select(
+        (s) => s.experimentalFeaturesEnabled && s.onlineModeEnabled,
+      ),
+      (previous, next) {
+        if (!next && mounted && _isOnlineSection(_section)) {
+          setState(_moveToLibraryFromOnlineSection);
         }
-      }
-    });
+      },
+    );
 
     ref.listen<PlaybackState>(playbackProvider, (previous, next) {
       if (next.error != null && previous?.error != next.error && mounted) {
@@ -258,82 +326,120 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     final library = ref.watch(libraryProvider);
     final playback = ref.watch(playbackProvider);
     final language = ref.watch(appSettingsProvider).language;
+    final onlineNavigationEnabled = ref.watch(
+      appSettingsProvider.select(
+        (s) => s.experimentalFeaturesEnabled && s.onlineModeEnabled,
+      ),
+    );
     final t = AppStrings(language);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: PrismWaveTheme.appGradient,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: Row(
+    if (!onlineNavigationEnabled && _isOnlineSection(_section)) {
+      _moveToLibraryFromOnlineSection();
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _layoutScale = _MainPageLayoutScale.fromSize(
+          ui.Size(constraints.maxWidth, constraints.maxHeight),
+        );
+
+        return DragToResizeArea(
+          resizeEdgeSize: 10,
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Stack(
+              children: [
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: const BoxDecoration(
+                      gradient: PrismWaveTheme.appGradient,
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        _layoutScale.contentPadding,
+                        _layoutScale.contentPadding * 0.875,
+                        _layoutScale.contentPadding,
+                        _layoutScale.contentPadding * 0.875,
+                      ),
+                      child: Column(
                         children: [
-                          SizedBox(
-                            width: 260,
-                            child: _buildSidebar(
-                              library: library,
-                              playback: playback,
-                              t: t,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
                           Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 32),
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 280),
-                                switchInCurve: Curves.easeOutCubic,
-                                switchOutCurve: Curves.easeInCubic,
-                                transitionBuilder: (child, animation) {
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: SlideTransition(
-                                      position: Tween<Offset>(
-                                        begin: const Offset(0.08, 0),
-                                        end: Offset.zero,
-                                      ).animate(animation),
-                                      child: child,
-                                    ),
-                                  );
-                                },
-                                child: KeyedSubtree(
-                                  key: ValueKey(
-                                    '${_section.name}'
-                                    '|${_topPlaylistOpen ? 'top' : 'root'}'
-                                    '|${_openAlbumCard?.canonicalKey ?? ''}'
-                                    '|${_selectedAlbum ?? ''}'
-                                    '|${_selectedArtist ?? ''}',
-                                  ),
-                                  child: _buildSectionPanel(
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: _layoutScale.sidebarWidth,
+                                  child: _buildSidebar(
                                     library: library,
                                     playback: playback,
                                     t: t,
                                   ),
                                 ),
-                              ),
+                                SizedBox(width: _layoutScale.columnGap),
+                                Expanded(
+                                  child: Padding(
+                                    padding: EdgeInsets.only(
+                                      top: _layoutScale.sectionTopInset,
+                                    ),
+                                    child: AnimatedSwitcher(
+                                      duration: const Duration(
+                                        milliseconds: 280,
+                                      ),
+                                      switchInCurve: Curves.easeOutCubic,
+                                      switchOutCurve: Curves.easeInCubic,
+                                      transitionBuilder: (child, animation) {
+                                        return FadeTransition(
+                                          opacity: animation,
+                                          child: SlideTransition(
+                                            position: Tween<Offset>(
+                                              begin: const Offset(0.08, 0),
+                                              end: Offset.zero,
+                                            ).animate(animation),
+                                            child: child,
+                                          ),
+                                        );
+                                      },
+                                      child: KeyedSubtree(
+                                        key: ValueKey(
+                                          '${_section.name}'
+                                          '|${_topPlaylistOpen ? 'top' : 'root'}'
+                                          '|${_openAlbumCard?.canonicalKey ?? ''}'
+                                          '|${_selectedAlbum ?? ''}'
+                                          '|${_selectedArtist ?? ''}',
+                                        ),
+                                        child: _buildSectionPanel(
+                                          library: library,
+                                          playback: playback,
+                                          t: t,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
+                          SizedBox(height: _layoutScale.bottomGap),
+                          _buildPlayerBar(
+                            playback: playback,
+                            library: library,
+                            t: t,
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    _buildPlayerBar(playback: playback, library: library, t: t),
-                  ],
+                  ),
                 ),
-              ),
+                const Positioned(
+                  left: 0,
+                  top: 0,
+                  right: 0,
+                  child: WindowTopBar(),
+                ),
+              ],
             ),
           ),
-          Positioned(left: 0, top: 0, right: 0, child: const WindowTopBar()),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -386,7 +492,9 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     required AppStrings t,
   }) {
     final onlineEnabled = ref.watch(
-      appSettingsProvider.select((s) => s.onlineModeEnabled),
+      appSettingsProvider.select(
+        (s) => s.experimentalFeaturesEnabled && s.onlineModeEnabled,
+      ),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -394,11 +502,11 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
         Row(
           children: [
             Expanded(
-              child: const Text(
+              child: Text(
                 'PrismWave',
                 style: TextStyle(
                   color: PrismWaveTheme.textPrimary,
-                  fontSize: 23,
+                  fontSize: _layoutScale.brandFontSize,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0,
                 ),
@@ -460,7 +568,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                       color: PrismWaveTheme.textSecondary.withValues(
                         alpha: 0.78,
                       ),
-                      fontSize: 12,
+                      fontSize: _layoutScale.sidebarStatsFontSize,
                     ),
                   ),
                   Text(
@@ -469,7 +577,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                       color: PrismWaveTheme.textSecondary.withValues(
                         alpha: 0.78,
                       ),
-                      fontSize: 12,
+                      fontSize: _layoutScale.sidebarStatsFontSize,
                     ),
                   ),
                   Text(
@@ -478,7 +586,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                       color: PrismWaveTheme.textSecondary.withValues(
                         alpha: 0.78,
                       ),
-                      fontSize: 12,
+                      fontSize: _layoutScale.sidebarStatsFontSize,
                     ),
                   ),
                 ],
@@ -507,11 +615,14 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
             BlendMode.srcIn,
           ),
         ),
-        label: const Align(
+        label: Align(
           alignment: Alignment.centerLeft,
           child: Text(
             'HITS',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontSize: _layoutScale.navFontSize,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ),
@@ -676,7 +787,10 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
           alignment: Alignment.centerLeft,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: _layoutScale.navFontSize,
+              fontWeight: FontWeight.w600,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -1553,7 +1667,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
       child: Row(
         children: [
           SizedBox(
-            width: 280,
+            width: _layoutScale.playerInfoWidth,
             child: _NowPlayingInfo(
               track: playback.currentTrack,
               t: t,
@@ -1574,7 +1688,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
             child: Align(
               alignment: Alignment.center,
               child: SizedBox(
-                width: 700,
+                width: _layoutScale.playerCenterWidth,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1677,7 +1791,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
             ),
           ),
           SizedBox(
-            width: 190,
+            width: _layoutScale.playerRightWidth,
             child: Row(
               children: [
                 Icon(
@@ -1924,6 +2038,11 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
         : t.windowsDsdDeviceCountValue(dsdDevices.length);
     final dsdFallbackReason = playback.windowsDsdFallbackReason?.trim();
 
+    if (!appSettings.experimentalFeaturesEnabled &&
+        _selectedCategory == _SettingsCategory.online) {
+      _selectedCategory = _SettingsCategory.basic;
+    }
+
     return GlassPanel(
       lowEffects: library.lowEffects,
       child: Column(
@@ -1958,6 +2077,7 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
             constraints: const BoxConstraints(maxWidth: 390),
             child: _SettingsCategoryTabs(
               selectedCategory: _selectedCategory,
+              showOnline: appSettings.experimentalFeaturesEnabled,
               onChanged: (value) {
                 if (_selectedCategory == value) return;
                 setState(() {
@@ -2033,6 +2153,22 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                       ),
                       const SizedBox(height: 14),
                       _SettingsBlock(
+                        title: t.experimentalFeaturesTitle,
+                        child: _SettingsToggleTile(
+                          title: t.experimentalFeaturesTitle,
+                          subtitle: t.experimentalFeaturesDescription,
+                          value: appSettings.experimentalFeaturesEnabled,
+                          onChanged: (value) => unawaited(
+                            _setExperimentalFeaturesEnabled(
+                              enabled: value,
+                              t: t,
+                              lowEffects: library.lowEffects,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _SettingsBlock(
                         title: t.topBarDisplayTitle,
                         child: Column(
                           children: [
@@ -2076,41 +2212,45 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                       ),
                       const SizedBox(height: 14),
                     ],
-                    if (_selectedCategory == _SettingsCategory.online) ...[
-                      _SettingsBlock(
-                        title: t.onlineModeSettingTitle,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _SettingsToggleTile(
-                              title: t.onlineModeSettingTitle,
-                              subtitle: t.onlineModeSettingDescription,
-                              value: ref.watch(
-                                appSettingsProvider.select(
-                                  (s) => s.onlineModeEnabled,
+                    if (_selectedCategory == _SettingsCategory.online &&
+                        appSettings.experimentalFeaturesEnabled) ...[
+                      if (appSettings.experimentalFeaturesEnabled)
+                        _SettingsBlock(
+                          title: t.onlineModeSettingTitle,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _SettingsToggleTile(
+                                title: t.onlineModeSettingTitle,
+                                subtitle: t.onlineModeSettingDescription,
+                                value: ref.watch(
+                                  appSettingsProvider.select(
+                                    (s) => s.onlineModeEnabled,
+                                  ),
                                 ),
+                                onChanged: (value) => ref
+                                    .read(appSettingsProvider.notifier)
+                                    .setOnlineModeEnabled(value),
                               ),
-                              onChanged: (value) => ref
-                                  .read(appSettingsProvider.notifier)
-                                  .setOnlineModeEnabled(value),
-                            ),
-                            const SizedBox(height: 12),
-                            _SettingsOnlineRefreshTile(
-                              title: t.onlineFetchTodayChart,
-                              subtitle: t.onlineFetchTodayChartDescription,
-                              tooltip:
-                                  onlineHome.status == OnlineHomeStatus.loading
-                                  ? t.onlineHomeLoading
-                                  : t.onlineFetchTodayChart,
-                              iconAsset: 'assets/icons/refresh.svg',
-                              onPressed:
-                                  onlineHome.status == OnlineHomeStatus.loading
-                                  ? null
-                                  : () => _fetchTodayChart(t),
-                            ),
-                          ],
+                              const SizedBox(height: 12),
+                              _SettingsOnlineRefreshTile(
+                                title: t.onlineFetchTodayChart,
+                                subtitle: t.onlineFetchTodayChartDescription,
+                                tooltip:
+                                    onlineHome.status ==
+                                        OnlineHomeStatus.loading
+                                    ? t.onlineHomeLoading
+                                    : t.onlineFetchTodayChart,
+                                iconAsset: 'assets/icons/refresh.svg',
+                                onPressed:
+                                    onlineHome.status ==
+                                        OnlineHomeStatus.loading
+                                    ? null
+                                    : () => _fetchTodayChart(t),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
                     ],
                     if (_selectedCategory == _SettingsCategory.playback) ...[
                       _SettingsBlock(
@@ -2187,96 +2327,98 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      _SettingsBlock(
-                        title: t.windowsDsdDevice,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _GlassSelectField<String>(
-                              key: ValueKey(
-                                'windows-dsd-device-$selectedWindowsDsdDeviceId-${dsdDevices.length}',
-                              ),
-                              value: selectedWindowsDsdDeviceId,
-                              lowEffects: library.lowEffects,
-                              onChanged: (value) {
-                                if (dsdDevices.isEmpty && value != 'auto') {
-                                  return;
-                                }
-                                playbackController.setWindowsDsdDevice(value);
-                              },
-                              items: <_GlassSelectEntry<String>>[
-                                _GlassSelectEntry<String>(
-                                  value: 'auto',
-                                  label: t.windowsDsdDeviceLabel(
-                                    t.defaultAudioDevice,
-                                    isAuto: true,
-                                    supportsNativeDsd: false,
-                                  ),
+                      if (appSettings.experimentalFeaturesEnabled) ...[
+                        _SettingsBlock(
+                          title: t.windowsDsdDevice,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _GlassSelectField<String>(
+                                key: ValueKey(
+                                  'windows-dsd-device-$selectedWindowsDsdDeviceId-${dsdDevices.length}',
                                 ),
-                                ...dsdDevices.map(
-                                  (device) => _GlassSelectEntry<String>(
-                                    value: device.id.toString(),
+                                value: selectedWindowsDsdDeviceId,
+                                lowEffects: library.lowEffects,
+                                onChanged: (value) {
+                                  if (dsdDevices.isEmpty && value != 'auto') {
+                                    return;
+                                  }
+                                  playbackController.setWindowsDsdDevice(value);
+                                },
+                                items: <_GlassSelectEntry<String>>[
+                                  _GlassSelectEntry<String>(
+                                    value: 'auto',
                                     label: t.windowsDsdDeviceLabel(
-                                      device.name,
-                                      isAuto: false,
-                                      supportsNativeDsd:
-                                          device.supportsNativeDsd,
+                                      t.defaultAudioDevice,
+                                      isAuto: true,
+                                      supportsNativeDsd: false,
                                     ),
                                   ),
+                                  ...dsdDevices.map(
+                                    (device) => _GlassSelectEntry<String>(
+                                      value: device.id.toString(),
+                                      label: t.windowsDsdDeviceLabel(
+                                        device.name,
+                                        isAuto: false,
+                                        supportsNativeDsd:
+                                            device.supportsNativeDsd,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                dsdDevices.isEmpty
+                                    ? t.windowsDsdUnavailableHint
+                                    : t.windowsDsdDeviceHint,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.66),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _SettingsBlock(
+                          title: t.windowsDsdStatus,
+                          child: Column(
+                            children: [
+                              _SettingsInfoRow(
+                                label: t.windowsDsdRuntimeStatus,
+                                value: dsdRuntimeSummary,
+                              ),
+                              const SizedBox(height: 10),
+                              _SettingsInfoRow(
+                                label: t.windowsDsdDeviceCountLabel,
+                                value: dsdDeviceSummary,
+                              ),
+                              const SizedBox(height: 10),
+                              _SettingsInfoRow(
+                                label: t.windowsDsdCurrentBackend,
+                                value: dsdBackendSummary,
+                              ),
+                              if ((playback.windowsDsdOutputModeLabel ?? '')
+                                  .isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                _SettingsInfoRow(
+                                  label: t.windowsDsdOutputModeStatus,
+                                  value: playback.windowsDsdOutputModeLabel!,
                                 ),
                               ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              dsdDevices.isEmpty
-                                  ? t.windowsDsdUnavailableHint
-                                  : t.windowsDsdDeviceHint,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.66),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      _SettingsBlock(
-                        title: t.windowsDsdStatus,
-                        child: Column(
-                          children: [
-                            _SettingsInfoRow(
-                              label: t.windowsDsdRuntimeStatus,
-                              value: dsdRuntimeSummary,
-                            ),
-                            const SizedBox(height: 10),
-                            _SettingsInfoRow(
-                              label: t.windowsDsdDeviceCountLabel,
-                              value: dsdDeviceSummary,
-                            ),
-                            const SizedBox(height: 10),
-                            _SettingsInfoRow(
-                              label: t.windowsDsdCurrentBackend,
-                              value: dsdBackendSummary,
-                            ),
-                            if ((playback.windowsDsdOutputModeLabel ?? '')
-                                .isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              _SettingsInfoRow(
-                                label: t.windowsDsdOutputModeStatus,
-                                value: playback.windowsDsdOutputModeLabel!,
-                              ),
+                              if ((playback.windowsDsdActiveDeviceName ?? '')
+                                  .isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                _SettingsInfoRow(
+                                  label: t.windowsDsdActiveDevice,
+                                  value: playback.windowsDsdActiveDeviceName!,
+                                ),
+                              ],
                             ],
-                            if ((playback.windowsDsdActiveDeviceName ?? '')
-                                .isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              _SettingsInfoRow(
-                                label: t.windowsDsdActiveDevice,
-                                value: playback.windowsDsdActiveDeviceName!,
-                              ),
-                            ],
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                     if (_selectedCategory == _SettingsCategory.basic) ...[
                       _SettingsBlock(
@@ -2323,11 +2465,12 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                               subtitle: Text(t.developerModeHint),
                             ),
                             if (playback.developerMode) ...[
-                              if (currentTrackIsDsd ||
-                                  playback.backendKind ==
-                                      PlaybackBackendKind.windowsDsd ||
-                                  (dsdFallbackReason != null &&
-                                      dsdFallbackReason.isNotEmpty)) ...[
+                              if (appSettings.experimentalFeaturesEnabled &&
+                                  (currentTrackIsDsd ||
+                                      playback.backendKind ==
+                                          PlaybackBackendKind.windowsDsd ||
+                                      (dsdFallbackReason != null &&
+                                          dsdFallbackReason.isNotEmpty))) ...[
                                 const SizedBox(height: 4),
                                 Text(
                                   t.windowsDsdStatus,
@@ -2523,16 +2666,39 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
+
+  Future<void> _setExperimentalFeaturesEnabled({
+    required bool enabled,
+    required AppStrings t,
+    required bool lowEffects,
+  }) async {
+    final controller = ref.read(appSettingsProvider.notifier);
+    if (!enabled) {
+      await controller.setExperimentalFeaturesEnabled(false);
+      return;
+    }
+
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) =>
+          _ExperimentalFeaturesWarningDialog(t: t, lowEffects: lowEffects),
+    );
+    if (!mounted || accepted != true) return;
+    await controller.setExperimentalFeaturesEnabled(true);
+  }
 }
 
 class _SettingsCategoryTabs extends StatelessWidget {
   const _SettingsCategoryTabs({
     required this.selectedCategory,
+    required this.showOnline,
     required this.onChanged,
     required this.t,
   });
 
   final _SettingsCategory selectedCategory;
+  final bool showOnline;
   final ValueChanged<_SettingsCategory> onChanged;
   final AppStrings t;
 
@@ -2555,14 +2721,16 @@ class _SettingsCategoryTabs extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Expanded(
-            child: _SettingsCategoryButton(
-              label: t.settingsOnlineTab,
-              selected: selectedCategory == _SettingsCategory.online,
-              onTap: () => onChanged(_SettingsCategory.online),
+          if (showOnline) ...[
+            Expanded(
+              child: _SettingsCategoryButton(
+                label: t.settingsOnlineTab,
+                selected: selectedCategory == _SettingsCategory.online,
+                onTap: () => onChanged(_SettingsCategory.online),
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
+            const SizedBox(width: 8),
+          ],
           Expanded(
             child: _SettingsCategoryButton(
               label: t.settingsPlaybackTab,
@@ -4228,6 +4396,171 @@ class _TrackDetailsPage extends ConsumerWidget {
       return '${hours.toString().padLeft(2, '0')}:$minutes:$seconds';
     }
     return '$minutes:$seconds';
+  }
+}
+
+class _ExperimentalFeaturesWarningDialog extends StatelessWidget {
+  const _ExperimentalFeaturesWarningDialog({
+    required this.t,
+    required this.lowEffects,
+  });
+
+  final AppStrings t;
+  final bool lowEffects;
+
+  @override
+  Widget build(BuildContext context) {
+    final blur = lowEffects ? 10.0 : 18.0;
+    final paragraphs = t.experimentalFeaturesRiskParagraphs;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.82;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 42, vertical: 36),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          child: Container(
+            width: 640,
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0B1220).withValues(alpha: 0.28),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.22),
+                  blurRadius: 30,
+                  offset: const Offset(0, 16),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 22, 24, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(
+                            0xFFD74B4B,
+                          ).withValues(alpha: 0.16),
+                          border: Border.all(
+                            color: const Color(
+                              0xFFD74B4B,
+                            ).withValues(alpha: 0.42),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.warning_amber_rounded,
+                          color: Color(0xFFFFB4B4),
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          t.experimentalFeaturesRiskTitle,
+                          style: const TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w800,
+                            height: 1.18,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.white.withValues(alpha: 0.045),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.10),
+                        ),
+                      ),
+                      child: Scrollbar(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              for (
+                                var index = 0;
+                                index < paragraphs.length;
+                                index += 1
+                              ) ...[
+                                Text(
+                                  paragraphs[index],
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(
+                                      alpha: index == 0 ? 0.94 : 0.82,
+                                    ),
+                                    fontSize: index == 0 ? 13.8 : 12.8,
+                                    height: 1.58,
+                                    fontWeight: index == 0
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                  ),
+                                ),
+                                if (index != paragraphs.length - 1)
+                                  const SizedBox(height: 10),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white.withValues(
+                              alpha: 0.86,
+                            ),
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.18),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                          ),
+                          child: Text(t.experimentalFeaturesDisagree),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFFD74B4B),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                          ),
+                          child: Text(t.experimentalFeaturesAgree),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

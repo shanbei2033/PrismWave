@@ -1,6 +1,6 @@
 # PrismWave AI 接手文档
 
-更新时间：2026-06-09
+更新时间：2026-06-22
 
 本文档用于让其他 AI 在尽量少读上下文的情况下，快速接手当前仓库 `F:\Project\PrismWave` 的开发工作。
 
@@ -8,7 +8,7 @@
 
 ## 1. 项目概况
 
-PrismWave 是一个基于 Flutter 的 Windows 本地音乐播放器，当前发布版本 **R502**，`pubspec.yaml` 版本号 `502.0.0+504`。
+PrismWave 是一个基于 Flutter 的 Windows 本地音乐播放器，当前发布版本 **R503**，`pubspec.yaml` 版本号 `503.0.0+505`。R503 汇总了 2026-06-18 至 2026-06-22 的在线首页 schema 8、Top100 去重、字体与今日趋势卡片 UI 改动，并新增实验性功能开关、风险提示弹窗与在线搜索历史。
 
 **GitHub 仓库**：
 - 主仓库：`https://github.com/shanbei2033/PrismWave`
@@ -24,6 +24,14 @@ PrismWave 是一个基于 Flutter 的 Windows 本地音乐播放器，当前发�
 - HITS 模式（节目单拉取、**10 个音源 provider**、封面歌词缓存、独立播放页、预加载）
 - Windows 专用 DSD 后端（BASS/BASSDSD/BASSASIO）
 - 开发者模式（实时日志窗口 + 本地日志文件）
+
+**R503 发布主线（2026-06-22）**：
+- 新增实验性功能/BETA 开关；关闭时隐藏在线入口以及 DSD 输出设备/状态选项。
+- 开启实验性功能前显示法律与第三方服务风险提示弹窗，用户必须点击"同意"后才会启用。
+- 在线搜索页移除热门标签，改为本机持久化搜索历史，最多 15 条，支持点击搜索与单条删除。
+- 在线首页推荐升级到 schema 8，恢复多音乐风格分区，增强大陆网络封面兜底与诊断日志。
+- Top100 生成器加入歌手去重 rerank；客户端字体切为 Inter + Noto Sans SC/TC；今日趋势卡片改为多封面模糊背景与右侧清晰封面拼贴。
+- 版本号同步到 `R503`，安装包输出为 `PrismWave-Setup-R503.exe`。
 
 **R502 发布主线（2026-06-09）**：
 - 在线首页今日榜单未生成与网络/JSON 不可用拆成两个状态。
@@ -141,7 +149,7 @@ PrismWave/
 
 | 项目 | 详情 |
 |------|------|
-| Flutter | `tools/flutter/bin/flutter`（3.29.3-stable） |
+| Flutter | `tools/flutter/bin/flutter.bat`（3.41.4 stable，本地工具链；Dart 3.11.1） |
 | SDK | `^3.11.1` |
 | 音频后端 | just_audio (0.10.5) → just_audio_media_kit (third_party patch) → media_kit → libmpv |
 | DSD 后端 | BASS/BASSDSD/BASSASIO 通过 FFI |
@@ -267,8 +275,8 @@ ShellExecute(0, 'open', 'cmd.exe', '/c start "" "path/to/logfile"', ...);
 
 ### 4.10 版本更新检查
 - `release_update_service.dart`: 调用 GitHub Releases API
-- 当前版本常量: `kCurrentReleaseVersion = 'R502'`
-- `installer/PrismWaveSetup.iss`: `#define MyAppVersion "R502"`
+- 当前版本常量: `kCurrentReleaseVersion = 'R503'`
+- `installer/PrismWaveSetup.iss`: `#define MyAppVersion "R503"`
 
 ### 4.11 在线模式（普通在线音乐）
 
@@ -295,8 +303,8 @@ ShellExecute(0, 'open', 'cmd.exe', '/c start "" "path/to/logfile"', ...);
 - `app/lib/src/ui/online_top_playlist_panel.dart`
 
 首页推荐数据来源：
-- 歌曲推荐 / 今日趋势 / 标签 section：使用 `prismwave-hits` 仓库生成的 schema 7 daily home JSON。
-- JSON 由 `prismwave-hits/scripts/build_home.py` 生成，聚合 Last.fm（有 key 时）、Audius、Deezer、iTunes 等来源，整理为全球热门 Top100。
+- 歌曲推荐 / 今日趋势 / 音乐风格 section：使用 `prismwave-hits` 仓库生成的 schema 8 daily home JSON。
+- JSON 由 `prismwave-hits/scripts/build_home.py` 生成，聚合 Last.fm（有 key 时）、Audius、Deezer、iTunes 等来源，整理为全球热门 Top100，并额外输出多音乐风格分区。
 - GitHub Actions 文件：`prismwave-hits/.github/workflows/build_home.yml`。
 - 定时：`0 2 * * *` UTC，即北京时间每天 10:00。
 - 默认快速路径不批量解析音频 URL；需要时可设 `PRISMWAVE_HOME_RESOLVE_AUDIO=1`。普通在线播放点击后仍通过 resolver 解析实际播放源。
@@ -322,17 +330,18 @@ prismwave-hits/home/home_recommendations-YYYY-MM-DD.json
 ```
 
 缓存规则：
-- `NeteaseHomeService._kSchemaVersion = 7`
+- `NeteaseHomeService._kSchemaVersion = 8`
 - `editionDate` 使用北京时间日期，客户端用北京时间判断今天/昨天。
 - 启动在线首页时先查当天缓存 `home-YYYY-MM-DD.json`，命中则不拉远程。
 - 当天缓存不存在时拉取 remote `latest_home.json`，并按 remote 自身 `editionDate` 写入对应日期缓存。
 - 远程拉取失败时才回退昨天缓存/内置兜底，并设置 `recommendationsUnavailable=true`。
+- schema 8 payload 需要包含风格分区，当前客户端强制要求至少有 `style-pop`、`style-rock`、`style-electronic`、`style-hiphop`、`style-rnb`，且这些 section 至少各 4 首。
 - GitHub Actions 每天北京时间 10:00 生成当天 JSON；北京时间 00:00-10:00 期间 remote 通常仍是昨日 `editionDate`，这是正常窗口期，不等同于用户网络失败。
 - 当 remote JSON 可用但不是当天时，默认显示昨日榜单，并设置 `recommendationsPendingGeneration=true`；仅榜单详情页使用普通叹号 SVG，Tooltip 为"榜单于UTC+10更新"。
 - 如果没有当天缓存、没有昨天缓存，且远程不可用，会读取 app 内置 `assets/home/latest_home.json` 作为冷启动兜底，并设置 `recommendationsUnavailable=true`。
 - 只有网络/JSON 真不可用并使用缓存/内置兜底时，榜单详情页的"今日趋势"标题右侧才显示黄色叹号 SVG，Tooltip 为"推荐不可用，请检查网络环境。"。
 - 手动刷新入口：主页顶部刷新按钮、设置 > 在线 > "拉取今日榜单"刷新 SVG 按钮；只有网络/JSON 真不可用时提示"拉取失败"。
-- remote payload 必须满足 schema >= 7、`topPlaylist.tracks.length >= 100`、至少 80 首有 `coverUrl`，否则视为不可用。
+- remote payload 必须满足 schema >= 8、`topPlaylist.tracks.length >= 100`、至少 80 首有 `coverUrl`，且包含必需风格分区，否则视为不可用。
 
 #### 4.11.3 在线首页启动性能修复（2026-06-06 历史记录）
 
@@ -385,6 +394,19 @@ online.home.refresh-background.failed
 online.home.cover-enrich.start
 online.home.cover-enrich.ready
 online.home.cover-enrich.failed
+online.home.cover-fallback.start
+online.home.cover-fallback.section.start
+online.home.cover-fallback.section.ready
+online.home.cover-fallback.section.none
+online.home.cover-fallback.ready
+online.cover.load-start
+online.cover.download-ok
+online.cover.http-status
+online.cover.timeout
+online.cover.socket-error
+online.cover.not-image
+online.cover.decode-error
+online.cover.failed
 ```
 
 验证结果（2026-06-06）：
@@ -498,8 +520,8 @@ remote daily home 中很多 Last.fm / Deezer / Audius section 没有大陆可访
 - remote `home/latest_home.json` 有新的 `editionDate`。
 - 真正问题是旧 app 没有读取 `prismwave-hits/home/latest_home.json`，而是直接走网易云 endpoints，并按 12 小时/本地缓存逻辑刷新。
 
-当前修复（2026-06-08）：
-- `NeteaseHomeService` 读取 remote schema 7 daily home JSON。
+当时修复（2026-06-08；2026-06-18 已由 schema 8 风格分区机制扩展）：
+- `NeteaseHomeService` 当时读取 remote schema 7 daily home JSON。
 - cache freshness 由 `editionDate` 对齐当前北京时间日期。
 - 本地当天缓存存在时不拉远程；当天缓存不存在才拉 `latest_home.json`。
 - remote 不可用或不是当天时不再回退网易云榜单，只回退昨天缓存，并在 UI 显示黄色告警。
@@ -514,6 +536,128 @@ remote daily home 中很多 Last.fm / Deezer / Audius section 没有大陆可访
 - `recommendationsUnavailable=true`：仅用于网络/JSON 真不可用时的缓存/内置兜底，仅在榜单详情页标题旁使用黄色 `chart_notice.svg`，Tooltip 为"推荐不可用，请检查网络环境。"。
 - `OnlineController.refreshHomeRecommendations()` 返回 `OnlineHomeRefreshResult.fresh/latestAvailable/failed`，UI 根据结果显示成功、"今日榜单尚未生成，已显示昨日榜单"或失败。
 - 验证：`dart analyze lib\main.dart lib\src` 无问题。
+
+#### 4.11.10 在线首页风格分区与大陆封面优化（2026-06-18 未发布）
+
+用户现象：
+- 首页一度只剩"全球热门"和"可直接播放"两个板块，R&B、电子音乐等风格分区消失。
+- 大部分封面能获取，但仍有少数封面获取失败，且中国大陆网络下部分海外 CDN 响应慢。
+- 开发者日志中手动刷新报 `Remote daily home payload is unavailable`，但页面已有本地/内置数据。
+
+本次修复：
+- `prismwave-hits/scripts/build_home.py` 升级为 schema 8，恢复多音乐风格分区。
+- 当前生成的 section 包括：`style-pop`、`style-rock`、`style-electronic`、`style-indie`、`style-hiphop`、`style-rnb`、`style-jazz`、`style-ambient`。`style-folk` 曾尝试生成，但候选不足时会跳过。
+- `prismwave-hits/config/station.json` 同步更新分区配置。
+- `app/assets/home/latest_home.json` 已用 schema 8 结果覆盖，冷启动兜底不再只有两个板块。
+- `NeteaseHomeService._kSchemaVersion = 8`，并要求至少包含 `style-pop/style-rock/style-electronic/style-hiphop/style-rnb` 五个必需分区。
+- 对非大陆友好的封面 host（Last.fm、Deezer API、Audius 等）后台搜索网易云封面替换；大陆友好 host 包括 `music.126.net`、`music.163.com`、`qpic.cn`、`gtimg.cn`、`kuwo.cn`、`migu.cn`、`dmhmusic.com`、`taihe.com` 等。
+- 封面补全不阻塞首页首屏，只处理可见优先范围：Top 榜前 40 首、每个风格 section 前 12 首。
+- `needsMainlandCoverFallbacks()` 的判断范围与实际补全范围保持一致，避免列表深处海外封面导致反复后台补全。
+- 首页 section 先打乱展示；补封面现在使用“当前实际展示的数据”，避免补到未展示的前 12 首。
+- 手动刷新失败后回退昨日缓存/内置数据时，也会触发封面补全。
+- 封面补全的 in-flight key 加入当前 `_homeSeq`，避免旧补全任务因 seq 过期却挡住新刷新任务。
+
+封面缓存/下载优化：
+- `onlineCoverCacheProvider` 改为全局共享 `OnlineMediaCacheService`，首页、榜单详情、专辑详情共用内存/磁盘缓存和开发者日志。
+- `OnlineMediaCacheService` 连接超时从 8 秒降到 4 秒，响应超时从 12 秒降到 7 秒。
+- Deezer `api.deezer.com/album/.../image` 会优先尝试 `e-cdns-images.dzcdn.net/images/cover/.../500x500...jpg`，避免先卡 API host。
+- `OnlineCoverImage.errorBuilder` 会调用 `recordDecodeFailure()`，可以区分下载成功但 Flutter 解码失败的情况。
+
+新增/增强日志：
+```text
+online.home.cover-fallback.*
+online.home.cover-enrich.*
+online.cover.load-start
+online.cover.disk-hit
+online.cover.memory-hit
+online.cover.pending-join
+online.cover.download-ok
+online.cover.http-status
+online.cover.timeout
+online.cover.socket-error
+online.cover.not-image
+online.cover.decode-error
+online.cover.failed
+```
+
+关键文件：
+- `app/lib/src/services/netease_home_service.dart`
+- `app/lib/src/services/online_media_cache_service.dart`
+- `app/lib/src/controllers/online_controller.dart`
+- `app/lib/src/providers.dart`
+- `app/lib/src/ui/online_home_panel.dart`
+- `app/lib/src/ui/online_top_playlist_panel.dart`
+- `app/lib/src/ui/online_album_detail_panel.dart`
+- `app/assets/home/latest_home.json`
+- `prismwave-hits/scripts/build_home.py`
+- `prismwave-hits/config/station.json`
+- `prismwave-hits/home/latest_home.json`
+
+验证（2026-06-18）：
+```powershell
+cd F:\Project\PrismWave\app
+..\tools\flutter\bin\cache\dart-sdk\bin\dart.exe analyze `
+  lib\src\services\netease_home_service.dart `
+  lib\src\services\online_media_cache_service.dart `
+  lib\src\controllers\online_controller.dart `
+  lib\src\providers.dart `
+  lib\src\ui\online_home_panel.dart `
+  lib\src\ui\online_top_playlist_panel.dart `
+  lib\src\ui\online_album_detail_panel.dart
+..\tools\flutter\bin\flutter.bat build windows --release
+```
+
+结果：
+- `dart analyze`：No issues found。
+- `git diff --check`：无空白错误，只有 Windows CRLF 提示。
+- `flutter build windows --release`：成功。
+- Demo：`F:\Project\PrismWave\app\build\windows\x64\runner\Release\prismwave_demo.exe`。
+- 本次 Dart/AOT 产物：`F:\Project\PrismWave\app\build\windows\x64\runner\Release\data\app.so`，LastWriteTime `2026-06-18 23:00:00`。
+
+注意：
+- 用户日志里的 `Remote daily home payload is unavailable` 代表远端 daily JSON 当前不可用或未满足 schema 8 校验；这不一定是封面下载失败。当前逻辑会回退缓存/内置 schema 8 数据，并继续后台补封面。
+- 如果远端 `prismwave-hits/home/latest_home.json` 尚未推送 schema 8，用户手动刷新仍可能看到 unavailable；需要同步推送 `prismwave-hits` 仓库的 schema 8 生成结果。
+
+#### 4.11.11 今日趋势榜单去重、字体与首页卡片 UI（2026-06-22 未发布）
+
+远端榜单生成：
+- `prismwave-hits/scripts/build_home.py` 新增确定性多样性 rerank：Top100 按主歌手计数，单个主歌手最多 3 首；普通 section / style section 单个主歌手最多 2 首。
+- rerank 在热度排序基础上加入 lookahead、已出现次数惩罚和近距离重复惩罚；随机种子继续由 `editionDate` 派生，同一天重复生成顺序稳定。
+- Top100 仍输出 100 首；如果严格 3 次歌手上限无法凑满 100 首，生成脚本直接失败，不自动放宽上限。
+- 生成器保持 `schemaVersion = 8`，`generatorVersion` 已升到 `prismwave-home/0.4.1`；`prismwave-hits` 已推送并通过 GitHub Actions 重新生成 JSON。
+- 生成 JSON 校验重点：`topPlaylist.tracks.length == 100`、最大主歌手重复数 `<= 3`、无重复 `track_identity`、必需风格分区存在且每个至少 4 首、Top100 至少 80 首有 `coverUrl`。
+
+客户端展示：
+- 榜单详情页不再信任远端 `topPlaylist.subtitle` 作为生成时间，改用 `OnlineHomeData.generatedAt` 按当前语言本地格式化。
+- 生成时间文案统一显示 UTC：简体 `世界协调时（UTC）`，繁体 `世界協調時間（UTC）`，英文 `Generated: YYYY-MM-DD HH:mm UTC`。
+- 首页今日趋势卡片不显示生成时间、副标题或“查看榜单/打开榜单”按钮；生成时间只出现在榜单详情页标题下方。
+- 英文首页和详情页标题从 `Today's Trending` 改为 `Trending`；中文继续为 `今日趋势` / `今日趨勢`。
+
+字体：
+- 全局字体栈改为 Inter + Noto Sans SC/TC：拉丁文字优先 Inter，中文通过 Noto Sans SC / Noto Sans TC fallback。
+- Resource Han Rounded CN/TW 保留为后备 fallback，不再作为主中文字体。
+- 新增字体目录：`app/assets/fonts/inter/`、`app/assets/fonts/noto_sans_cjk/`，并在 `app/pubspec.yaml` 注册。
+
+首页今日趋势卡片最新视觉：
+- 卡片高度保持 168px，整张卡片仍可点击进入榜单详情页。
+- 已删除 `TOP100` 标签、`100` 数字水印和底部柔边遮罩。
+- 背景使用榜单最多 8 张封面组成 4x2 拼贴，并整体模糊；背景层向卡片四周 overscan，避免边缘出现未模糊缝隙。
+- 右侧恢复清晰 148x148 的 2x2 封面拼贴，靠近卡片右侧；文字与封面之间叠暗色渐变保证标题可读。
+- 左侧只保留大标题 `今日趋势 / Trending`，约 42px、粗字重，位置略低，不贴顶。
+
+验证（2026-06-22）：
+```powershell
+cd F:\Project\PrismWave\app
+..\tools\flutter\bin\cache\dart-sdk\bin\dart.exe format lib\src\ui\online_home_panel.dart lib\src\ui\online_top_playlist_panel.dart lib\src\i18n\app_strings.dart lib\src\ui\prismwave_theme.dart
+..\tools\flutter\bin\flutter.bat analyze
+..\tools\flutter\bin\flutter.bat build windows --release
+```
+
+结果：
+- `flutter analyze` 仍退出 1，但仅剩既有 `tool/verify_online_lyrics.dart` 的 3 条 `avoid_print` info；本轮无新增 analyzer 问题。
+- `flutter build windows --release` 成功。
+- Demo：`F:\Project\PrismWave\app\build\windows\x64\runner\Release\prismwave_demo.exe`。
+- Windows demo zip：`F:\Project\PrismWave\app\build\windows\x64\runner\prismwave_demo-windows-release.zip`。
 
 ### 4.12 HITS 模式（广播电台）
 
@@ -727,6 +871,7 @@ flutter build windows --release
 
 ### 构建产物
 - EXE: `app/build/windows/x64/runner/Release/prismwave_demo.exe`
+- 最新已验证构建（2026-06-18）：`flutter build windows --release` 成功；`data/app.so` LastWriteTime 为 `2026-06-18 23:00:00`。Flutter Windows 的 exe 外壳时间可能不变，Dart 代码实际在 `data/app.so`。
 - DSD 运行库 (`bass.dll`, `bassdsd.dll`, `bassasio.dll`) 由 CMake 复制
 - 安装包: 通过 Inno Setup 打包，输出到 `dist/`
   - ISCC 路径: `C:\Users\Admin\AppData\Local\Programs\Inno Setup 6\ISCC.exe`
@@ -754,6 +899,88 @@ GitHub Actions: `.github/workflows/build_home.yml`，定时 `0 2 * * *` UTC（�
 ---
 
 ## 7. 最近改动摘要
+
+### 2026-06-22：Top100 去重、字体与今日趋势卡片 UI（未发布）
+
+#### Top100 生成器
+- `prismwave-hits/scripts/build_home.py` 改为确定性多样性 rerank，Top100 单个主歌手最多 3 首，section 单个主歌手最多 2 首。
+- `schemaVersion` 保持 8，`generatorVersion` 为 `prismwave-home/0.4.1`；远端仓库已推送，并由 GitHub Actions 重新生成 daily home JSON。
+- 校验目标：Top100 100 首、最大主歌手重复数 `<= 3`、无重复曲目身份、必需风格分区存在、Top100 至少 80 首有封面。
+
+#### 客户端文案与字体
+- 首页今日趋势英文标题改为 `Trending`。
+- 榜单详情页生成时间改用客户端根据 `generatedAt` 格式化，简体/繁体/英文均显示 UTC，不再直接展示远端 `topPlaylist.subtitle`。
+- 全局字体栈切到 Inter + Noto Sans SC/TC；Resource Han Rounded 仅保留为后备 fallback。
+
+#### 首页今日趋势卡片
+- 卡片保持 168px 高，不显示 `TOP100`、副标题、生成时间或查看按钮。
+- 最新方案为“多封面模糊背景 + 右侧清晰封面拼贴”：背景最多 8 张封面拼贴并 overscan 模糊，右侧保留 148x148 清晰 2x2 拼贴。
+- 左侧只保留大标题 `今日趋势 / Trending`，并用暗色渐变保证标题和封面同时可读。
+
+#### 验证
+- `flutter analyze` 只剩既有 `tool/verify_online_lyrics.dart` 的 3 条 `avoid_print` info。
+- `flutter build windows --release` 成功。
+- 最新 demo zip：`F:\Project\PrismWave\app\build\windows\x64\runner\prismwave_demo-windows-release.zip`。
+
+### 2026-06-18：在线首页 schema 8、风格分区恢复、国内封面优化（未发布）
+
+#### 首页推荐 JSON
+- `prismwave-hits/scripts/build_home.py` 升级到 schema 8。
+- 首页从只剩"全球热门"/"可直接播放"恢复为多风格分区：Pop、Rock、Electronic、Indie、Hip-Hop、R&B、Jazz、Ambient 等。
+- `NeteaseHomeService._kSchemaVersion = 8`，remote/bundled payload 必须包含必需风格分区。
+- `app/assets/home/latest_home.json` 已同步 schema 8 兜底数据。
+
+#### 中国大陆封面体验
+- 对非大陆友好的封面 URL 后台搜索网易云封面替换。
+- 可见优先补全：Top 前 40 首、每个 section 前 12 首，避免首页被封面搜索拖慢。
+- 手动刷新失败后使用昨日缓存/内置数据时，也会继续补封面。
+- Deezer 封面优先尝试 `e-cdns-images.dzcdn.net` 图片 CDN；封面下载超时收紧为连接 4 秒、响应 7 秒。
+- 首页、榜单、专辑详情共用全局 `OnlineMediaCacheService`，减少重复下载。
+
+#### 开发者日志
+- 新增 `online.home.cover-fallback.*` 和 `online.cover.*` 系列日志。
+- 可区分磁盘/内存命中、pending join、下载成功、HTTP 状态、超时、socket 错误、非图片响应和 Flutter 解码失败。
+
+#### 验证
+```powershell
+cd F:\Project\PrismWave\app
+..\tools\flutter\bin\cache\dart-sdk\bin\dart.exe analyze `
+  lib\src\services\netease_home_service.dart `
+  lib\src\services\online_media_cache_service.dart `
+  lib\src\controllers\online_controller.dart `
+  lib\src\providers.dart `
+  lib\src\ui\online_home_panel.dart `
+  lib\src\ui\online_top_playlist_panel.dart `
+  lib\src\ui\online_album_detail_panel.dart
+..\tools\flutter\bin\flutter.bat build windows --release
+```
+
+结果：`dart analyze` 无问题；`flutter build windows --release` 成功；AOT 产物 `data\app.so` 时间为 `2026-06-18 23:00:00`。
+
+### R503 (2026-06-22, tag `R503`)
+
+#### 版本号
+- `app/pubspec.yaml`: `503.0.0+505`
+- `release_update_service.dart`: `kCurrentReleaseVersion = 'R503'`
+- `installer/PrismWaveSetup.iss`: `#define MyAppVersion "R503"`
+
+#### 主要改动
+- 新增实验性功能/BETA 设置；关闭时隐藏在线入口和 DSD 输出设备/状态选项。
+- 开启实验性功能时显示严肃的第三方服务与法律风险提示弹窗，用户需要明确同意。
+- 在线搜索页从热门标签改为本机搜索历史，最多保留 15 条，支持持久化、点击复搜和单条删除。
+- 在线首页推荐升级到 schema 8，恢复多音乐风格分区，并增强中国大陆网络下的封面兜底。
+- Top100 生成器加入歌手去重 rerank；今日趋势卡片改为多封面模糊背景与清晰封面拼贴。
+- 全局字体栈切到 Inter + Noto Sans SC/TC，Resource Han Rounded 保留为后备 fallback。
+
+#### 验证
+- `dart analyze lib test`：No issues found。
+- `flutter build windows --release --no-pub`：成功。
+- Inno Setup 编译成功。
+
+#### Release
+- 安装包目标：`dist/PrismWave-Setup-R503.exe`
+- Release notes：`dist/R503_RELEASE_NOTES.md`
+- Release URL：`https://github.com/shanbei2033/PrismWave/releases/tag/R503`
 
 ### R502 (2026-06-09, tag `R502`)
 
@@ -1028,11 +1255,28 @@ ca1bb92 feat: improve lyrics flow and playlist management
 
 ```
 分支: main
-当前发布: R502
-提交后应只有本地未纳入发布的工具/环境残留:
+当前发布: R503
+当前工作区含 2026-06-18 至 2026-06-22 未发布改动:
+  - app/lib/src/services/netease_home_service.dart（schema 8 校验、风格分区要求、网易云封面兜底、补全日志）
+  - app/lib/src/services/online_media_cache_service.dart（封面日志、超时优化、Deezer CDN 候选、decode failure 记录）
+  - app/lib/src/controllers/online_controller.dart（首页 section 随机展示、刷新失败后补封面、补封面竞态修复）
+  - app/lib/src/providers.dart（全局 onlineCoverCacheProvider 注入 developer log）
+  - app/lib/src/ui/online_home_panel.dart（今日趋势卡片：多封面模糊背景、右侧清晰封面拼贴、无 TOP100/副标题/按钮）
+  - app/lib/src/ui/online_top_playlist_panel.dart（榜单详情页本地格式化 generatedAt，生成时间显示 UTC）
+  - app/lib/src/i18n/app_strings.dart（英文标题 Trending；生成时间简体/繁体/英文文案）
+  - app/lib/src/ui/prismwave_theme.dart、app/pubspec.yaml（Inter + Noto Sans SC/TC 字体栈）
+  - app/assets/fonts/inter/、app/assets/fonts/noto_sans_cjk/（新增字体资源，未跟踪时需随字体改动一起提交）
+  - app/lib/src/ui/online_album_detail_panel.dart（共用全局封面缓存）
+  - app/assets/home/latest_home.json（schema 8 内置兜底）
+  - app/test/netease_home_service_test.dart（在线首页服务相关测试文件，当前可能仍是 untracked）
+  - prismwave-hits/scripts/build_home.py、config/station.json、home/latest_home.json（schema 8、风格分区与 Top100 歌手去重生成；位于子仓库工作区）
+  - prismwave-hits 本地副本当前 behind origin/main 1 个 GitHub Actions 生成提交；另有 untracked 的 home/home_recommendations-2026-06-18.local-untracked.json，不要盲目删除
+  - app/lib/src/ui/main_page.dart、app/windows/runner/flutter_window.cpp 也有既有未提交修改，接手前需确认是否属于本轮 UI/窗口调整，不要盲目覆盖
+  - 最新 Windows demo zip: app/build/windows/x64/runner/prismwave_demo-windows-release.zip
+提交后应只剩本地未纳入发布的工具/环境残留:
   - tools/（本地 Flutter / potrace / userscripts，不要整体提交）
   - app/.dart_tool/, app/build/ 等构建缓存
-注意：`app/assets/fonts/resource_han_rounded/` 已被 `pubspec.yaml` 引用；`app/assets/home/latest_home.json` 和 `app/assets/icons/refresh.svg` 是 R501_fix2 需要提交的资源；`app/assets/icons/chart_notice.svg` 是 R502 需要提交的资源。`app/assets/logo.png`、`app/assets/hits-loading.webp` 当前未被代码引用，除非后续 UI 明确使用，否则不要为了本次 release 强行提交。
+注意：`app/assets/fonts/inter/`、`app/assets/fonts/noto_sans_cjk/`、`app/assets/fonts/resource_han_rounded/` 均已被 `pubspec.yaml` 引用；`app/assets/home/latest_home.json` 和 `app/assets/icons/refresh.svg` 是 R501_fix2 需要提交的资源；`app/assets/icons/chart_notice.svg` 是 R502 需要提交的资源。`app/assets/logo.png`、`app/assets/hits-loading.webp` 当前未被代码引用，除非后续 UI 明确使用，否则不要为了本次 release 强行提交。
 ```
 
 ---
@@ -1041,9 +1285,10 @@ ca1bb92 feat: improve lyrics flow and playlist management
 
 1. 先确认用户当前要推进的主线（在线首页 / 在线播放 / 在线搜索 / DSD / HITS / 元数据 / UI）。
 2. 如果继续在线首页，优先：
-   - 让用户开开发者模式，观察 `online.home.load.*`、`online.home.refresh-background.*`、`online.home.cover-enrich.*`。
+   - 让用户开开发者模式，观察 `online.home.load.*`、`online.home.refresh-background.*`、`online.home.cover-enrich.*`、`online.home.cover-fallback.*`、`online.cover.*`。
    - 对比 `%LOCALAPPDATA%\PrismWave\online_home_cache\home.json` 的 `editionDate`。
-   - 检查 `prismwave-hits/home/latest_home.json` remote 是否当天更新。
+   - 检查 `prismwave-hits/home/latest_home.json` remote 是否当天更新、是否 schema 8、是否包含必需风格分区。
+   - 若用户说“刷新失败但页面有数据”，优先区分 remote daily JSON 不可用与封面下载失败；前者看 `online.home.manual-refresh.failed`，后者看 `online.cover.*`。
 3. 如果继续在线播放，优先：
    - 看 `online.play.*`、`online.queue.*`、`queue.resolve-on-demand.*` 日志。
    - 确认失败曲目是 resolver 找不到源，还是播放器无法解码 URL。
@@ -1068,6 +1313,11 @@ ca1bb92 feat: improve lyrics flow and playlist management
 - **不要**随意回退窗口相关修复（flutter_window.cpp 的显示时机是专门调过的）
 - **不要**把 `MetadataGod.initialize()` 放回窗口显示前等待；这会复发启动很久才进入首页的问题
 - **不要**让在线首页首屏等待专辑接口或 `_withMainlandCoverFallbacks()`；当前策略是当天缓存优先、无当天缓存再拉 remote daily，失败只回退昨天并显示告警
+- **不要**把 `NeteaseHomeService._kSchemaVersion` 降回 7；当前工作区需要 schema 8 风格分区。
+- **不要**让封面大陆兜底扫描全量 section；当前可见优先范围是 Top 前 40、每个 section 前 12，避免中国大陆网络下首页变慢。
+- **不要**把远端 `topPlaylist.subtitle` 重新作为榜单生成时间直接展示；榜单详情页应使用 `OnlineHomeData.generatedAt` + `AppStrings.onlineTopPlaylistGeneratedAt` 本地格式化。
+- **不要**把首页今日趋势卡片的 `TOP100` 标签、副标题、生成时间或“查看榜单/打开榜单”按钮加回来，除非用户明确要求。
+- 首页今日趋势卡片的模糊封面背景必须向卡片边界外 overscan，否则顶部/边缘会出现未模糊缝隙。
 - **不要**把 bilibili / bilivideo / YouTube 加回普通在线搜索 UI；这些只保留给 HITS 兜底
 - HITS 入口已移到侧栏，不要在标题栏再加按钮
 - **不要**上传 API key、CLAUDE.md 等隐私/无关文件到 GitHub
@@ -1084,4 +1334,4 @@ ca1bb92 feat: improve lyrics flow and playlist management
 
 ## 12. 一句话总结
 
-PrismWave **R502** 已具备"玻璃拟态 Windows 播放器 UI + 可自由拉伸的无边框窗口 + Resource Han Rounded 中文字体 + 本地播放器 + schema 7 Top100 在线首页/搜索/专辑/队列 + 今日榜单未生成/网络不可用分离提示 + 应用内推荐刷新 + 冷启动内置 Top100 兜底 + 更多非视频在线音源 + 更快的在线歌词自动匹配 + HITS 10 音源电台（+ Deezer/iTunes 元数据源）+ DSD 后端 + 开发者日志"的完整形态；WASAPI Exclusive 破音通过自定义 libmpv 已修复，当前最大风险仍是多个在线 provider 的长期可用性和 DSD 设备切换不能即时重载。
+PrismWave **R503** 已具备"玻璃拟态 Windows 播放器 UI + 可自由拉伸的无边框窗口 + Inter + Noto Sans SC/TC 字体栈 + 本地播放器 + 实验性功能/BETA 风险确认 + schema 8 Top100 歌手去重生成 + 多风格分区在线首页/搜索历史/专辑/队列 + 今日趋势多封面模糊背景卡片 + 榜单生成时间 UTC 本地化显示 + 今日榜单未生成/网络不可用分离提示 + 中国大陆封面兜底与封面日志 + 应用内推荐刷新 + 冷启动内置 Top100 兜底 + 更多非视频在线音源 + 更快的在线歌词自动匹配 + HITS 10 音源电台（+ Deezer/iTunes 元数据源）+ DSD 后端 + 开发者日志"的完整形态；WASAPI Exclusive 破音通过自定义 libmpv 已修复，当前最大风险仍是多个在线 provider 的长期可用性、远端 schema 8 daily home 是否及时推送，以及 DSD 设备切换不能即时重载。

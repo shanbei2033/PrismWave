@@ -9,6 +9,9 @@ import '../models/online_recommendation.dart';
 import 'netease_endpoints.dart';
 
 const Duration _kPerRequestTimeout = Duration(seconds: 7);
+const Duration _kCoverSearchTimeout = Duration(seconds: 4);
+
+typedef OnlineHomeDebugLogger = void Function(String message, {bool force});
 
 enum OnlineHomeErrorKind {
   noNetwork,
@@ -55,24 +58,63 @@ class OnlineHomeBundle {
 /// falls back only to yesterday's cache with a UI warning when the remote
 /// payload is unavailable.
 class NeteaseHomeService {
-  NeteaseHomeService({HttpClient? httpClient})
-    : _httpClient =
-          httpClient ??
-          (HttpClient()..connectionTimeout = const Duration(seconds: 6));
+  NeteaseHomeService({
+    HttpClient? httpClient,
+    OnlineHomeDebugLogger? debugLog,
+    List<Uri>? remoteHomeUris,
+    Directory? cacheDirectory,
+    OnlineHomeData? bundledHomeOverride,
+  }) : _debugLog = debugLog,
+       _remoteHomeSources = remoteHomeUris == null
+           ? _defaultRemoteHomeSources()
+           : _remoteSourcesFromUris(remoteHomeUris),
+       _cacheDirectoryOverride = cacheDirectory,
+       _bundledHomeOverride = bundledHomeOverride,
+       _httpClient =
+           httpClient ??
+           (HttpClient()..connectionTimeout = const Duration(seconds: 6));
 
   final HttpClient _httpClient;
+  final OnlineHomeDebugLogger? _debugLog;
+  final List<_RemoteHomeSource> _remoteHomeSources;
+  final Directory? _cacheDirectoryOverride;
+  final OnlineHomeData? _bundledHomeOverride;
 
-  static const int _kSchemaVersion = 7;
+  static const int _kSchemaVersion = 8;
   static const int _coverSearchConcurrency = 4;
+  static const int _coverFallbackTrackLimit = 12;
+  static const int _topPlaylistCoverFallbackTrackLimit = 40;
   static const String _bundledHomeAsset = 'assets/home/latest_home.json';
+  static const Set<String> _requiredStyleSectionIds = <String>{
+    'style-pop',
+    'style-rock',
+    'style-electronic',
+    'style-hiphop',
+    'style-rnb',
+  };
   static final Uri _remoteHomeUri = Uri.https(
     'raw.githubusercontent.com',
     '/shanbei2033/prismwave-hits/main/home/latest_home.json',
+  );
+  static final Uri _remoteHomeCdnUri = Uri.https(
+    'cdn.jsdelivr.net',
+    '/gh/shanbei2033/prismwave-hits@main/home/latest_home.json',
+  );
+  static final Uri _remoteHomeGithubApiUri = Uri.https(
+    'api.github.com',
+    '/repos/shanbei2033/prismwave-hits/contents/home/latest_home.json',
+    <String, String>{'ref': 'main'},
   );
   static const Map<String, String> _remoteHomeHeaders = <String, String>{
     HttpHeaders.userAgentHeader: 'Mozilla/5.0 PrismWave/1.0.0',
     HttpHeaders.acceptHeader: 'application/json',
   };
+  static const Map<String, String> _githubApiHeaders = <String, String>{
+    HttpHeaders.userAgentHeader: 'Mozilla/5.0 PrismWave/1.0.0',
+    HttpHeaders.acceptHeader: 'application/vnd.github+json',
+  };
+  static const String _customHomeUrlsEnv = 'PRISMWAVE_HOME_URLS';
+  static const String _customHomeMirrorsEnv = 'PRISMWAVE_HOME_MIRRORS';
 
   Future<OnlineHomeBundle> loadBundle({
     bool forceRefresh = false,
@@ -134,10 +176,8 @@ class NeteaseHomeService {
 
   Future<OnlineHomeBundle?> loadBundledFallbackBundle() async {
     try {
-      final body = await rootBundle.loadString(_bundledHomeAsset);
-      final decoded = jsonDecode(body);
-      if (decoded is! Map<String, dynamic>) return null;
-      final data = OnlineHomeData.fromJson(decoded);
+      final data = await _loadBundledHomeData();
+      if (data == null) return null;
       if (!_isUsableDailyHome(data)) return null;
       return OnlineHomeBundle(
         data: data,
@@ -150,21 +190,51 @@ class NeteaseHomeService {
     }
   }
 
+  Future<OnlineHomeData?> _loadBundledHomeData() async {
+    final override = _bundledHomeOverride;
+    if (override != null) return override;
+    final body = await rootBundle.loadString(_bundledHomeAsset);
+    final decoded = jsonDecode(body);
+    if (decoded is! Map<String, dynamic>) return null;
+    return OnlineHomeData.fromJson(decoded);
+  }
+
   bool isFreshBundle(OnlineHomeBundle bundle) => _isFresh(bundle);
 
   bool isFreshData(OnlineHomeData data) =>
       data.editionDate.trim() == _todayIsoDate();
 
+  bool isPendingDailyGenerationData(OnlineHomeData data) {
+    return data.editionDate.trim() == _yesterdayIsoDate() &&
+        isDailyGenerationPendingWindow();
+  }
+
+  bool isDailyGenerationPendingWindow() => _beijingNow().hour < 10;
+
   bool needsMainlandCoverFallbacks(OnlineHomeData data) {
-    bool sectionNeedsFallback(OnlineSection? section) {
+    bool sectionNeedsFallback(OnlineSection? section, {required int limit}) {
       if (section == null) return false;
-      return section.tracks.any(
-        (track) => _needsMainlandCoverFallback(track.coverUrl),
-      );
+      final scanCount = limit < section.tracks.length
+          ? limit
+          : section.tracks.length;
+      for (var i = 0; i < scanCount; i++) {
+        if (_needsMainlandCoverFallback(section.tracks[i].coverUrl)) {
+          return true;
+        }
+      }
+      return false;
     }
 
-    if (sectionNeedsFallback(data.topPlaylist)) return true;
-    return data.sections.any(sectionNeedsFallback);
+    if (sectionNeedsFallback(
+      data.topPlaylist,
+      limit: _topPlaylistCoverFallbackTrackLimit,
+    )) {
+      return true;
+    }
+    return data.sections.any(
+      (section) =>
+          sectionNeedsFallback(section, limit: _coverFallbackTrackLimit),
+    );
   }
 
   Future<OnlineHomeBundle> enrichMainlandCoverFallbacks(
@@ -276,13 +346,33 @@ class NeteaseHomeService {
   Future<OnlineHomeData> _withMainlandCoverFallbacks(
     OnlineHomeData data,
   ) async {
+    final stopwatch = Stopwatch()..start();
+    _debug(
+      'home.cover-fallback.start -> edition=${data.editionDate} '
+      'top=${data.topPlaylist?.tracks.length ?? 0} '
+      'sections=${data.sections.length}',
+      force: true,
+    );
     final topPlaylist = data.topPlaylist == null
         ? null
-        : await _withSectionCoverFallbacks(data.topPlaylist!);
+        : await _withSectionCoverFallbacks(
+            data.topPlaylist!,
+            lookupLimit: _topPlaylistCoverFallbackTrackLimit,
+          );
     final sections = <OnlineSection>[];
     for (final section in data.sections) {
-      sections.add(await _withSectionCoverFallbacks(section));
+      sections.add(
+        await _withSectionCoverFallbacks(
+          section,
+          lookupLimit: _coverFallbackTrackLimit,
+        ),
+      );
     }
+    _debug(
+      'home.cover-fallback.ready -> edition=${data.editionDate} '
+      'elapsedMs=${stopwatch.elapsedMilliseconds}',
+      force: true,
+    );
 
     return OnlineHomeData(
       schemaVersion: data.schemaVersion,
@@ -296,22 +386,32 @@ class NeteaseHomeService {
   }
 
   Future<OnlineSection> _withSectionCoverFallbacks(
-    OnlineSection section,
-  ) async {
+    OnlineSection section, {
+    required int lookupLimit,
+  }) async {
     final tracks = section.tracks;
     if (tracks.isEmpty) return section;
 
     final indexesToLookup = <int>[];
-    for (var i = 0; i < tracks.length; i++) {
+    final scanCount = lookupLimit < tracks.length ? lookupLimit : tracks.length;
+    for (var i = 0; i < scanCount; i++) {
       if (_needsMainlandCoverFallback(tracks[i].coverUrl)) {
         indexesToLookup.add(i);
       }
     }
     if (indexesToLookup.isEmpty) return section;
 
+    final stopwatch = Stopwatch()..start();
+    _debug(
+      'home.cover-fallback.section.start -> id=${section.id} '
+      'lookup=${indexesToLookup.length}/$scanCount',
+    );
     final fallbackByIndex = <int, String>{};
     var cursor = 0;
-    final workers = List.generate(_coverSearchConcurrency, (_) async {
+    final workerCount = indexesToLookup.length < _coverSearchConcurrency
+        ? indexesToLookup.length
+        : _coverSearchConcurrency;
+    final workers = List.generate(workerCount, (_) async {
       while (cursor < indexesToLookup.length) {
         final index = indexesToLookup[cursor++];
         final track = tracks[index];
@@ -322,12 +422,25 @@ class NeteaseHomeService {
       }
     });
     await Future.wait(workers);
-    if (fallbackByIndex.isEmpty) return section;
+    if (fallbackByIndex.isEmpty) {
+      _debug(
+        'home.cover-fallback.section.none -> id=${section.id} '
+        'lookup=${indexesToLookup.length} '
+        'elapsedMs=${stopwatch.elapsedMilliseconds}',
+      );
+      return section;
+    }
 
     final patched = <OnlineTrackCandidate>[];
     for (var i = 0; i < tracks.length; i++) {
       patched.add(_copyTrackWithCover(tracks[i], fallbackByIndex[i]));
     }
+    _debug(
+      'home.cover-fallback.section.ready -> id=${section.id} '
+      'patched=${fallbackByIndex.length}/${indexesToLookup.length} '
+      'elapsedMs=${stopwatch.elapsedMilliseconds}',
+      force: true,
+    );
     return OnlineSection(
       id: section.id,
       titleByLang: section.titleByLang,
@@ -339,7 +452,21 @@ class NeteaseHomeService {
   bool _needsMainlandCoverFallback(String? coverUrl) {
     final trimmed = coverUrl?.trim() ?? '';
     if (trimmed.isEmpty) return true;
-    return false;
+    final host = Uri.tryParse(trimmed)?.host.toLowerCase() ?? '';
+    return !_isMainlandFriendlyCoverHost(host);
+  }
+
+  bool _isMainlandFriendlyCoverHost(String host) {
+    if (host.isEmpty) return false;
+    return host.endsWith('music.126.net') ||
+        host.endsWith('music.163.com') ||
+        host.endsWith('y.qq.com') ||
+        host.endsWith('qpic.cn') ||
+        host.endsWith('gtimg.cn') ||
+        host.endsWith('kuwo.cn') ||
+        host.endsWith('migu.cn') ||
+        host.endsWith('dmhmusic.com') ||
+        host.endsWith('taihe.com');
   }
 
   OnlineTrackCandidate _copyTrackWithCover(
@@ -367,7 +494,10 @@ class NeteaseHomeService {
     for (final query in _coverSearchQueries(track)) {
       final Map<String, dynamic>? json;
       try {
-        json = await _safeGetJson(neteaseSongSearchUri(query: query));
+        json = await _safeGetJson(
+          neteaseSongSearchUri(query: query),
+          timeout: _kCoverSearchTimeout,
+        );
       } on OnlineHomeException {
         return null;
       }
@@ -464,14 +594,260 @@ class NeteaseHomeService {
   }
 
   Future<OnlineHomeData?> _loadRemoteDailyHome() async {
-    final json = await _safeGetJson(
-      _remoteHomeUri,
-      headers: _remoteHomeHeaders,
+    if (_remoteHomeSources.isEmpty) return null;
+
+    _debug(
+      'home.remote.start -> sources=${_remoteHomeSources.map((source) => source.label).join(',')}',
+      force: true,
     );
-    if (json == null) return null;
-    final data = OnlineHomeData.fromJson(json);
-    if (!_isUsableDailyHome(data)) return null;
+    final completer = Completer<_RemoteHomeAttempt?>();
+    _RemoteHomeAttempt? latestAvailable;
+    var remaining = _remoteHomeSources.length;
+
+    for (final source in _remoteHomeSources) {
+      unawaited(
+        _fetchRemoteHomeSource(source).then((attempt) {
+          final data = attempt.data;
+          if (data != null) {
+            if (isFreshData(data)) {
+              if (!completer.isCompleted) completer.complete(attempt);
+            } else {
+              final newer = _newerRemoteHome(latestAvailable?.data, data);
+              if (identical(newer, data)) {
+                latestAvailable = attempt;
+              }
+            }
+          }
+
+          remaining -= 1;
+          if (remaining == 0 && !completer.isCompleted) {
+            completer.complete(latestAvailable);
+          }
+        }),
+      );
+    }
+
+    final selected = await completer.future;
+    final data = selected?.data;
+    if (data == null) {
+      _debug(
+        'home.remote.all-failed -> sources=${_remoteHomeSources.length}',
+        force: true,
+      );
+      return null;
+    }
+
+    _debug(
+      'home.remote.selected -> source=${selected!.source.label} '
+      'edition=${data.editionDate} fresh=${isFreshData(data)}',
+      force: true,
+    );
     return data;
+  }
+
+  Future<_RemoteHomeAttempt> _fetchRemoteHomeSource(
+    _RemoteHomeSource source,
+  ) async {
+    final stopwatch = Stopwatch()..start();
+    try {
+      final json = await _safeGetJson(
+        source.uri,
+        headers: source.headers,
+        timeout: source.timeout,
+      );
+      if (json == null) {
+        _debug(
+          'home.remote.source.failed -> source=${source.label} '
+          'elapsedMs=${stopwatch.elapsedMilliseconds}',
+          force: true,
+        );
+        return _RemoteHomeAttempt.failure(
+          source: source,
+          elapsedMs: stopwatch.elapsedMilliseconds,
+        );
+      }
+
+      final payload = source.kind == _RemoteHomePayloadKind.githubContentsApi
+          ? _decodeGithubContentsPayload(json)
+          : json;
+      if (payload == null) {
+        _debug(
+          'home.remote.source.invalid-payload -> source=${source.label} '
+          'elapsedMs=${stopwatch.elapsedMilliseconds}',
+          force: true,
+        );
+        return _RemoteHomeAttempt.failure(
+          source: source,
+          elapsedMs: stopwatch.elapsedMilliseconds,
+        );
+      }
+
+      final data = OnlineHomeData.fromJson(payload);
+      final normalized = await _normalizeRemoteDailyHome(data);
+      if (normalized == null) {
+        _debug(
+          'home.remote.source.unusable -> source=${source.label} '
+          'schema=${data.schemaVersion} edition=${data.editionDate} '
+          'top=${data.topPlaylist?.tracks.length ?? 0} '
+          'sections=${data.sections.length} '
+          'elapsedMs=${stopwatch.elapsedMilliseconds}',
+          force: true,
+        );
+        return _RemoteHomeAttempt.failure(
+          source: source,
+          elapsedMs: stopwatch.elapsedMilliseconds,
+        );
+      }
+      if (!identical(normalized, data)) {
+        _debug(
+          'home.remote.source.compatible -> source=${source.label} '
+          'remoteSchema=${data.schemaVersion} edition=${data.editionDate} '
+          'styleSections=bundled',
+          force: true,
+        );
+      }
+
+      _debug(
+        'home.remote.source.ready -> source=${source.label} '
+        'edition=${normalized.editionDate} fresh=${isFreshData(normalized)} '
+        'elapsedMs=${stopwatch.elapsedMilliseconds}',
+        force: true,
+      );
+      return _RemoteHomeAttempt.success(
+        source: source,
+        data: normalized,
+        elapsedMs: stopwatch.elapsedMilliseconds,
+      );
+    } on OnlineHomeException catch (error) {
+      _debug(
+        'home.remote.source.error -> source=${source.label} '
+        'kind=${error.kind} elapsedMs=${stopwatch.elapsedMilliseconds}',
+        force: error.kind == OnlineHomeErrorKind.noNetwork,
+      );
+      return _RemoteHomeAttempt.failure(
+        source: source,
+        elapsedMs: stopwatch.elapsedMilliseconds,
+      );
+    } catch (error) {
+      _debug(
+        'home.remote.source.error -> source=${source.label} '
+        'elapsedMs=${stopwatch.elapsedMilliseconds} error=$error',
+        force: true,
+      );
+      return _RemoteHomeAttempt.failure(
+        source: source,
+        elapsedMs: stopwatch.elapsedMilliseconds,
+      );
+    }
+  }
+
+  Map<String, dynamic>? _decodeGithubContentsPayload(
+    Map<String, dynamic> json,
+  ) {
+    final encoding = json['encoding']?.toString().toLowerCase();
+    final content = json['content'];
+    if (encoding != 'base64' || content is! String || content.isEmpty) {
+      return null;
+    }
+    try {
+      final normalized = content.replaceAll(RegExp(r'\s+'), '');
+      final body = utf8.decode(base64.decode(normalized));
+      final decoded = jsonDecode(body);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  OnlineHomeData _newerRemoteHome(
+    OnlineHomeData? current,
+    OnlineHomeData candidate,
+  ) {
+    if (current == null) return candidate;
+    final dateCompare = candidate.editionDate.compareTo(current.editionDate);
+    if (dateCompare > 0) return candidate;
+    if (dateCompare < 0) return current;
+    return candidate.generatedAt.isAfter(current.generatedAt)
+        ? candidate
+        : current;
+  }
+
+  Future<OnlineHomeData?> _normalizeRemoteDailyHome(OnlineHomeData data) async {
+    if (_isUsableDailyHome(data)) return data;
+    if (!_hasUsableTopPlaylist(data)) return null;
+
+    OnlineHomeData? bundled;
+    try {
+      bundled = await _loadBundledHomeData();
+    } catch (error) {
+      _debug('home.remote.compat-bundled.failed -> error=$error', force: true);
+    }
+    final sections = bundled != null && _hasRequiredStyleSections(bundled)
+        ? bundled.sections
+        : _styleSectionsFromLegacyData(data);
+    if (!_hasRequiredStyleSections(
+      OnlineHomeData(
+        schemaVersion: _kSchemaVersion,
+        generatedAt: data.generatedAt,
+        editionDate: data.editionDate,
+        tags: data.tags,
+        sections: sections,
+        topPlaylist: data.topPlaylist,
+        albumRecommendations: const <OnlineAlbumCard>[],
+      ),
+    )) {
+      return null;
+    }
+
+    return OnlineHomeData(
+      schemaVersion: _kSchemaVersion,
+      generatedAt: data.generatedAt,
+      editionDate: data.editionDate,
+      tags: data.tags.isEmpty && bundled != null ? bundled.tags : data.tags,
+      sections: sections,
+      topPlaylist: data.topPlaylist,
+      albumRecommendations: data.albumRecommendations.isEmpty && bundled != null
+          ? bundled.albumRecommendations
+          : data.albumRecommendations,
+    );
+  }
+
+  List<OnlineSection> _styleSectionsFromLegacyData(OnlineHomeData data) {
+    final pool = <OnlineTrackCandidate>[
+      for (final section in data.sections) ...section.tracks,
+      if (data.topPlaylist != null) ...data.topPlaylist!.tracks,
+    ];
+    if (pool.length < _requiredStyleSectionIds.length * 4) {
+      return const <OnlineSection>[];
+    }
+
+    const styleTitles = <String, String>{
+      'style-pop': 'Pop',
+      'style-rock': 'Rock',
+      'style-electronic': 'Electronic',
+      'style-hiphop': 'Hip-Hop',
+      'style-rnb': 'R&B',
+    };
+    final sections = <OnlineSection>[];
+    var cursor = 0;
+    for (final id in _requiredStyleSectionIds) {
+      final title = styleTitles[id] ?? id;
+      final tracks = <OnlineTrackCandidate>[];
+      for (var i = 0; i < 12 && cursor < pool.length; i += 1) {
+        tracks.add(pool[cursor]);
+        cursor += 1;
+      }
+      if (tracks.length < 4) break;
+      sections.add(
+        OnlineSection(
+          id: id,
+          titleByLang: <String, String>{'en-US': title},
+          subtitle: null,
+          tracks: List.unmodifiable(tracks),
+        ),
+      );
+    }
+    return List.unmodifiable(sections);
   }
 
   OnlineHomeData _mergeDailyHome(
@@ -632,13 +1008,12 @@ class NeteaseHomeService {
   Future<Map<String, dynamic>?> _safeGetJson(
     Uri uri, {
     Map<String, String>? headers,
+    Duration timeout = _kPerRequestTimeout,
   }) async {
     try {
-      final request = await _httpClient
-          .getUrl(uri)
-          .timeout(_kPerRequestTimeout);
+      final request = await _httpClient.getUrl(uri).timeout(timeout);
       (headers ?? kNeteaseHeaders).forEach(request.headers.set);
-      final response = await request.close().timeout(_kPerRequestTimeout);
+      final response = await request.close().timeout(timeout);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await response.drain<void>();
         return null;
@@ -662,12 +1037,27 @@ class NeteaseHomeService {
 
   bool _isUsableDailyHome(OnlineHomeData data) {
     if (data.schemaVersion < _kSchemaVersion) return false;
+    if (!_hasUsableTopPlaylist(data)) return false;
+    if (!_hasRequiredStyleSections(data)) return false;
+    return true;
+  }
+
+  bool _hasUsableTopPlaylist(OnlineHomeData data) {
     final topPlaylist = data.topPlaylist;
     if (topPlaylist == null || topPlaylist.tracks.length < 100) return false;
     final tracksWithCover = topPlaylist.tracks.where(
       (track) => (track.coverUrl ?? '').trim().isNotEmpty,
     );
     return tracksWithCover.length >= 80;
+  }
+
+  bool _hasRequiredStyleSections(OnlineHomeData data) {
+    if (data.sections.length < _requiredStyleSectionIds.length) return false;
+    final ids = data.sections
+        .where((section) => section.tracks.length >= 4)
+        .map((section) => section.id)
+        .toSet();
+    return ids.containsAll(_requiredStyleSectionIds);
   }
 
   bool _isFresh(OnlineHomeBundle cached) {
@@ -733,6 +1123,8 @@ class NeteaseHomeService {
   }
 
   Future<Directory> _resolveCacheDirectory() async {
+    final override = _cacheDirectoryOverride;
+    if (override != null) return override;
     final localAppData = Platform.environment['LOCALAPPDATA'];
     if (localAppData != null && localAppData.isNotEmpty) {
       return Directory(p.join(localAppData, 'PrismWave', 'online_home_cache'));
@@ -796,4 +1188,146 @@ class NeteaseHomeService {
   void dispose() {
     _httpClient.close(force: true);
   }
+
+  void _debug(String message, {bool force = false}) {
+    _debugLog?.call('online.$message', force: force);
+  }
+
+  static List<_RemoteHomeSource> _defaultRemoteHomeSources() {
+    return _dedupeRemoteSources(<_RemoteHomeSource>[
+      ..._customRemoteHomeSources(),
+      _RemoteHomeSource.direct(label: 'github-raw', uri: _remoteHomeUri),
+      _RemoteHomeSource.direct(label: 'jsdelivr', uri: _remoteHomeCdnUri),
+      _RemoteHomeSource.githubContentsApi(
+        label: 'github-api',
+        uri: _remoteHomeGithubApiUri,
+      ),
+    ]);
+  }
+
+  static List<_RemoteHomeSource> _customRemoteHomeSources() {
+    final raw =
+        Platform.environment[_customHomeUrlsEnv] ??
+        Platform.environment[_customHomeMirrorsEnv];
+    if (raw == null || raw.trim().isEmpty) return const <_RemoteHomeSource>[];
+
+    final sources = <_RemoteHomeSource>[];
+    final parts = raw
+        .split(RegExp(r'[\s,;]+'))
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty);
+    for (final part in parts) {
+      final uri = Uri.tryParse(part);
+      if (uri == null || !uri.hasScheme || uri.host.isEmpty) continue;
+      sources.add(
+        _RemoteHomeSource.direct(
+          label: 'custom-${sources.length + 1}',
+          uri: uri,
+        ),
+      );
+    }
+    return sources;
+  }
+
+  static List<_RemoteHomeSource> _remoteSourcesFromUris(List<Uri> uris) {
+    final sources = <_RemoteHomeSource>[];
+    for (final uri in uris) {
+      if (!uri.hasScheme || uri.host.isEmpty) continue;
+      sources.add(
+        _RemoteHomeSource.direct(
+          label: 'custom-${sources.length + 1}',
+          uri: uri,
+        ),
+      );
+    }
+    return _dedupeRemoteSources(sources);
+  }
+
+  static List<_RemoteHomeSource> _dedupeRemoteSources(
+    Iterable<_RemoteHomeSource> sources,
+  ) {
+    final seen = <String>{};
+    final result = <_RemoteHomeSource>[];
+    for (final source in sources) {
+      final key = source.uri.toString();
+      if (seen.add(key)) result.add(source);
+    }
+    return List.unmodifiable(result);
+  }
+}
+
+enum _RemoteHomePayloadKind { directJson, githubContentsApi }
+
+class _RemoteHomeSource {
+  const _RemoteHomeSource._({
+    required this.label,
+    required this.uri,
+    required this.kind,
+    required this.headers,
+    required this.timeout,
+  });
+
+  factory _RemoteHomeSource.direct({required String label, required Uri uri}) {
+    return _RemoteHomeSource._(
+      label: label,
+      uri: uri,
+      kind: _RemoteHomePayloadKind.directJson,
+      headers: NeteaseHomeService._remoteHomeHeaders,
+      timeout: _kPerRequestTimeout,
+    );
+  }
+
+  factory _RemoteHomeSource.githubContentsApi({
+    required String label,
+    required Uri uri,
+  }) {
+    return _RemoteHomeSource._(
+      label: label,
+      uri: uri,
+      kind: _RemoteHomePayloadKind.githubContentsApi,
+      headers: NeteaseHomeService._githubApiHeaders,
+      timeout: _kPerRequestTimeout,
+    );
+  }
+
+  final String label;
+  final Uri uri;
+  final _RemoteHomePayloadKind kind;
+  final Map<String, String> headers;
+  final Duration timeout;
+}
+
+class _RemoteHomeAttempt {
+  const _RemoteHomeAttempt._({
+    required this.source,
+    required this.data,
+    required this.elapsedMs,
+  });
+
+  factory _RemoteHomeAttempt.success({
+    required _RemoteHomeSource source,
+    required OnlineHomeData data,
+    required int elapsedMs,
+  }) {
+    return _RemoteHomeAttempt._(
+      source: source,
+      data: data,
+      elapsedMs: elapsedMs,
+    );
+  }
+
+  factory _RemoteHomeAttempt.failure({
+    required _RemoteHomeSource source,
+    required int elapsedMs,
+  }) {
+    return _RemoteHomeAttempt._(
+      source: source,
+      data: null,
+      elapsedMs: elapsedMs,
+    );
+  }
+
+  final _RemoteHomeSource source;
+  final OnlineHomeData? data;
+  final int elapsedMs;
 }

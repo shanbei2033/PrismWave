@@ -105,6 +105,7 @@ class OnlineSearchView {
     required this.status,
     required this.results,
     required this.errorMessage,
+    required this.history,
   });
 
   static const empty = OnlineSearchView(
@@ -112,18 +113,21 @@ class OnlineSearchView {
     status: OnlineSearchStatus.idle,
     results: <OnlineSearchResult>[],
     errorMessage: '',
+    history: <String>[],
   );
 
   final String query;
   final OnlineSearchStatus status;
   final List<OnlineSearchResult> results;
   final String errorMessage;
+  final List<String> history;
 
   OnlineSearchView copyWith({
     String? query,
     OnlineSearchStatus? status,
     List<OnlineSearchResult>? results,
     String? errorMessage,
+    List<String>? history,
     bool clearError = false,
   }) {
     return OnlineSearchView(
@@ -131,6 +135,7 @@ class OnlineSearchView {
       status: status ?? this.status,
       results: results ?? this.results,
       errorMessage: clearError ? '' : (errorMessage ?? this.errorMessage),
+      history: history ?? this.history,
     );
   }
 }

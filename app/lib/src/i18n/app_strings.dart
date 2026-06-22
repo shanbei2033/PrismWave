@@ -143,10 +143,20 @@ class AppStrings {
     '\u641c\u5c0b\u7dda\u4e0a\u8207\u672c\u6a5f\u97f3\u6a02',
     'Search online and local music',
   );
-  String get onlinePopularTags => _tr(
-    '\u70ed\u95e8\u6807\u7b7e',
-    '\u71b1\u9580\u6a19\u7c64',
-    'Popular tags',
+  String get onlineSearchHistory => _tr(
+    '\u641c\u7d22\u5386\u53f2',
+    '\u641c\u5c0b\u6b77\u53f2',
+    'Search History',
+  );
+  String get onlineSearchHistoryEmpty => _tr(
+    '\u6682\u65e0\u641c\u7d22\u5386\u53f2',
+    '\u66ab\u7121\u641c\u5c0b\u6b77\u53f2',
+    'No search history yet',
+  );
+  String get onlineSearchHistoryRemove => _tr(
+    '\u5220\u9664\u8bb0\u5f55',
+    '\u522a\u9664\u8a18\u9304',
+    'Remove history item',
   );
   String get onlineSourceLocal => _tr('\u672c\u5730', '\u672c\u6a5f', 'Local');
   String get onlineSourceOnline =>
@@ -175,16 +185,28 @@ class AppStrings {
     '\u958b\u555f\u5f8c\u5074\u6b04\u986f\u793a\u9996\u9801\u8207\u641c\u5c0b\uff0c\u63d0\u4f9b\u7dda\u4e0a\u63a8\u85a6\u8207\u8de8\u672c\u6a5f/\u7dda\u4e0a\u641c\u5c0b',
     'Show Home and Search in the sidebar with online recommendations and unified search',
   );
-  String get onlineTopPlaylistTitle => _tr(
-    '\u4eca\u65e5\u8d8b\u52bf',
-    '\u4eca\u65e5\u8da8\u52e2',
-    "Today's Trending",
-  );
+  String get onlineTopPlaylistTitle =>
+      _tr('\u4eca\u65e5\u8d8b\u52bf', '\u4eca\u65e5\u8da8\u52e2', 'Trending');
   String get onlineTopPlaylistSubtitle => _tr(
     '\u6574\u5408\u591a\u5e73\u53f0\u70ed\u95e8\u4fe1\u53f7\u7684 Top100 \u63a8\u8350',
     '\u6574\u5408\u591a\u5e73\u53f0\u71b1\u9580\u4fe1\u865f\u7684 Top100 \u63a8\u85a6',
     'Top 100 from global multi-platform trend signals',
   );
+  String onlineTopPlaylistGeneratedAt(DateTime generatedAt) {
+    final utcTime = generatedAt.toUtc();
+    final formatted =
+        '${utcTime.year.toString().padLeft(4, '0')}-'
+        '${utcTime.month.toString().padLeft(2, '0')}-'
+        '${utcTime.day.toString().padLeft(2, '0')} '
+        '${utcTime.hour.toString().padLeft(2, '0')}:'
+        '${utcTime.minute.toString().padLeft(2, '0')}';
+    return _tr(
+      '生成时间：$formatted 世界协调时（UTC）',
+      '生成時間：$formatted 世界協調時間（UTC）',
+      'Generated: $formatted UTC',
+    );
+  }
+
   String get onlineTopPlaylistOpen =>
       _tr('\u67e5\u770b\u699c\u5355', '\u67e5\u770b\u699c\u55ae', 'Open chart');
   String get onlineTopPlaylistBadge => 'TOP100';
@@ -315,6 +337,58 @@ class AppStrings {
   String get folderSize => _tr('占用空间', '佔用空間', 'Disk usage');
 
   String get languageTitle => _tr('语言', '語言', 'Language');
+  String get experimentalFeaturesTitle => _tr('实验性功能', '實驗性功能', 'BETA');
+  String get experimentalFeaturesDescription => _tr(
+    '开启后显示在线模式与 DSD 相关选项。',
+    '開啟後顯示線上模式與 DSD 相關選項。',
+    'Show online mode and DSD-related options.',
+  );
+  String get experimentalFeaturesRiskTitle =>
+      _tr('实验性功能风险提示', '實驗性功能風險提示', 'BETA Feature Risk Notice');
+  List<String> get experimentalFeaturesRiskParagraphs => [
+    _tr(
+      '你即将开启 PrismWave 的实验性功能。请在继续前仔细阅读并充分理解以下内容。',
+      '你即將開啟 PrismWave 的實驗性功能。請在繼續前仔細閱讀並充分理解以下內容。',
+      'You are about to enable PrismWave BETA features. Please read and understand this notice before continuing.',
+    ),
+    _tr(
+      'PrismWave 是一个独立开发的本地音乐播放器项目。实验性功能可能会访问、检索或解析来自第三方在线音乐、歌词、封面、榜单、搜索或媒体服务的数据，包括但不限于网易云音乐及其他音乐平台、内容平台或公开数据服务。',
+      'PrismWave 是一個獨立開發的本機音樂播放器專案。實驗性功能可能會存取、檢索或解析來自第三方線上音樂、歌詞、封面、榜單、搜尋或媒體服務的資料，包括但不限於網易雲音樂及其他音樂平台、內容平台或公開資料服務。',
+      'PrismWave is an independently developed local music player. BETA features may access, retrieve, or parse data from third-party online music, lyrics, artwork, chart, search, or media services, including but not limited to NetEase Cloud Music and other music platforms, content platforms, or public data services.',
+    ),
+    _tr(
+      'PrismWave 与上述第三方平台、服务提供方、音乐版权方、唱片公司、词曲作者、表演者、发行方、聚合服务或其关联公司之间不存在隶属、合作、代理、授权、认证、官方认可或商业合作关系。PrismWave 不代表任何第三方平台，也不声称拥有或取得其内容、接口、数据、音频、歌词、封面、商标或服务的使用授权。',
+      'PrismWave 與上述第三方平台、服務提供方、音樂版權方、唱片公司、詞曲作者、表演者、發行方、聚合服務或其關聯公司之間不存在隸屬、合作、代理、授權、認證、官方認可或商業合作關係。PrismWave 不代表任何第三方平台，也不聲稱擁有或取得其內容、介面、資料、音訊、歌詞、封面、商標或服務的使用授權。',
+      'PrismWave is not affiliated with, partnered with, authorized by, certified by, endorsed by, or commercially associated with those third-party platforms, service providers, music rights holders, record labels, songwriters, performers, distributors, aggregators, or their affiliates. PrismWave does not represent any third-party platform and does not claim rights or authorization to use their content, APIs, data, audio, lyrics, artwork, trademarks, or services.',
+    ),
+    _tr(
+      '部分实验性功能可能使用第三方平台的公开网页、公开接口、非公开接口、反向解析接口、搜索结果、媒体地址、元数据或缓存数据。此类使用方式可能不符合相关平台的用户协议、服务条款、开发者政策、API 使用规则、版权政策、反爬虫规则、地区限制、账号规则或其他平台规范。相关接口和内容也可能因平台策略、版权限制、地区限制、网络环境、账号权限、技术调整或法律要求而随时变更、失效、限制访问或停止服务。',
+      '部分實驗性功能可能使用第三方平台的公開網頁、公開介面、非公開介面、反向解析介面、搜尋結果、媒體位址、後設資料或快取資料。此類使用方式可能不符合相關平台的使用者協議、服務條款、開發者政策、API 使用規則、版權政策、反爬蟲規則、地區限制、帳號規則或其他平台規範。相關介面和內容也可能因平台策略、版權限制、地區限制、網路環境、帳號權限、技術調整或法律要求而隨時變更、失效、限制存取或停止服務。',
+      'Some BETA features may use public pages, public APIs, non-public APIs, reverse-parsed endpoints, search results, media URLs, metadata, or cached data from third-party platforms. Such use may not comply with the relevant platform user agreements, terms of service, developer policies, API rules, copyright policies, anti-scraping rules, regional restrictions, account rules, or other platform policies. These APIs and content may change, fail, become restricted, or stop working at any time due to platform policy, copyright, region, network, account permission, technical, or legal changes.',
+    ),
+    _tr(
+      '开启实验性功能并不表示 PrismWave 向你授予任何第三方内容或服务的使用权。你通过 PrismWave 访问到的音乐、歌词、封面、艺人信息、专辑信息、榜单数据、搜索结果、预览音频或其他内容，其权利仍归原权利人、平台或相关合法主体所有。你应自行确认自己的使用行为是否符合所在地法律法规，以及相关第三方平台的服务协议、版权规则和 API/开发者条款。',
+      '開啟實驗性功能並不表示 PrismWave 向你授予任何第三方內容或服務的使用權。你透過 PrismWave 存取到的音樂、歌詞、封面、藝人資訊、專輯資訊、榜單資料、搜尋結果、預覽音訊或其他內容，其權利仍歸原權利人、平台或相關合法主體所有。你應自行確認自己的使用行為是否符合所在地法律法規，以及相關第三方平台的服務協議、版權規則和 API/開發者條款。',
+      'Enabling BETA features does not grant you any right to use third-party content or services. Music, lyrics, artwork, artist information, album information, chart data, search results, preview audio, or other content accessed through PrismWave remain owned by their original rights holders, platforms, or lawful owners. You are responsible for confirming that your use complies with applicable laws and the relevant third-party platform terms, copyright rules, and API/developer terms.',
+    ),
+    _tr(
+      '你不得将实验性功能用于下载、录制、保存、传播、转载、公开播放、转售或再分发任何未获授权的内容；不得绕过版权限制、会员限制、地区限制、访问控制、加密措施、反爬虫机制或其他技术保护措施；不得进行商业用途、批量抓取、接口滥用、自动化请求、压力访问或其他可能损害第三方平台权益的行为。',
+      '你不得將實驗性功能用於下載、錄製、保存、傳播、轉載、公開播放、轉售或再分發任何未獲授權的內容；不得繞過版權限制、會員限制、地區限制、存取控制、加密措施、反爬蟲機制或其他技術保護措施；不得進行商業用途、批量抓取、介面濫用、自動化請求、壓力存取或其他可能損害第三方平台權益的行為。',
+      'You must not use BETA features to download, record, save, transmit, repost, publicly perform, resell, or redistribute unauthorized content; bypass copyright restrictions, membership restrictions, regional restrictions, access controls, encryption, anti-scraping mechanisms, or other technical protections; or perform commercial use, bulk scraping, API abuse, automated requests, stress access, or any other activity that may harm third-party platform rights.',
+    ),
+    _tr(
+      'PrismWave 不托管、上传、分发或出售第三方音乐内容，也不保证第三方数据、接口、音频、歌词、封面、榜单或搜索结果的合法性、准确性、完整性、可用性、稳定性或持续可访问性。由于第三方服务本身或其授权状态导致的不可用、播放失败、内容错误、访问受限、账号风险、法律争议或其他后果，需由使用者自行判断并承担相应责任。',
+      'PrismWave 不託管、上傳、分發或出售第三方音樂內容，也不保證第三方資料、介面、音訊、歌詞、封面、榜單或搜尋結果的合法性、準確性、完整性、可用性、穩定性或持續可存取性。由於第三方服務本身或其授權狀態導致的不可用、播放失敗、內容錯誤、存取受限、帳號風險、法律爭議或其他後果，需由使用者自行判斷並承擔相應責任。',
+      'PrismWave does not host, upload, distribute, or sell third-party music content and does not guarantee the legality, accuracy, completeness, availability, stability, or continued accessibility of third-party data, APIs, audio, lyrics, artwork, charts, or search results. Unavailability, playback failure, incorrect content, access restrictions, account risks, legal disputes, or other consequences caused by third-party services or authorization status must be evaluated and borne by the user.',
+    ),
+    _tr(
+      '如第三方平台、权利人、监管机构或法律要求限制、移除、停止或调整相关能力，PrismWave 可能在不另行通知的情况下随时关闭、隐藏、删除或修改实验性功能。如果你不同意上述内容，或无法确认自己的使用行为具备合法依据，请不要开启实验性功能。',
+      '如第三方平台、權利人、監管機構或法律要求限制、移除、停止或調整相關能力，PrismWave 可能在不另行通知的情況下隨時關閉、隱藏、刪除或修改實驗性功能。如果你不同意上述內容，或無法確認自己的使用行為具備合法依據，請不要開啟實驗性功能。',
+      'If a third-party platform, rights holder, regulator, or legal requirement requires restriction, removal, shutdown, or adjustment of related capabilities, PrismWave may disable, hide, remove, or modify BETA features at any time without further notice. If you disagree with this notice or cannot confirm that your use has a lawful basis, do not enable BETA features.',
+    ),
+  ];
+  String get experimentalFeaturesDisagree => _tr('不同意', '不同意', 'Disagree');
+  String get experimentalFeaturesAgree => _tr('同意', '同意', 'Agree');
   String get checkUpdates => _tr('检查更新', '檢查更新', 'Check for Updates');
   String get checkingUpdates => _tr('检查中...', '檢查中...', 'Checking...');
   String get currentVersionLabel => _tr('当前版本', '目前版本', 'Current Version');

@@ -4,16 +4,20 @@ import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
+typedef OnlineMediaDebugLogger = void Function(String message, {bool force});
+
 /// Lightweight cover-image cache for the online mode.
 ///
 /// Independent of HITS to avoid the daily-edition cleanup logic. Audio is not
 /// cached: most online audio URLs are already CDN-fronted and short-lived
 /// streams that re-resolve cheaply.
 class OnlineMediaCacheService {
-  OnlineMediaCacheService({HttpClient? httpClient})
-    : _httpClient =
-          httpClient ??
-          (HttpClient()..connectionTimeout = const Duration(seconds: 8));
+  OnlineMediaCacheService({
+    HttpClient? httpClient,
+    OnlineMediaDebugLogger? debugLog,
+  }) : _debugLog = debugLog,
+       _httpClient =
+           httpClient ?? (HttpClient()..connectionTimeout = _kConnectTimeout);
 
   static const Map<String, String> _baseRequestHeaders = <String, String>{
     'User-Agent':
@@ -21,8 +25,11 @@ class OnlineMediaCacheService {
     'Accept': 'image/*,*/*;q=0.5',
   };
   static const int _maxCoverBytes = 6 * 1024 * 1024;
+  static const Duration _kConnectTimeout = Duration(seconds: 4);
+  static const Duration _kResponseTimeout = Duration(seconds: 7);
 
   final HttpClient _httpClient;
+  final OnlineMediaDebugLogger? _debugLog;
   final Map<String, Future<Uint8List?>> _pendingCoverLoads =
       <String, Future<Uint8List?>>{};
   final Map<String, Uint8List> _coverMemoryCache = <String, Uint8List>{};
@@ -32,19 +39,38 @@ class OnlineMediaCacheService {
     required String coverUrl,
   }) {
     final trimmed = coverUrl.trim();
-    if (trimmed.isEmpty) return Future<Uint8List?>.value(null);
+    if (trimmed.isEmpty) {
+      _debug('cover.skip -> reason=empty-url key=$cacheKey');
+      return Future<Uint8List?>.value(null);
+    }
 
     final memoryHit = _coverMemoryCache[cacheKey];
-    if (memoryHit != null) return Future<Uint8List?>.value(memoryHit);
+    if (memoryHit != null) {
+      _debug('cover.memory-hit -> key=$cacheKey bytes=${memoryHit.length}');
+      return Future<Uint8List?>.value(memoryHit);
+    }
 
     final requestKey = '$cacheKey|$trimmed';
     final pending = _pendingCoverLoads[requestKey];
-    if (pending != null) return pending;
+    if (pending != null) {
+      _debug(
+        'cover.pending-join -> key=$cacheKey url=${_describeUrl(trimmed)}',
+      );
+      return pending;
+    }
 
     final future = _loadCoverInternal(cacheKey: cacheKey, coverUrl: trimmed)
         .then((bytes) {
           _pendingCoverLoads.remove(requestKey);
-          if (bytes != null) _coverMemoryCache[cacheKey] = bytes;
+          if (bytes != null) {
+            _coverMemoryCache[cacheKey] = bytes;
+            _debug('cover.ready -> key=$cacheKey bytes=${bytes.length}');
+          } else {
+            _debug(
+              'cover.failed -> key=$cacheKey url=${_describeUrl(trimmed)}',
+              force: true,
+            );
+          }
           return bytes;
         });
 
@@ -68,22 +94,51 @@ class OnlineMediaCacheService {
         // don't match our (incomplete) magic-byte whitelist. Image.memory's
         // own decoder is the final arbiter — its errorBuilder shows the
         // placeholder when the format isn't supported.
-        if (bytes.isNotEmpty) return bytes;
-      } catch (_) {
+        if (bytes.isNotEmpty) {
+          _debug(
+            'cover.disk-hit -> key=$cacheKey bytes=${bytes.length} '
+            'file=${cacheFile.path}',
+          );
+          return bytes;
+        }
+        _debug(
+          'cover.disk-empty -> key=$cacheKey file=${cacheFile.path}',
+          force: true,
+        );
+      } catch (error) {
+        _debug(
+          'cover.disk-read-error -> key=$cacheKey file=${cacheFile.path} '
+          'error=$error',
+          force: true,
+        );
         // Fall through to network refetch.
       }
       try {
         await cacheFile.delete();
-      } catch (_) {
+      } catch (error) {
+        _debug(
+          'cover.disk-delete-error -> key=$cacheKey file=${cacheFile.path} '
+          'error=$error',
+          force: true,
+        );
         // Ignore cleanup errors.
       }
     }
 
-    for (final candidateUrl in _coverUrlCandidates(coverUrl)) {
+    final candidates = _coverUrlCandidates(coverUrl);
+    _debug(
+      'cover.load-start -> key=$cacheKey candidates=${candidates.length} '
+      'url=${_describeUrl(coverUrl)}',
+    );
+    for (final candidateUrl in candidates) {
       final bytes = await _downloadCover(candidateUrl);
       if (bytes == null) continue;
       await cacheFile.parent.create(recursive: true);
       await cacheFile.writeAsBytes(bytes, flush: true);
+      _debug(
+        'cover.disk-write -> key=$cacheKey bytes=${bytes.length} '
+        'file=${cacheFile.path}',
+      );
       return bytes;
     }
 
@@ -94,13 +149,16 @@ class OnlineMediaCacheService {
     try {
       final request = await _httpClient
           .getUrl(Uri.parse(coverUrl))
-          .timeout(const Duration(seconds: 8));
+          .timeout(_kConnectTimeout);
       _requestHeadersForCover(coverUrl).forEach(request.headers.set);
-      final response = await request.close().timeout(
-        const Duration(seconds: 12),
-      );
+      final response = await request.close().timeout(_kResponseTimeout);
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        final statusCode = response.statusCode;
         await response.drain<void>();
+        _debug(
+          'cover.http-status -> status=$statusCode url=${_describeUrl(coverUrl)}',
+          force: true,
+        );
         return null;
       }
       final mimeType =
@@ -110,20 +168,66 @@ class OnlineMediaCacheService {
       final builder = BytesBuilder(copy: false);
       await for (final chunk in response) {
         builder.add(chunk);
-        if (builder.length > _maxCoverBytes) return null;
+        if (builder.length > _maxCoverBytes) {
+          _debug(
+            'cover.too-large -> bytes>$_maxCoverBytes '
+            'url=${_describeUrl(coverUrl)}',
+            force: true,
+          );
+          return null;
+        }
       }
       final bytes = builder.takeBytes();
-      if (bytes.isEmpty) return null;
+      if (bytes.isEmpty) {
+        _debug(
+          'cover.empty-response -> mime=$mimeType url=${_describeUrl(coverUrl)}',
+          force: true,
+        );
+        return null;
+      }
 
       // Accept the payload if either (a) the server claims it's an image, or
       // (b) the magic bytes match one of our known formats. The whitelist is
       // intentionally a fallback, not a gate — Last.fm/Audius CDNs sometimes
       // serve AVIF/HEIC/SVG that we want to display even though the bytes
       // don't start with PNG/JPEG/GIF/WEBP markers.
-      if (!claimsImage && !_looksLikeImage(bytes)) return null;
+      if (!claimsImage && !_looksLikeImage(bytes)) {
+        _debug(
+          'cover.not-image -> mime=$mimeType bytes=${bytes.length} '
+          'url=${_describeUrl(coverUrl)}',
+          force: true,
+        );
+        return null;
+      }
 
+      _debug(
+        'cover.download-ok -> mime=$mimeType bytes=${bytes.length} '
+        'url=${_describeUrl(coverUrl)}',
+      );
       return bytes;
-    } catch (_) {
+    } on TimeoutException catch (error) {
+      _debug(
+        'cover.timeout -> url=${_describeUrl(coverUrl)} error=$error',
+        force: true,
+      );
+      return null;
+    } on SocketException catch (error) {
+      _debug(
+        'cover.socket-error -> url=${_describeUrl(coverUrl)} error=$error',
+        force: true,
+      );
+      return null;
+    } on FormatException catch (error) {
+      _debug(
+        'cover.bad-url -> url=${_describeUrl(coverUrl)} error=$error',
+        force: true,
+      );
+      return null;
+    } catch (error) {
+      _debug(
+        'cover.download-error -> url=${_describeUrl(coverUrl)} error=$error',
+        force: true,
+      );
       return null;
     }
   }
@@ -154,7 +258,8 @@ class OnlineMediaCacheService {
       final albumIndex = segments.indexOf('album');
       if (albumIndex >= 0 && albumIndex + 1 < segments.length) {
         final albumId = segments[albumIndex + 1];
-        candidates.add(
+        candidates.insert(
+          0,
           'https://e-cdns-images.dzcdn.net/images/cover/$albumId/500x500-000000-80-0-0.jpg',
         );
       }
@@ -252,6 +357,31 @@ class OnlineMediaCacheService {
       hash = (hash * 31 + code) & 0x7FFFFFFF;
     }
     return hash.toRadixString(16).padLeft(8, '0');
+  }
+
+  void recordDecodeFailure({
+    required String cacheKey,
+    required String? coverUrl,
+    required Object error,
+  }) {
+    _debug(
+      'cover.decode-error -> key=$cacheKey url=${_describeUrl(coverUrl ?? '')} '
+      'error=$error',
+      force: true,
+    );
+  }
+
+  void _debug(String message, {bool force = false}) {
+    _debugLog?.call('online.$message', force: force);
+  }
+
+  String _describeUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.host.isEmpty) return '<invalid>';
+    final path = uri.path.length > 48
+        ? '${uri.path.substring(0, 48)}...'
+        : uri.path;
+    return '${uri.scheme}://${uri.host}$path';
   }
 
   void dispose() {

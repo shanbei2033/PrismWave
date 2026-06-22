@@ -19,6 +19,8 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
   static const String _prefTopBarIdleText = 'ui.topBarIdleText';
   static const String _legacyPrefTopBarQuoteText = 'ui.topBarQuoteText';
   static const String _legacyPrefTopBarQuoteDate = 'ui.topBarQuoteDate';
+  static const String _prefExperimentalFeaturesEnabled =
+      'ui.experimentalFeaturesEnabled';
   static const String _prefOnlineModeEnabled = 'online.modeEnabled';
 
   final QuoteService _quoteService = QuoteService();
@@ -32,12 +34,15 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
     );
     final idleText = prefs.getString(_prefTopBarIdleText) ?? '';
     final quoteText = _readCachedQuoteText(prefs, restored);
+    final experimentalFeaturesEnabled =
+        prefs.getBool(_prefExperimentalFeaturesEnabled) ?? false;
     final onlineModeEnabled = prefs.getBool(_prefOnlineModeEnabled) ?? true;
     state = state.copyWith(
       language: restored,
       topBarIdleMode: idleMode,
       topBarIdleText: idleText,
       topBarQuoteText: quoteText,
+      experimentalFeaturesEnabled: experimentalFeaturesEnabled,
       onlineModeEnabled: onlineModeEnabled,
     );
 
@@ -51,14 +56,18 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
     await prefs.setBool(_prefOnlineModeEnabled, value);
   }
 
+  Future<void> setExperimentalFeaturesEnabled(bool value) async {
+    if (value == state.experimentalFeaturesEnabled) return;
+    state = state.copyWith(experimentalFeaturesEnabled: value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefExperimentalFeaturesEnabled, value);
+  }
+
   Future<void> setLanguage(AppLanguage language) async {
     if (language == state.language) return;
     final prefs = await SharedPreferences.getInstance();
     final cachedQuote = _readCachedQuoteText(prefs, language);
-    state = state.copyWith(
-      language: language,
-      topBarQuoteText: cachedQuote,
-    );
+    state = state.copyWith(language: language, topBarQuoteText: cachedQuote);
     await prefs.setString(kPrefAppLanguage, language.id);
     if (state.topBarIdleMode == TopBarIdleMode.quote) {
       await ensureTopBarQuote(forceRefresh: false);
@@ -146,16 +155,18 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
     }
   }
 
-  String _quoteTextKey(AppLanguage language) => 'ui.topBarQuoteText.${language.id}';
+  String _quoteTextKey(AppLanguage language) =>
+      'ui.topBarQuoteText.${language.id}';
 
-  String _quoteDateKey(AppLanguage language) => 'ui.topBarQuoteDate.${language.id}';
+  String _quoteDateKey(AppLanguage language) =>
+      'ui.topBarQuoteDate.${language.id}';
 
   String _readCachedQuoteText(SharedPreferences prefs, AppLanguage language) {
     final scoped = prefs.getString(_quoteTextKey(language)) ?? '';
     if (scoped.trim().isNotEmpty) return scoped;
     return switch (language) {
-      AppLanguage.zhCn || AppLanguage.zhTw =>
-        prefs.getString(_legacyPrefTopBarQuoteText) ?? '',
+      AppLanguage.zhCn ||
+      AppLanguage.zhTw => prefs.getString(_legacyPrefTopBarQuoteText) ?? '',
       AppLanguage.enUs => '',
     };
   }
@@ -164,8 +175,8 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
     final scoped = prefs.getString(_quoteDateKey(language)) ?? '';
     if (scoped.trim().isNotEmpty) return scoped;
     return switch (language) {
-      AppLanguage.zhCn || AppLanguage.zhTw =>
-        prefs.getString(_legacyPrefTopBarQuoteDate) ?? '',
+      AppLanguage.zhCn ||
+      AppLanguage.zhTw => prefs.getString(_legacyPrefTopBarQuoteDate) ?? '',
       AppLanguage.enUs => '',
     };
   }

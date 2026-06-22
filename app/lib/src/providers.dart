@@ -58,7 +58,9 @@ final onlineProvider = StateNotifierProvider<OnlineController, OnlineState>((
 /// playback chrome can render NetEase covers with the right headers (plain
 /// `Image.network` sometimes 4xx's against NetEase CDNs).
 final onlineCoverCacheProvider = Provider<OnlineMediaCacheService>((ref) {
-  final service = OnlineMediaCacheService();
+  final service = OnlineMediaCacheService(
+    debugLog: ref.read(playbackProvider.notifier).appendDeveloperLog,
+  );
   ref.onDispose(service.dispose);
   return service;
 });

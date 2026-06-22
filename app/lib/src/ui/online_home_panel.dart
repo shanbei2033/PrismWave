@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,8 +36,6 @@ class OnlineHomePanel extends ConsumerStatefulWidget {
 }
 
 class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
-  final OnlineMediaCacheService _coverCache = OnlineMediaCacheService();
-
   @override
   void initState() {
     super.initState();
@@ -47,16 +46,11 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
   }
 
   @override
-  void dispose() {
-    _coverCache.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final t = widget.t;
     final settings = ref.watch(appSettingsProvider);
     final home = ref.watch(onlineProvider.select((s) => s.home));
+    final coverCache = ref.watch(onlineCoverCacheProvider);
     final canRefresh = home.status != OnlineHomeStatus.loading;
 
     return Padding(
@@ -104,7 +98,7 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
             ),
           ),
           const SizedBox(height: 12),
-          Expanded(child: _buildContent(home, t, settings)),
+          Expanded(child: _buildContent(home, t, settings, coverCache)),
         ],
       ),
     );
@@ -114,6 +108,7 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
     OnlineHomeView home,
     AppStrings t,
     AppSettingsState settings,
+    OnlineMediaCacheService coverCache,
   ) {
     if (home.status == OnlineHomeStatus.loading && home.data == null) {
       return Center(
@@ -184,7 +179,7 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
               child: _TopPlaylistBanner(
                 t: t,
                 playlist: topPlaylist,
-                coverCache: _coverCache,
+                coverCache: coverCache,
                 onTap: widget.onOpenTopPlaylist!,
               ),
             ),
@@ -196,7 +191,7 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
               child: _AlbumRow(
                 t: t,
                 albums: albums,
-                coverCache: _coverCache,
+                coverCache: coverCache,
                 onOpenAlbum: _openAlbum,
               ),
             ),
@@ -212,7 +207,7 @@ class _OnlineHomePanelState extends ConsumerState<OnlineHomePanel> {
                 t: t,
                 settings: settings,
                 section: section,
-                coverCache: _coverCache,
+                coverCache: coverCache,
                 onPlay: (track) => _playSection(section, track),
               ),
             );
@@ -481,7 +476,14 @@ class _OnlineCoverImageState extends State<OnlineCoverImage> {
             bytes,
             fit: BoxFit.cover,
             gaplessPlayback: true,
-            errorBuilder: (_, _, _) => _placeholder(),
+            errorBuilder: (_, error, _) {
+              widget.coverCache.recordDecodeFailure(
+                cacheKey: widget.cacheKey,
+                coverUrl: widget.coverUrl,
+                error: error,
+              );
+              return _placeholder();
+            },
           );
         }
         return _placeholder();
@@ -533,7 +535,7 @@ class _TopPlaylistBanner extends StatelessWidget {
     final tracks = playlist.tracks;
     final featuredCovers = tracks
         .where((track) => (track.coverUrl ?? '').isNotEmpty)
-        .take(4)
+        .take(8)
         .toList(growable: false);
 
     return Material(
@@ -558,101 +560,124 @@ class _TopPlaylistBanner extends StatelessWidget {
             border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
             boxShadow: PrismWaveTheme.panelShadow(alpha: 0.08),
           ),
-          padding: const EdgeInsets.fromLTRB(22, 18, 18, 18),
-          child: Row(
+          child: Stack(
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: PrismWaveTheme.accent.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: PrismWaveTheme.accent.withValues(alpha: 0.24),
-                        ),
-                      ),
-                      child: Text(
-                        t.onlineTopPlaylistBadge,
-                        style: const TextStyle(
-                          color: PrismWaveTheme.accentSoft,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            t.onlineTopPlaylistTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: PrismWaveTheme.textPrimary,
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if ((playlist.subtitle ?? '').isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          playlist.subtitle!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: PrismWaveTheme.textSecondary.withValues(
-                              alpha: 0.88,
-                            ),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: onTap,
-                        style: PrismWaveTheme.rectangularButtonStyle(
-                          selected: true,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                        ),
-                        icon: const Icon(Icons.play_arrow_rounded, size: 19),
-                        label: Text(
-                          t.onlineTopPlaylistOpen,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ),
-                  ],
+              Positioned(
+                left: -32,
+                top: -32,
+                right: -32,
+                bottom: -32,
+                child: _BannerBlurredCoverBackground(
+                  covers: featuredCovers,
+                  coverCache: coverCache,
                 ),
               ),
-              const SizedBox(width: 14),
-              _BannerCoverCollage(
-                covers: featuredCovers,
-                coverCache: coverCache,
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.24),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: _BannerCoverCollage(
+                  covers: featuredCovers.take(4).toList(growable: false),
+                  coverCache: coverCache,
+                ),
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          PrismWaveTheme.surfaceStrong.withValues(alpha: 0.84),
+                          PrismWaveTheme.surfaceStrong.withValues(alpha: 0.70),
+                          PrismWaveTheme.accentDeep.withValues(alpha: 0.16),
+                          Colors.transparent,
+                        ],
+                        stops: const [0, 0.48, 0.76, 1],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 18,
+                top: 32,
+                right: 176,
+                child: Text(
+                  t.onlineTopPlaylistTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: PrismWaveTheme.textPrimary,
+                    fontSize: 42,
+                    fontWeight: FontWeight.w900,
+                    height: 0.94,
+                    letterSpacing: 0,
+                  ),
+                ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _BannerBlurredCoverBackground extends StatelessWidget {
+  const _BannerBlurredCoverBackground({
+    required this.covers,
+    required this.coverCache,
+  });
+
+  final List<OnlineTrackCandidate> covers;
+  final OnlineMediaCacheService coverCache;
+
+  @override
+  Widget build(BuildContext context) {
+    if (covers.isEmpty) {
+      return ColoredBox(color: PrismWaveTheme.surfaceStrong);
+    }
+
+    final tiles = List.generate(8, (index) => covers[index % covers.length]);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tileWidth = (constraints.maxWidth - 6) / 4;
+        final tileHeight = (constraints.maxHeight - 2) / 2;
+
+        return ImageFiltered(
+          imageFilter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Opacity(
+            opacity: 0.84,
+            child: Wrap(
+              spacing: 2,
+              runSpacing: 2,
+              children: [
+                for (final c in tiles)
+                  SizedBox(
+                    width: tileWidth,
+                    height: tileHeight,
+                    child: OnlineCoverImage(
+                      coverCache: coverCache,
+                      cacheKey: c.canonicalKey,
+                      coverUrl: c.coverUrl,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -666,13 +691,14 @@ class _BannerCoverCollage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (covers.isEmpty) {
-      return const SizedBox(width: 132);
+      return const SizedBox(width: 148, height: 148);
     }
 
-    // 2x2 grid for 4 covers; degrades gracefully with fewer.
+    final tiles = List.generate(4, (index) => covers[index % covers.length]);
+
     return Container(
-      width: 132,
-      height: 132,
+      width: 148,
+      height: 148,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
@@ -686,12 +712,13 @@ class _BannerCoverCollage extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: GridView.count(
+          padding: EdgeInsets.zero,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: 2,
           mainAxisSpacing: 4,
           crossAxisSpacing: 4,
           children: [
-            for (final c in covers)
+            for (final c in tiles)
               DecoratedBox(
                 decoration: BoxDecoration(
                   border: Border.all(

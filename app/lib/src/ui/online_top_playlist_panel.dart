@@ -30,29 +30,21 @@ class OnlineTopPlaylistPanel extends ConsumerStatefulWidget {
 
 class _OnlineTopPlaylistPanelState
     extends ConsumerState<OnlineTopPlaylistPanel> {
-  final OnlineMediaCacheService _coverCache = OnlineMediaCacheService();
-
-  @override
-  void dispose() {
-    _coverCache.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = widget.t;
     final settings = ref.watch(appSettingsProvider);
+    final coverCache = ref.watch(onlineCoverCacheProvider);
     final recommendationsUnavailable = ref.watch(
       onlineProvider.select((s) => s.home.recommendationsUnavailable),
     );
     final recommendationsPendingGeneration = ref.watch(
       onlineProvider.select((s) => s.home.recommendationsPendingGeneration),
     );
-    final playlist = ref.watch(
-      onlineProvider.select((s) => s.home.data?.topPlaylist),
-    );
+    final homeData = ref.watch(onlineProvider.select((s) => s.home.data));
+    final playlist = homeData?.topPlaylist;
 
-    if (playlist == null) {
+    if (homeData == null || playlist == null) {
       // Banner shouldn't be tappable in this state, but handle gracefully.
       return Padding(
         padding: const EdgeInsets.all(20),
@@ -81,7 +73,8 @@ class _OnlineTopPlaylistPanelState
             t: t,
             settings: settings,
             playlist: playlist,
-            coverCache: _coverCache,
+            generatedAt: homeData.generatedAt,
+            coverCache: coverCache,
             onPlayAll: () => _playAll(playlist),
             recommendationsUnavailable: recommendationsUnavailable,
             recommendationsPendingGeneration: recommendationsPendingGeneration,
@@ -97,7 +90,7 @@ class _OnlineTopPlaylistPanelState
                 return _TrackRow(
                   index: index + 1,
                   track: track,
-                  coverCache: _coverCache,
+                  coverCache: coverCache,
                   onTap: () => _playOne(playlist, track),
                 );
               },
@@ -158,6 +151,7 @@ class _Header extends StatelessWidget {
     required this.t,
     required this.settings,
     required this.playlist,
+    required this.generatedAt,
     required this.coverCache,
     required this.onPlayAll,
     required this.recommendationsUnavailable,
@@ -167,6 +161,7 @@ class _Header extends StatelessWidget {
   final AppStrings t;
   final AppSettingsState settings;
   final OnlineSection playlist;
+  final DateTime generatedAt;
   final OnlineMediaCacheService coverCache;
   final VoidCallback onPlayAll;
   final bool recommendationsUnavailable;
@@ -224,17 +219,16 @@ class _Header extends StatelessWidget {
                   ],
                 ],
               ),
-              if ((playlist.subtitle ?? '').isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    playlist.subtitle!,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.65),
-                      fontSize: 13,
-                    ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  t.onlineTopPlaylistGeneratedAt(generatedAt),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontSize: 13,
                   ),
                 ),
+              ),
               const SizedBox(height: 14),
               FilledButton.icon(
                 onPressed: onPlayAll,

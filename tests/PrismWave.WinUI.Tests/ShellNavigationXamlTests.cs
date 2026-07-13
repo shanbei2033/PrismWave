@@ -150,10 +150,20 @@ public sealed class ShellNavigationXamlTests
         var currentTargetCheck = code.LastIndexOf(
             "_currentContentFrame.CurrentSourcePageType == target",
             StringComparison.Ordinal);
+        var removeIncomingFrame = code.IndexOf(
+            "PageTransitionHost.Children.Remove(_incomingContentFrame);",
+            StringComparison.Ordinal);
+        var addIncomingFrame = code.IndexOf(
+            "PageTransitionHost.Children.Add(_incomingContentFrame);",
+            StringComparison.Ordinal);
+        var navigateIncomingFrame = code.IndexOf(
+            "_incomingContentFrame.Navigate(target, null, new SuppressNavigationTransitionInfo())",
+            StringComparison.Ordinal);
 
         Assert.True(offscreenOffset >= 0 && offscreenOffset < incomingVisible);
-        Assert.Contains("Canvas.SetZIndex(_currentContentFrame, 0)", code, StringComparison.Ordinal);
-        Assert.Contains("Canvas.SetZIndex(_incomingContentFrame, 1)", code, StringComparison.Ordinal);
+        Assert.True(removeIncomingFrame >= 0 && removeIncomingFrame < addIncomingFrame);
+        Assert.True(addIncomingFrame < navigateIncomingFrame);
+        Assert.DoesNotContain("Canvas.SetZIndex", code, StringComparison.Ordinal);
         Assert.Contains("_currentContentFrame.IsHitTestVisible = false;", code, StringComparison.Ordinal);
         Assert.Contains("_incomingContentFrame.IsHitTestVisible = false;", code, StringComparison.Ordinal);
         Assert.True(transitionCompletion >= 0 && currentTargetCheck > transitionCompletion);

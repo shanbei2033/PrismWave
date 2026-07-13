@@ -106,6 +106,8 @@ public sealed partial class ShellPage : Page
     {
         StartupLog.Write($"navigation.cover.requested route={route}");
         ResetFrame(_incomingContentFrame);
+        PageTransitionHost.Children.Remove(_incomingContentFrame);
+        PageTransitionHost.Children.Add(_incomingContentFrame);
 
         if (!_incomingContentFrame.Navigate(target, null, new SuppressNavigationTransitionInfo()))
         {
@@ -118,8 +120,6 @@ public sealed partial class ShellPage : Page
         var incomingVisual = ElementCompositionPreview.GetElementVisual(_incomingContentFrame);
         incomingVisual.StopAnimation("Offset.X");
         incomingVisual.Offset = new Vector3((float)PageTransitionHost.ActualWidth, 0, 0);
-        Canvas.SetZIndex(_currentContentFrame, 0);
-        Canvas.SetZIndex(_incomingContentFrame, 1);
         _currentContentFrame.IsHitTestVisible = false;
         _incomingContentFrame.IsHitTestVisible = false;
         _incomingContentFrame.Visibility = Visibility.Visible;

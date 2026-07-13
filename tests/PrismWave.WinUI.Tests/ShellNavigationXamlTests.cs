@@ -132,6 +132,33 @@ public sealed class ShellNavigationXamlTests
         Assert.DoesNotContain("RotateTransform", codeBehind, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Shell_PreparesAndGuardsCoverTransitionFrames()
+    {
+        var code = File.ReadAllText(FindRepositoryFile(
+            "src", "PrismWave.WinUI", "Views", "Shell", "ShellPage.xaml.cs"));
+
+        var offscreenOffset = code.IndexOf(
+            "incomingVisual.Offset = new Vector3((float)PageTransitionHost.ActualWidth, 0, 0);",
+            StringComparison.Ordinal);
+        var incomingVisible = code.IndexOf(
+            "_incomingContentFrame.Visibility = Visibility.Visible;",
+            StringComparison.Ordinal);
+        var transitionCompletion = code.IndexOf(
+            "CompleteActiveTransition(superseded: true);",
+            StringComparison.Ordinal);
+        var currentTargetCheck = code.LastIndexOf(
+            "_currentContentFrame.CurrentSourcePageType == target",
+            StringComparison.Ordinal);
+
+        Assert.True(offscreenOffset >= 0 && offscreenOffset < incomingVisible);
+        Assert.Contains("Canvas.SetZIndex(_currentContentFrame, 0)", code, StringComparison.Ordinal);
+        Assert.Contains("Canvas.SetZIndex(_incomingContentFrame, 1)", code, StringComparison.Ordinal);
+        Assert.Contains("_currentContentFrame.IsHitTestVisible = false;", code, StringComparison.Ordinal);
+        Assert.Contains("_incomingContentFrame.IsHitTestVisible = false;", code, StringComparison.Ordinal);
+        Assert.True(transitionCompletion >= 0 && currentTargetCheck > transitionCompletion);
+    }
+
     private static string FindRepositoryFile(params string[] relativeSegments)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

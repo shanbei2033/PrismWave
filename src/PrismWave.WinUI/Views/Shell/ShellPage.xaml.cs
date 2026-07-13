@@ -91,6 +91,11 @@ public sealed partial class ShellPage : Page
         if (_isTransitionActive)
         {
             CompleteActiveTransition(superseded: true);
+            if (_currentContentFrame.CurrentSourcePageType == target)
+            {
+                SynchronizeNavigationSelection(route);
+                return;
+            }
         }
 
         StartCoverNavigation(target, route);
@@ -104,12 +109,20 @@ public sealed partial class ShellPage : Page
 
         if (!_incomingContentFrame.Navigate(target, null, new SuppressNavigationTransitionInfo()))
         {
+            ResetFrame(_incomingContentFrame);
+            _currentContentFrame.IsHitTestVisible = true;
             StartupLog.Write($"navigation.cover.failed route={route} phase=navigate");
             return;
         }
 
-        _incomingContentFrame.Visibility = Visibility.Visible;
+        var incomingVisual = ElementCompositionPreview.GetElementVisual(_incomingContentFrame);
+        incomingVisual.StopAnimation("Offset.X");
+        incomingVisual.Offset = new Vector3((float)PageTransitionHost.ActualWidth, 0, 0);
+        Canvas.SetZIndex(_currentContentFrame, 0);
+        Canvas.SetZIndex(_incomingContentFrame, 1);
+        _currentContentFrame.IsHitTestVisible = false;
         _incomingContentFrame.IsHitTestVisible = false;
+        _incomingContentFrame.Visibility = Visibility.Visible;
         _isTransitionActive = true;
         _activeTransitionRevision = ++_navigationTransitionRevision;
         var transitionRevision = _activeTransitionRevision;
@@ -135,7 +148,6 @@ public sealed partial class ShellPage : Page
         var incomingVisual = ElementCompositionPreview.GetElementVisual(_incomingContentFrame);
         currentVisual.StopAnimation("Offset.X");
         currentVisual.Offset = Vector3.Zero;
-        incomingVisual.Offset = new Vector3((float)PageTransitionHost.ActualWidth, 0, 0);
 
         var easing = compositor.CreateCubicBezierEasingFunction(
             new Vector2(0.1f, 0.9f),

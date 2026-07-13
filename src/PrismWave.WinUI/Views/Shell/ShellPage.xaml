@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="PrismWave_WinUI.Views.Shell.ShellPage"
+    x:Name="ShellRoot"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:PrismWave_WinUI.Converters"
+    xmlns:playback="using:PrismWave_WinUI.Controls.Playback">
+
+    <Page.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    </Page.Resources>
+
+    <Grid Background="{StaticResource PrismBackgroundBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <NavigationView
+            x:Name="AppNavigationView"
+            Grid.Row="0"
+            Margin="0,42,0,0"
+            PaneDisplayMode="Left"
+            PaneTitle="PrismWave"
+            IsPaneOpen="True"
+            IsPaneToggleButtonVisible="True"
+            IsSettingsVisible="True"
+            IsBackButtonVisible="Collapsed"
+            OpenPaneLength="220"
+            CompactPaneLength="48"
+            SelectionChanged="AppNavigationView_SelectionChanged"
+            ItemInvoked="AppNavigationView_ItemInvoked">
+            <NavigationView.MenuItems>
+                <NavigationViewItem Content="首页" Tag="Home" IsSelected="True">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE80F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="搜索" Tag="Search">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE721;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="库" Tag="Library">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8D6;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="专辑" Tag="Albums">
+                    <NavigationViewItem.Icon>
+                        <ImageIcon
+                            Width="20"
+                            Height="20"
+                            AutomationProperties.AutomationId="AlbumsIcon">
+                            <ImageIcon.Source>
+                                <SvgImageSource UriSource="ms-appx:///Assets/Icons/album.svg" />
+                            </ImageIcon.Source>
+                        </ImageIcon>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="艺术家" Tag="Artists">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE77B;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="我最爱的" Tag="Favorites">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xEB51;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="HITS" Tag="Hits">
+                    <NavigationViewItem.Icon>
+                        <ImageIcon
+                            Width="20"
+                            Height="20"
+                            AutomationProperties.AutomationId="HitsRadioIcon">
+                            <ImageIcon.Source>
+                                <SvgImageSource UriSource="ms-appx:///Assets/Icons/radio.svg" />
+                            </ImageIcon.Source>
+                        </ImageIcon>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <Grid Margin="24,0,30,0">
+                <Grid
+                    x:Name="PageTransitionHost"
+                    SizeChanged="PageTransitionHost_SizeChanged">
+                    <Grid.Clip>
+                        <RectangleGeometry x:Name="PageTransitionClip" />
+                    </Grid.Clip>
+                    <Frame x:Name="PrimaryContentFrame" />
+                    <Frame
+                        x:Name="SecondaryContentFrame"
+                        Visibility="Collapsed"
+                        IsHitTestVisible="False" />
+                </Grid>
+                <playback:QueuePane
+                    DataContext="{Binding Playback}"
+                    Visibility="{Binding DataContext.IsQueuePaneOpen, ElementName=ShellRoot, Converter={StaticResource BoolToVisibilityConverter}}" />
+            </Grid>
+        </NavigationView>
+
+        <playback:BottomPlayerBar
+            Grid.Row="1"
+            Margin="8,16,8,8"
+            DataContext="{Binding Playback}"
+            FullPlayCommand="{Binding DataContext.OpenFullPlayCommand, ElementName=ShellRoot}"
+            QueueCommand="{Binding DataContext.ToggleQueuePaneCommand, ElementName=ShellRoot}" />
+    </Grid>
+</Page>

@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="TagLibSharp" Version="2.3.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../../src/PrismWave.WinUI/Models/LyricsModels.cs" Link="Models/LyricsModels.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/HitsModels.cs" Link="Models/HitsModels.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/HomeModels.cs" Link="Models/HomeModels.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/CoverModels.cs" Link="Models/CoverModels.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/OnlinePlaybackResolution.cs" Link="Models/OnlinePlaybackResolution.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/OnlineProviderTrackModel.cs" Link="Models/OnlineProviderTrackModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/PlaybackMode.cs" Link="Models/PlaybackMode.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/PlaybackStatus.cs" Link="Models/PlaybackStatus.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/SettingsModels.cs" Link="Models/SettingsModels.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/TrackModel.cs" Link="Models/TrackModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/WindowsDsdDeviceModel.cs" Link="Models/WindowsDsdDeviceModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Infrastructure/StartupLog.cs" Link="Infrastructure/StartupLog.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Infrastructure/WindowLaunchSize.cs" Link="Infrastructure/WindowLaunchSize.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Navigation/CoverNavigationCoordinator.cs" Link="Infrastructure/Navigation/CoverNavigationCoordinator.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Persistence/FlutterPreferencesMigrationService.cs" Link="Infrastructure/FlutterPreferencesMigrationService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/ISettingsService.cs" Link="Contracts/ISettingsService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IHitsService.cs" Link="Contracts/IHitsService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IPlaybackService.cs" Link="Contracts/IPlaybackService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/ICoverService.cs" Link="Contracts/ICoverService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlinePlaybackResolver.cs" Link="Contracts/IOnlinePlaybackResolver.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlineProviderService.cs" Link="Contracts/IOnlineProviderService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlineSearchService.cs" Link="Contracts/IOnlineSearchService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/ILibraryService.cs" Link="Contracts/ILibraryService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/PlaceholderContracts.cs" Link="Contracts/PlaceholderContracts.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/LyricsParser.cs" Link="Services/LyricsParser.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/HitsService.cs" Link="Services/HitsService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/QqQrcDecoder.cs" Link="Services/QqQrcDecoder.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/LyricsService.cs" Link="Services/LyricsService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/CoverService.cs" Link="Services/CoverService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/OnlinePlaybackResolver.cs" Link="Services/OnlinePlaybackResolver.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/OnlineProviderService.cs" Link="Services/OnlineProviderService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/SampleOnlineSearchService.cs" Link="Services/OnlineSearchService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/SettingsService.cs" Link="Services/SettingsService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/ViewModels/Player/PlaybackViewModel.cs" Link="ViewModels/PlaybackViewModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/ViewModels/Player/LyricsSearchViewModel.cs" Link="ViewModels/LyricsSearchViewModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/ViewModels/Player/CoverSearchViewModel.cs" Link="ViewModels/CoverSearchViewModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/ViewModels/Shell/ShellViewModel.cs" Link="ViewModels/ShellViewModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/ViewModels/Hits/HitsStatusViewModel.cs" Link="ViewModels/HitsStatusViewModel.cs" />
+  </ItemGroup>
+</Project>

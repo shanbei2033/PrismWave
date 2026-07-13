@@ -102,6 +102,18 @@
             </Grid>
         </NavigationView>
 
+        <Button
+            x:Name="TransitionFocusTarget"
+            Grid.Row="0"
+            Width="1"
+            Height="1"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            IsHitTestVisible="False"
+            IsTabStop="False"
+            KeyDown="TransitionFocusTarget_KeyDown"
+            Opacity="0" />
+
         <playback:BottomPlayerBar
             Grid.Row="1"
             Margin="8,16,8,8"

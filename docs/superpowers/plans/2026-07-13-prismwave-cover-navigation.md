@@ -230,4 +230,3 @@ Expected:
 - [ ] **Step 5: Inspect logs and leave the demo open**
 
 Confirm each successful route has \`requested -> prepared -> started -> completed\`, rapid navigation records \`superseded\`, and there are no \`navigation.cover.failed\` entries. Leave the verified PrismWave process running.
-

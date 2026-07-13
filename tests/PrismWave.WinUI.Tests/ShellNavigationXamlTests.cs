@@ -110,63 +110,9 @@ public sealed class ShellNavigationXamlTests
             element.Name.LocalName == "RectangleGeometry" &&
             element.Attribute(xamlName)?.Value == "PageTransitionClip");
         Assert.DoesNotContain(host.Descendants(), element => element.Name.LocalName == "QueuePane");
-    }
-
-    [Fact]
-    public void Shell_UsesFixedDirectionFullWidthCoverTransition()
-    {
-        var codeBehind = File.ReadAllText(FindRepositoryFile(
-            "src", "PrismWave.WinUI", "Views", "Shell", "ShellPage.xaml.cs"));
-
-        Assert.Contains("TimeSpan.FromMilliseconds(280)", codeBehind, StringComparison.Ordinal);
-        Assert.Contains("PageTransitionHost.ActualWidth", codeBehind, StringComparison.Ordinal);
-        Assert.Contains("CreateScalarKeyFrameAnimation", codeBehind, StringComparison.Ordinal);
-        Assert.Contains("StartAnimation(\"Offset.X\"", codeBehind, StringComparison.Ordinal);
-        Assert.Contains("CompleteActiveTransition(superseded: true)", codeBehind, StringComparison.Ordinal);
-        Assert.Contains("transitionRevision != _navigationTransitionRevision", codeBehind, StringComparison.Ordinal);
-        Assert.Contains("DispatcherQueue.TryEnqueue", codeBehind, StringComparison.Ordinal);
-        Assert.Contains("SuppressNavigationTransitionInfo", codeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("DoubleAnimation", codeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("AnimationsEnabled", codeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("ScaleTransform", codeBehind, StringComparison.Ordinal);
-        Assert.DoesNotContain("RotateTransform", codeBehind, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Shell_PreparesAndGuardsCoverTransitionFrames()
-    {
-        var code = File.ReadAllText(FindRepositoryFile(
-            "src", "PrismWave.WinUI", "Views", "Shell", "ShellPage.xaml.cs"));
-
-        var offscreenOffset = code.IndexOf(
-            "incomingVisual.Offset = new Vector3((float)PageTransitionHost.ActualWidth, 0, 0);",
-            StringComparison.Ordinal);
-        var incomingVisible = code.IndexOf(
-            "_incomingContentFrame.Visibility = Visibility.Visible;",
-            StringComparison.Ordinal);
-        var transitionCompletion = code.IndexOf(
-            "CompleteActiveTransition(superseded: true);",
-            StringComparison.Ordinal);
-        var currentTargetCheck = code.LastIndexOf(
-            "_currentContentFrame.CurrentSourcePageType == target",
-            StringComparison.Ordinal);
-        var removeIncomingFrame = code.IndexOf(
-            "PageTransitionHost.Children.Remove(_incomingContentFrame);",
-            StringComparison.Ordinal);
-        var addIncomingFrame = code.IndexOf(
-            "PageTransitionHost.Children.Add(_incomingContentFrame);",
-            StringComparison.Ordinal);
-        var navigateIncomingFrame = code.IndexOf(
-            "_incomingContentFrame.Navigate(target, null, new SuppressNavigationTransitionInfo())",
-            StringComparison.Ordinal);
-
-        Assert.True(offscreenOffset >= 0 && offscreenOffset < incomingVisible);
-        Assert.True(removeIncomingFrame >= 0 && removeIncomingFrame < addIncomingFrame);
-        Assert.True(addIncomingFrame < navigateIncomingFrame);
-        Assert.DoesNotContain("Canvas.SetZIndex", code, StringComparison.Ordinal);
-        Assert.Contains("_currentContentFrame.IsHitTestVisible = false;", code, StringComparison.Ordinal);
-        Assert.Contains("_incomingContentFrame.IsHitTestVisible = false;", code, StringComparison.Ordinal);
-        Assert.True(transitionCompletion >= 0 && currentTargetCheck > transitionCompletion);
+        Assert.Single(document.Descendants(), element =>
+            element.Attribute(xamlName)?.Value == "TransitionFocusTarget" &&
+            !host.DescendantsAndSelf().Contains(element));
     }
 
     private static string FindRepositoryFile(params string[] relativeSegments)

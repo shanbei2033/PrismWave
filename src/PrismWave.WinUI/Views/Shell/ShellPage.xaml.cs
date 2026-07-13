@@ -1,11 +1,15 @@
 using System.Numerics;
 using Microsoft.UI.Composition;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Navigation;
 using PrismWave_WinUI.Infrastructure;
+using PrismWave_WinUI.Infrastructure.Navigation;
 using PrismWave_WinUI.Views.Hits;
 using PrismWave_WinUI.Views.Home;
 using PrismWave_WinUI.Views.Library;
@@ -17,13 +21,17 @@ namespace PrismWave_WinUI.Views.Shell;
 
 public sealed partial class ShellPage : Page
 {
+    private readonly CoverNavigationCoordinator _navigationCoordinator = new();
     private bool _isSynchronizingSelection = true;
-    private bool _hasInitializedContent;
-    private bool _isTransitionActive;
-    private long _navigationTransitionRevision;
-    private long _activeTransitionRevision;
+    private bool _isShellLoaded;
     private Frame _currentContentFrame = null!;
     private Frame _incomingContentFrame = null!;
+    private FrameworkElement? _incomingLoadedElement;
+    private long _incomingLoadedRevision;
+    private CompositionScopedBatch? _activeAnimationBatch;
+    private long _activeAnimationRevision;
+    private long _navigatingRevision;
+    private Exception? _navigationFailedException;
 
     public ShellPage()
     {
@@ -32,14 +40,25 @@ public sealed partial class ShellPage : Page
         _currentContentFrame = PrimaryContentFrame;
         _incomingContentFrame = SecondaryContentFrame;
         DataContext = App.Services.Shell;
-        App.Services.Shell.NavigationRequested += (_, route) => Navigate(route);
         Loaded += ShellPage_Loaded;
+        Unloaded += ShellPage_Unloaded;
         _isSynchronizingSelection = false;
         StartupLog.Write("ShellPage initialized");
     }
 
     private void ShellPage_Loaded(object sender, RoutedEventArgs e)
     {
+        if (_isShellLoaded)
+        {
+            return;
+        }
+
+        _isShellLoaded = true;
+        App.Services.Shell.NavigationRequested += ShellViewModel_NavigationRequested;
+        PrimaryContentFrame.NavigationFailed += ContentFrame_NavigationFailed;
+        SecondaryContentFrame.NavigationFailed += ContentFrame_NavigationFailed;
+        _navigationCoordinator.Load();
+
         if (AppNavigationView.SettingsItem is NavigationViewItem settingsItem)
         {
             settingsItem.Content = "设置";
@@ -47,146 +66,297 @@ public sealed partial class ShellPage : Page
             ToolTipService.SetToolTip(settingsItem, "设置");
         }
 
-        Navigate(App.Services.Shell.SelectedRoute);
+        ProcessNavigationRequest(App.Services.Shell.SelectedRoute);
     }
 
-    private void Navigate(string route)
+    private void ShellPage_Unloaded(object sender, RoutedEventArgs e)
     {
-        var target = route switch
+        if (!_isShellLoaded)
         {
-            "Home" => typeof(HomePage),
-            "TopPlaylist" => typeof(TopPlaylistPage),
-            "AlbumDetail" => typeof(AlbumDetailPage),
-            "Search" => typeof(SearchPage),
-            "Albums" => typeof(AlbumsPage),
-            "Artists" => typeof(ArtistsPage),
-            "Favorites" => typeof(FavoritesPage),
-            "FullPlay" => typeof(FullPlayPage),
-            "Hits" => typeof(HitsStatusPage),
-            "Settings" => typeof(SettingsPage),
-            _ => typeof(LibraryPage)
-        };
-
-        if (_currentContentFrame.CurrentSourcePageType == target)
-        {
-            SynchronizeNavigationSelection(route);
             return;
         }
 
-        if (!_hasInitializedContent)
-        {
-            _hasInitializedContent = _currentContentFrame.Navigate(
-                target,
-                null,
-                new SuppressNavigationTransitionInfo());
-            if (!_hasInitializedContent)
-            {
-                StartupLog.Write($"navigation.cover.failed route={route} phase=initial");
-            }
+        _isShellLoaded = false;
+        App.Services.Shell.NavigationRequested -= ShellViewModel_NavigationRequested;
+        PrimaryContentFrame.NavigationFailed -= ContentFrame_NavigationFailed;
+        SecondaryContentFrame.NavigationFailed -= ContentFrame_NavigationFailed;
+        _navigationCoordinator.Unload();
+        DetachIncomingLoadedHandler();
+        DetachAnimationBatch();
+        ResetFrame(PrimaryContentFrame);
+        ResetFrame(SecondaryContentFrame);
+        _currentContentFrame = PrimaryContentFrame;
+        _incomingContentFrame = SecondaryContentFrame;
+        TransitionFocusTarget.IsTabStop = false;
+        _navigatingRevision = 0;
+        _navigationFailedException = null;
+    }
 
-            SynchronizeNavigationSelection(route);
+    private void ShellViewModel_NavigationRequested(object? sender, string route) =>
+        ProcessNavigationRequest(route);
+
+    private void ProcessNavigationRequest(string route)
+    {
+        if (!_isShellLoaded)
+        {
             return;
         }
 
-        if (_isTransitionActive)
-        {
-            CompleteActiveTransition(superseded: true);
-            if (_currentContentFrame.CurrentSourcePageType == target)
-            {
-                SynchronizeNavigationSelection(route);
-                return;
-            }
-        }
-
-        StartCoverNavigation(target, route);
         SynchronizeNavigationSelection(route);
+        ExecuteIntent(_navigationCoordinator.RequestNavigation(route));
     }
 
-    private void StartCoverNavigation(Type target, string route)
+    private void ExecuteIntent(CoverNavigationIntent intent)
     {
-        StartupLog.Write($"navigation.cover.requested route={route}");
+        if (!_isShellLoaded && intent.Kind != CoverNavigationIntentKind.Reset)
+        {
+            return;
+        }
+
+        switch (intent.Kind)
+        {
+            case CoverNavigationIntentKind.NavigateInitial:
+                NavigateInitial(intent);
+                break;
+            case CoverNavigationIntentKind.PrepareIncoming:
+                PrepareIncoming(intent);
+                break;
+            case CoverNavigationIntentKind.StartAnimation:
+                BeginCoverAnimation(intent);
+                break;
+            case CoverNavigationIntentKind.CompleteTransition:
+                CompleteTransitionVisual(intent);
+                break;
+            case CoverNavigationIntentKind.RestoreCurrent:
+                RestoreCurrentInputAndFocus();
+                break;
+        }
+    }
+
+    private void NavigateInitial(CoverNavigationIntent intent)
+    {
+        if (!TryNavigateFrame(_currentContentFrame, ResolvePageType(intent.Route), intent.Revision, out var exception))
+        {
+            HandleNavigationFailure(intent, _currentContentFrame, exception);
+            return;
+        }
+
+        _currentContentFrame.Visibility = Visibility.Visible;
+        ExecuteIntent(_navigationCoordinator.NavigationSucceeded(intent.Revision));
+    }
+
+    private void PrepareIncoming(CoverNavigationIntent intent)
+    {
+        StartupLog.Write($"navigation.cover.requested route={intent.Route} revision={intent.Revision}");
+        DetachIncomingLoadedHandler();
         ResetFrame(_incomingContentFrame);
         PageTransitionHost.Children.Remove(_incomingContentFrame);
         PageTransitionHost.Children.Add(_incomingContentFrame);
 
-        if (!_incomingContentFrame.Navigate(target, null, new SuppressNavigationTransitionInfo()))
+        if (!TryNavigateFrame(_incomingContentFrame, ResolvePageType(intent.Route), intent.Revision, out var exception))
         {
-            ResetFrame(_incomingContentFrame);
-            _currentContentFrame.IsHitTestVisible = true;
-            StartupLog.Write($"navigation.cover.failed route={route} phase=navigate");
+            HandleNavigationFailure(intent, _incomingContentFrame, exception);
             return;
         }
+
+        if (_incomingContentFrame.Content is not FrameworkElement incomingContent)
+        {
+            HandleNavigationFailure(
+                intent,
+                _incomingContentFrame,
+                new InvalidOperationException($"Route '{intent.Route}' did not create FrameworkElement content."));
+            return;
+        }
+
+        var currentVisual = ElementCompositionPreview.GetElementVisual(_currentContentFrame);
+        currentVisual.StopAnimation("Offset.X");
+        currentVisual.Offset = Vector3.Zero;
 
         var incomingVisual = ElementCompositionPreview.GetElementVisual(_incomingContentFrame);
         incomingVisual.StopAnimation("Offset.X");
-        incomingVisual.Offset = new Vector3((float)PageTransitionHost.ActualWidth, 0, 0);
-        _currentContentFrame.IsHitTestVisible = false;
-        _incomingContentFrame.IsHitTestVisible = false;
-        _incomingContentFrame.Visibility = Visibility.Visible;
-        _isTransitionActive = true;
-        _activeTransitionRevision = ++_navigationTransitionRevision;
-        var transitionRevision = _activeTransitionRevision;
-        StartupLog.Write($"navigation.cover.prepared route={route} revision={transitionRevision}");
+        incomingVisual.Offset = new Vector3((float)Math.Max(0, PageTransitionHost.ActualWidth), 0, 0);
 
-        if (!DispatcherQueue.TryEnqueue(
-                Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-                () => BeginCoverAnimation(transitionRevision)))
+        EnterTransitionInputLock();
+        AttachIncomingLoadedHandler(incomingContent, intent.Revision);
+        _incomingContentFrame.Visibility = Visibility.Visible;
+        StartupLog.Write($"navigation.cover.prepared route={intent.Route} revision={intent.Revision}");
+
+        if (_incomingLoadedElement is not null && incomingContent.IsLoaded)
         {
-            BeginCoverAnimation(transitionRevision);
+            DetachIncomingLoadedHandler();
+            QueueIncomingReady(intent.Revision);
         }
     }
 
-    private void BeginCoverAnimation(long transitionRevision)
+    private bool TryNavigateFrame(Frame frame, Type target, long revision, out Exception exception)
     {
-        if (!_isTransitionActive || transitionRevision != _navigationTransitionRevision)
+        _navigatingRevision = revision;
+        _navigationFailedException = null;
+        Exception? thrownException = null;
+        var navigated = false;
+        try
+        {
+            navigated = frame.Navigate(target, null, new SuppressNavigationTransitionInfo());
+        }
+        catch (Exception caught)
+        {
+            thrownException = caught;
+        }
+        finally
+        {
+            _navigatingRevision = 0;
+        }
+
+        exception = thrownException ??
+            _navigationFailedException ??
+            new InvalidOperationException($"Frame.Navigate returned false for '{target.FullName}'.");
+        return navigated && thrownException is null && _navigationFailedException is null;
+    }
+
+    private void ContentFrame_NavigationFailed(object sender, NavigationFailedEventArgs args)
+    {
+        if (!_isShellLoaded || _navigatingRevision == 0)
         {
             return;
         }
 
+        _navigationFailedException = args.Exception;
+        args.Handled = true;
+    }
+
+    private void HandleNavigationFailure(
+        CoverNavigationIntent failedIntent,
+        Frame failedFrame,
+        Exception exception)
+    {
+        var rollback = _navigationCoordinator.NavigationFailed(failedIntent.Revision);
+        if (rollback.Kind == CoverNavigationIntentKind.None)
+        {
+            return;
+        }
+
+        DetachIncomingLoadedHandler();
+        DetachAnimationBatch();
+        ResetFrame(failedFrame);
+        if (!string.IsNullOrWhiteSpace(rollback.RollbackRoute))
+        {
+            App.Services.Shell.RollbackNavigation(rollback.RollbackRoute);
+            SynchronizeNavigationSelection(rollback.RollbackRoute);
+        }
+
+        RestoreCurrentInputAndFocus();
+        StartupLog.Write(
+            $"navigation.cover.failed route={failedIntent.Route} revision={failedIntent.Revision}",
+            exception);
+    }
+
+    private void AttachIncomingLoadedHandler(FrameworkElement element, long revision)
+    {
+        DetachIncomingLoadedHandler();
+        _incomingLoadedElement = element;
+        _incomingLoadedRevision = revision;
+        element.Loaded += IncomingContent_Loaded;
+    }
+
+    private void IncomingContent_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (!_isShellLoaded || !ReferenceEquals(sender, _incomingLoadedElement))
+        {
+            return;
+        }
+
+        var revision = _incomingLoadedRevision;
+        DetachIncomingLoadedHandler();
+        QueueIncomingReady(revision);
+    }
+
+    private void QueueIncomingReady(long revision)
+    {
+        void ReadyAfterLayout()
+        {
+            if (!_isShellLoaded || revision != _navigationCoordinator.Revision)
+            {
+                return;
+            }
+
+            if (_incomingContentFrame.Content is FrameworkElement content)
+            {
+                content.UpdateLayout();
+            }
+
+            ExecuteIntent(_navigationCoordinator.IncomingReady(
+                revision,
+                PageTransitionHost.ActualWidth));
+        }
+
+        if (!DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, ReadyAfterLayout))
+        {
+            ReadyAfterLayout();
+        }
+    }
+
+    private void BeginCoverAnimation(CoverNavigationIntent intent)
+    {
+        if (intent.HostWidth <= 0 || intent.Revision != _navigationCoordinator.Revision)
+        {
+            return;
+        }
+
+        DetachAnimationBatch();
+        EnterTransitionInputLock();
         var compositor = ElementCompositionPreview.GetElementVisual(PageTransitionHost).Compositor;
-        var currentVisual = ElementCompositionPreview.GetElementVisual(_currentContentFrame);
         var incomingVisual = ElementCompositionPreview.GetElementVisual(_incomingContentFrame);
-        currentVisual.StopAnimation("Offset.X");
-        currentVisual.Offset = Vector3.Zero;
+        incomingVisual.StopAnimation("Offset.X");
+        incomingVisual.Offset = new Vector3((float)intent.HostWidth, 0, 0);
 
         var easing = compositor.CreateCubicBezierEasingFunction(
             new Vector2(0.1f, 0.9f),
             new Vector2(0.2f, 1.0f));
         var animation = compositor.CreateScalarKeyFrameAnimation();
-        var batch = compositor.CreateScopedBatch(CompositionBatchTypes.Animation);
         animation.InsertKeyFrame(1f, 0f, easing);
         animation.Duration = TimeSpan.FromMilliseconds(280);
-        batch.Completed += (_, _) =>
-        {
-            if (!DispatcherQueue.TryEnqueue(
-                    Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-                    () =>
-                    {
-                        if (!_isTransitionActive || transitionRevision != _navigationTransitionRevision)
-                        {
-                            return;
-                        }
 
-                        CompleteActiveTransition();
-                    }))
-            {
-                CompleteActiveTransition();
-            }
-        };
-
+        _activeAnimationRevision = intent.Revision;
+        _activeAnimationBatch = compositor.CreateScopedBatch(CompositionBatchTypes.Animation);
+        _activeAnimationBatch.Completed += CoverAnimationBatch_Completed;
         incomingVisual.StartAnimation("Offset.X", animation);
-        batch.End();
-        StartupLog.Write($"navigation.cover.started revision={transitionRevision} durationMs=280");
+        _activeAnimationBatch.End();
+        StartupLog.Write($"navigation.cover.started route={intent.Route} revision={intent.Revision} durationMs=280");
     }
 
-    private void CompleteActiveTransition(bool superseded = false)
+    private void CoverAnimationBatch_Completed(object sender, CompositionBatchCompletedEventArgs args)
     {
-        var transitionRevision = _activeTransitionRevision;
-        if (!_isTransitionActive || transitionRevision != _navigationTransitionRevision)
+        var revision = _activeAnimationRevision;
+        DetachAnimationBatch();
+
+        void CompleteAfterAnimation()
+        {
+            if (!_isShellLoaded || revision != _navigationCoordinator.Revision)
+            {
+                return;
+            }
+
+            ExecuteIntent(_navigationCoordinator.AnimationCompleted(revision));
+        }
+
+        if (!DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, CompleteAfterAnimation))
+        {
+            CompleteAfterAnimation();
+        }
+    }
+
+    private void CompleteTransitionVisual(CoverNavigationIntent intent)
+    {
+        if (intent.Revision != _navigationCoordinator.Revision)
         {
             return;
         }
 
+        DetachIncomingLoadedHandler();
+        DetachAnimationBatch();
+        var currentVisual = ElementCompositionPreview.GetElementVisual(_currentContentFrame);
+        currentVisual.StopAnimation("Offset.X");
+        currentVisual.Offset = Vector3.Zero;
         var incomingVisual = ElementCompositionPreview.GetElementVisual(_incomingContentFrame);
         incomingVisual.StopAnimation("Offset.X");
         incomingVisual.Offset = Vector3.Zero;
@@ -194,26 +364,102 @@ public sealed partial class ShellPage : Page
         var previousContentFrame = _currentContentFrame;
         _currentContentFrame = _incomingContentFrame;
         _incomingContentFrame = previousContentFrame;
-        _currentContentFrame.IsHitTestVisible = true;
+        _currentContentFrame.Visibility = Visibility.Visible;
+        _currentContentFrame.IsHitTestVisible = false;
         ResetFrame(_incomingContentFrame);
-        _isTransitionActive = false;
+        QueueTransitionFinalization(intent);
+    }
 
-        if (superseded)
+    private void QueueTransitionFinalization(CoverNavigationIntent completedIntent)
+    {
+        void FinalizeTransition()
         {
-            StartupLog.Write($"navigation.cover.superseded revision={transitionRevision}");
-            return;
+            if (!_isShellLoaded || completedIntent.Revision != _navigationCoordinator.Revision)
+            {
+                return;
+            }
+
+            var continuation = _navigationCoordinator.TransitionVisualCompleted(completedIntent.Revision);
+            if (continuation.Kind == CoverNavigationIntentKind.None)
+            {
+                return;
+            }
+
+            if (completedIntent.CompletionReason == CoverTransitionCompletionReason.Superseded)
+            {
+                StartupLog.Write($"navigation.cover.superseded revision={completedIntent.Revision}");
+            }
+            else
+            {
+                StartupLog.Write(
+                    $"navigation.cover.completed revision={completedIntent.Revision} reason={completedIntent.CompletionReason}");
+            }
+
+            ExecuteIntent(continuation);
         }
 
+        if (!DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, FinalizeTransition))
+        {
+            FinalizeTransition();
+        }
+    }
+
+    private void EnterTransitionInputLock()
+    {
+        _currentContentFrame.IsHitTestVisible = false;
+        _incomingContentFrame.IsHitTestVisible = false;
+        TransitionFocusTarget.IsTabStop = true;
+        if (!TransitionFocusTarget.Focus(FocusState.Programmatic))
+        {
+            AppNavigationView.Focus(FocusState.Programmatic);
+        }
+    }
+
+    private void TransitionFocusTarget_KeyDown(object sender, KeyRoutedEventArgs args)
+    {
+        if (_navigationCoordinator.State is CoverNavigationState.Preparing or
+            CoverNavigationState.Animating or
+            CoverNavigationState.Completing)
+        {
+            args.Handled = true;
+        }
+    }
+
+    private void RestoreCurrentInputAndFocus()
+    {
+        TransitionFocusTarget.IsTabStop = false;
+        _incomingContentFrame.IsHitTestVisible = false;
+        _currentContentFrame.IsHitTestVisible = _currentContentFrame.Content is not null;
         if (_currentContentFrame.Content is Control page)
         {
             page.Focus(FocusState.Programmatic);
         }
-        else
+        else if (_currentContentFrame.Content is not null)
         {
             _currentContentFrame.Focus(FocusState.Programmatic);
         }
+    }
 
-        StartupLog.Write($"navigation.cover.completed revision={transitionRevision}");
+    private void DetachIncomingLoadedHandler()
+    {
+        if (_incomingLoadedElement is not null)
+        {
+            _incomingLoadedElement.Loaded -= IncomingContent_Loaded;
+        }
+
+        _incomingLoadedElement = null;
+        _incomingLoadedRevision = 0;
+    }
+
+    private void DetachAnimationBatch()
+    {
+        if (_activeAnimationBatch is not null)
+        {
+            _activeAnimationBatch.Completed -= CoverAnimationBatch_Completed;
+        }
+
+        _activeAnimationBatch = null;
+        _activeAnimationRevision = 0;
     }
 
     private static void ResetFrame(Frame frame)
@@ -221,6 +467,8 @@ public sealed partial class ShellPage : Page
         var visual = ElementCompositionPreview.GetElementVisual(frame);
         visual.StopAnimation("Offset.X");
         visual.Offset = Vector3.Zero;
+        frame.BackStack.Clear();
+        frame.ForwardStack.Clear();
         frame.Content = null;
         frame.Visibility = Visibility.Collapsed;
         frame.IsHitTestVisible = false;
@@ -228,16 +476,25 @@ public sealed partial class ShellPage : Page
 
     private void PageTransitionHost_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (_isTransitionActive)
-        {
-            CompleteActiveTransition(superseded: true);
-        }
-
         PageTransitionClip.Rect = new Windows.Foundation.Rect(
             0,
             0,
             e.NewSize.Width,
             e.NewSize.Height);
+
+        if (!_isShellLoaded)
+        {
+            return;
+        }
+
+        if (_navigationCoordinator.State == CoverNavigationState.Preparing)
+        {
+            var incomingVisual = ElementCompositionPreview.GetElementVisual(_incomingContentFrame);
+            incomingVisual.StopAnimation("Offset.X");
+            incomingVisual.Offset = new Vector3((float)Math.Max(0, e.NewSize.Width), 0, 0);
+        }
+
+        ExecuteIntent(_navigationCoordinator.HostWidthChanged(e.NewSize.Width));
     }
 
     private void AppNavigationView_SelectionChanged(
@@ -295,4 +552,19 @@ public sealed partial class ShellPage : Page
         AppNavigationView.SelectedItem = selectedItem;
         _isSynchronizingSelection = false;
     }
+
+    private static Type ResolvePageType(string? route) => route switch
+    {
+        "Home" => typeof(HomePage),
+        "TopPlaylist" => typeof(TopPlaylistPage),
+        "AlbumDetail" => typeof(AlbumDetailPage),
+        "Search" => typeof(SearchPage),
+        "Albums" => typeof(AlbumsPage),
+        "Artists" => typeof(ArtistsPage),
+        "Favorites" => typeof(FavoritesPage),
+        "FullPlay" => typeof(FullPlayPage),
+        "Hits" => typeof(HitsStatusPage),
+        "Settings" => typeof(SettingsPage),
+        _ => typeof(LibraryPage)
+    };
 }

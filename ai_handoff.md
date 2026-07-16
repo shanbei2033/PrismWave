@@ -20,9 +20,9 @@
 | WinUI 技术栈 | WinUI 3、Windows App SDK 2.2、C#、.NET 10、CommunityToolkit.Mvvm 8.4.2、TagLibSharp 2.3.0 |
 | 普通播放后端 | 修补版 `native/libmpv/libmpv-2.dll`，通过 `MpvPlaybackEngine` P/Invoke |
 | DSD 播放后端 | `bass.dll`、`bassdsd.dll`、`bassasio.dll`，通过 `WindowsDsdPlaybackEngine` |
-| 最近完整验证 | 2026-07-16：293/293 单元与结构测试通过；x64 Debug 构建 0 警告、0 错误 |
-| 最近真机 UI 验证 | 首页、搜索、库、专辑、艺术家、收藏、HITS、设置、TopPlaylist、FullPlay 均可进入；FullPlay 单画布歌词、点击跳转、手动浏览回位和重新进入已验证 |
-| 当前最高优先级 | **修复设置页无法添加本地音乐目录，并删除本地库测试占位数据，使真实目录扫描、持久化和播放可用** |
+| 最近完整验证 | 2026-07-16：328/328 单元与结构测试通过；x64 Debug 构建 0 警告、0 错误 |
+| 最近真机 UI 验证 | 设置 → Basic → Music folders 已验证真实系统目录选择器可打开和取消；设置页与曲库页共享空目录状态，未注入模拟歌曲 |
+| 当前最高优先级 | **使用真实大目录完成本地播放矩阵与扫描压力验收，并继续验证删除源文件、DSD/ASIO 和在线 provider** |
 
 当前阶段不是简单的 Demo 皮肤：WinUI 工程已经具备应用壳层、MVVM、真实 mpv/DSD 播放服务、本地库、在线服务、歌词、封面、HITS、设置和多页面 UI 的代码骨架与大量实现。不过它仍处于迁移开发期，不能宣称已经完成 Flutter 全功能等价发布，尤其需要继续做真实音频设备、网络 provider、DSD/ASIO、删除源文件、缓存与安装包场景的人工验收。
 
@@ -118,12 +118,13 @@ src/PrismWave.WinUI/
 
 #### 本地库、元数据、收藏和详情
 
-- `LibraryService` 已有目录扫描、TagLibSharp 元数据读取、库集合、搜索、收藏、隐藏、顺序和封面关联等代码，但当前仍需按真实使用链路重新审查，不能视为已经完成。
-- Library、Albums、Artists、Favorites 页面和对应 ViewModel 已建立，但本地音乐库目前仍混有测试占位曲目；设置页添加本地音乐路径不可用，因此当前功能验收结论是“不可交付”。
+- `LocalMusicScanner` 已从 `LibraryService` 抽离真实递归扫描、TagLibSharp/WAV RIFF INFO 元数据、内嵌与旁置封面及损坏文件回退；支持 MP3、AAC、M4A、MP4、WAV、FLAC、OGG、APE、WMA、DSF、DFF。
+- `LibraryService` 已使用可取消扫描 revision 管理初始化、添加、删除和重扫；旧扫描不能覆盖新结果，父子目录共存时按完整文件路径去重，失败重扫保留现有内存库。
+- 设置页和曲库页通过单例 `LibraryFolderManagerViewModel` 共享 FolderPicker、目录状态、扫描进度和错误；目录继续写入现有 `settings.json`，无目录时显示真实空状态，不创建默认目录或模拟歌曲。
 - TrackDetails、TrackDelete 等 ContentDialog 已建立；详情模型包含时长、码率、采样率、文件路径等字段。
 - `FlutterPreferencesMigrationService` 用于读取旧 Flutter `shared_preferences.json`，迁移逻辑和设置迁移测试已经存在。
-- 下一轮必须先完成：删除所有测试占位曲目；设置页使用 `FolderPicker` 添加/移除目录；目录授权与设置持久化；启动和手动刷新扫描；真实音频列表/专辑/艺术家聚合；扫描错误和空状态展示；本地文件点击、Play all 与队列播放。
-- 随后人工验收：大目录后台扫描的 UI 流畅度、WAV RIFF INFO、嵌入/旁置封面、拖拽排序持久化、移出库、删除源文件及旁置歌词联动删除。
+- 自动化测试已覆盖空库、递归扫描、路径去重、不可用目录、取消、WAV INFO、损坏文件、旁置/自定义封面、扫描竞态、共享 ViewModel 和 XAML 结构；真机已验证系统目录选择器打开及取消。
+- 仍需人工验收：真实大目录后台扫描的 UI 流畅度、各格式实际播放、中文长路径、拖拽排序持久化、移出库、删除源文件及旁置歌词联动删除。
 
 #### 在线首页、搜索和在线解析
 
@@ -200,7 +201,7 @@ dotnet run --project src\PrismWave.WinUI\PrismWave.WinUI.csproj -p:Platform=x64 
 最近一次已验证结果（2026-07-16）：
 
 ```text
-Tests: 293 passed, 0 failed, 0 skipped
+Tests: 328 passed, 0 failed, 0 skipped
 Build: succeeded, 0 warnings, 0 errors
 Target: net10.0-windows10.0.26100.0 / win-x64
 ```
@@ -226,11 +227,11 @@ src\PrismWave.WinUI\bin\x64\Debug\net10.0-windows10.0.26100.0\win-x64\PrismWave.
 
 ### 0.8 下一步推荐顺序
 
-1. **先完成本地音乐库**：删除占位数据，修复设置页目录选择、授权、持久化、扫描、刷新和错误处理，使 Library/Albums/Artists 能展示并播放真实本地文件。
-2. **做本地播放真机矩阵**：MP3/FLAC/WAV/M4A/OGG、本地中文长路径、seek、队列、设备切换、WASAPI shared/exclusive。
+1. **完成本地播放真机矩阵**：使用真实大目录验证 MP3/FLAC/WAV/M4A/OGG、本地中文长路径、seek、队列、设备切换、WASAPI shared/exclusive，并观察扫描进度和取消行为。
+2. **验证本地库写操作**：拖拽排序、收藏顺序、移出库、删除源文件、旁置歌词/封面联动和重启恢复。
 3. **做 DSD 真机矩阵**：DSF/DFF、ASIO 设备枚举、raw DSD、DoP 回退、设备失效与设置持久化。
 4. **补齐明确缺口**：正式实现 `IWindowService`、`IDialogService`、`IUpdateService`，清理 `PlaceholderContracts.cs`；补版本更新、打开日志文件和窗口服务边界。
-5. **验证库写操作**：拖拽排序、收藏顺序、移出库、删除源文件、旁置歌词/封面联动、旧 Flutter 偏好幂等迁移。
+5. **复核本地库迁移**：旧 Flutter 偏好幂等迁移、不可用目录恢复和大规模目录性能。
 6. **验证在线链路**：schema 8 冷启动/当天缓存/昨日回退/内置回退；7 个普通 provider 的搜索和解析；TopPlaylist/AlbumDetail 播放全部与队列按需解析。
 7. **验证歌词和 FullPlay**：本地 LRC/QRC、嵌入歌词、LRCLIB/QQ、偏移、逐字高亮、切歌竞态和长歌词性能。
 8. **验证 HITS**：manifest、schedule、网络失败、off-air、standby、直连与多源回退、预加载、专用页面和日志。
@@ -1486,12 +1487,11 @@ ca1bb92 feat: improve lyrics flow and playlist management
 主仓库: D:\Project\PrismWave
 分支: WinUI
 Flutter 发布基线: R503
-WinUI 状态: 可构建、可运行、293 项测试通过；完整 WinUI 源码与测试已整理为分支基线
+WinUI 状态: 可构建、可运行、328 项测试通过；真实本地目录选择、扫描生命周期和共享目录管理已接通
 最近 WinUI 基线: 2026-07-16 创建并推送 origin/WinUI
 
 当前已知的 WinUI 遗留问题:
-  - 设置页无法添加本地音乐路径
-  - 本地音乐库仍显示测试占位曲目，真实扫描/持久化/播放尚未完成验收
+  - 本地曲库自动化闭环已完成，仍需用真实大目录和多格式音频完成人工播放矩阵
   - FullPlay 部分歌曲切行仍会颤动；已按用户要求暂缓
   - 在线 provider 长期可用性、DSD/ASIO 真机和安装包仍需端到端验证
 
@@ -1523,9 +1523,9 @@ WinUI 状态: 可构建、可运行、293 项测试通过；完整 WinUI 源码�
 
 1. 先阅读本文 `0. 2026-07-14 当前主线速览`，不要从旧 Flutter 主页面直接开始重写。
 2. 运行 `git status --short`，确认用户是否在当前会话之外新增了修改；任何未知改动都按用户改动处理。
-3. 优先审查并实现设置页本地目录选择、目录持久化和真实媒体扫描；删除所有测试占位数据。
+3. 使用真实大目录复核本地曲库扫描、取消、目录删除和重启恢复，再完成 MP3/FLAC/WAV/M4A/OGG 播放矩阵。
 4. 每次本地库修改后运行 WinUI 完整测试和 x64 构建，再用真实目录启动 Demo 验收。
-5. 接下来的功能优先级依次是：本地音乐库、真实普通播放矩阵、DSD/ASIO、在线 provider、歌词/FullPlay、HITS、窗口/更新/日志服务、发布打磨。
+5. 接下来的功能优先级依次是：真实普通播放矩阵、DSD/ASIO、在线 provider、歌词/FullPlay、HITS、窗口/更新/日志服务、发布打磨。
 6. 如果需要核对功能语义，再回看 Flutter 对应 controller/service/UI；迁移目标是行为等价，不是继续在 Flutter 中扩张第二套新 UI。
 7. 若任务只涉及每日推荐内容，进入 `D:\Project\prismwave-hits` 的 `codex/daily-home-rotation` 分支，不要在 WinUI 客户端重新实现推荐算法。
 8. 每轮 UI 修改后至少验证 1280、1440、1600、1920 宽度和侧栏展开/折叠；页面切换还要验证快速连续点击与导航失败回滚。
@@ -1560,4 +1560,4 @@ WinUI 状态: 可构建、可运行、293 项测试通过；完整 WinUI 源码�
 
 ## 12. 一句话总结
 
-PrismWave 当前是“Flutter R503 稳定行为基线 + 原生 WinUI 3 重构主线”的双轨阶段：`WinUI` 分支保存完整原生工程与293项测试基线，Demo 已具备壳层、导航、首页/在线/播放/歌词/封面/设置等主体能力。当前最高优先级是删除本地库测试占位数据，修复设置页目录选择与持久化，使真实本地音乐扫描、聚合和播放形成可验收闭环；歌词颤动按用户要求暂缓。
+PrismWave 当前是“Flutter R503 稳定行为基线 + 原生 WinUI 3 重构主线”的双轨阶段：`WinUI` 分支已接通真实本地目录选择、可取消扫描、设置持久化和设置/曲库共享管理，并有328项测试保护；下一步是使用真实大目录完成本地播放矩阵和写操作验收，歌词颤动按用户要求暂缓。

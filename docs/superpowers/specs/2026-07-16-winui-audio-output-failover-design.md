@@ -101,7 +101,7 @@ The existing setting IDs and JSON shape remain unchanged. Selecting a different 
 
 Pure tests cover route normalization and fallback chains. Engine structure tests lock pre-initialize audio-only options and event handling. A fake engine factory drives `PlaybackService` tests for rebuild, snapshot restoration, stale callback rejection, timeout fallback, and final failure.
 
-The existing bundled-libmpv integration probe is extended to verify the real E-AC-3 fixture reaches playback restart in all three routes without video output. Device-dependent fallback is tested with fakes; manual Demo acceptance exercises the actual Windows output device.
+The existing bundled-libmpv integration probe is extended to verify the real E-AC-3 fixture reaches playback restart with the audio-only window-suppression options. Route mapping and device-dependent fallback are tested with pure policy tests and fake engines; manual Demo acceptance exercises all three routes on the actual Windows output device.
 
 ## Acceptance Criteria
 

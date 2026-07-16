@@ -51,17 +51,19 @@ public partial class App : Application
     /// Invoked when the application is launched.
     /// </summary>
     /// <param name="args">Details about the launch request and process.</param>
-    protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
         try
         {
             StartupLog.Write("OnLaunched");
             StartupLog.Write($"Launch arguments: {args.Arguments}");
             var launchSize = WindowLaunchSize.ResolveLaunch(args.Arguments);
-            Window = new MainWindow(launchSize);
             DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+            Window = new MainWindow(launchSize);
             Window.Activate();
             StartupLog.Write("Window activated");
+            await Services.LibraryService.InitializeAsync();
+            StartupLog.Write("Local library initialized");
         }
         catch (Exception exception)
         {

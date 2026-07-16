@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.Services.Contracts;
+using PrismWave_WinUI.ViewModels.Library;
 
 namespace PrismWave_WinUI.ViewModels.Settings;
 
@@ -27,7 +28,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public SettingsViewModel(
         ISettingsService settingsService,
-        ILibraryService libraryService,
+        LibraryFolderManagerViewModel libraryFolders,
         IPlaybackService playbackService,
         IThemeService themeService,
         IDeveloperLogService developerLogService,
@@ -36,6 +37,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _settingsService = settingsService;
         _developerLogService = developerLogService;
         _playbackService = playbackService;
+        LibraryFolders = libraryFolders;
         OnlineAccounts = new OnlineAccountSettingsViewModel(onlineAccountService);
         _developerLogService.LogsChanged += (_, _) => RefreshLogs();
         _playbackService.StateChanged += (_, _) => RefreshPlaybackStatus();
@@ -59,11 +61,6 @@ public sealed partial class SettingsViewModel : ObservableObject
             ? $"Migrated {settings.Migration.MigratedKeyCount} keys"
             : "No previous Flutter preference file found";
 
-        foreach (var folder in libraryService.Folders)
-        {
-            Folders.Add(folder);
-        }
-
         RefreshLogs();
         _ = RefreshWindowsDsdDevicesAsync();
     }
@@ -73,6 +70,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<OnlineQualityPreference> OnlineQualityOptions { get; } =
         [OnlineQualityPreference.Lossless, OnlineQualityPreference.High, OnlineQualityPreference.Standard];
     public OnlineAccountSettingsViewModel OnlineAccounts { get; }
+    public LibraryFolderManagerViewModel LibraryFolders { get; }
 
     public string Language
     {
@@ -214,7 +212,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     public string FadeDuration => $"{FadeDurationMs} ms";
     public string MigrationSource { get; }
     public string MigrationStatus { get; }
-    public ObservableCollection<string> Folders { get; } = new();
     public ObservableCollection<WindowsDsdDeviceModel> WindowsDsdDevices { get; } = new();
     public string DeveloperLogPath => _developerLogService.FilePath;
     public string DeveloperLogText

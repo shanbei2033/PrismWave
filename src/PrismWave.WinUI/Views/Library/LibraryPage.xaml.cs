@@ -4,7 +4,6 @@ using Microsoft.UI.Xaml.Controls;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.ViewModels.Library;
 using PrismWave_WinUI.Views.Dialogs;
-using Windows.Storage.Pickers;
 
 namespace PrismWave_WinUI.Views.Library;
 
@@ -21,27 +20,6 @@ public sealed partial class LibraryPage : Page
         if (e.ClickedItem is TrackModel track)
         {
             App.Services.Library.PlayTrackCommand.Execute(track);
-        }
-    }
-
-    private async void AddFolder_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-    {
-        var picker = new FolderPicker();
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, App.WindowHandle);
-        picker.FileTypeFilter.Add("*");
-
-        var folder = await picker.PickSingleFolderAsync();
-        if (folder is not null)
-        {
-            await App.Services.Library.AddFolderAsync(folder.Path);
-        }
-    }
-
-    private async void RemoveFolder_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-    {
-        if (sender is Button { Tag: string folder })
-        {
-            await App.Services.Library.RemoveFolderCommand.ExecuteAsync(folder);
         }
     }
 

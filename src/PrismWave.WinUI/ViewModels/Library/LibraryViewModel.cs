@@ -11,13 +11,15 @@ public sealed partial class LibraryViewModel : ObservableObject
     private readonly ILibraryService _libraryService;
     private readonly IPlaybackService _playbackService;
     private string _searchQuery = string.Empty;
-    private bool _isScanning;
-    private string? _error;
 
-    public LibraryViewModel(ILibraryService libraryService, IPlaybackService playbackService)
+    public LibraryViewModel(
+        ILibraryService libraryService,
+        IPlaybackService playbackService,
+        LibraryFolderManagerViewModel libraryFolders)
     {
         _libraryService = libraryService;
         _playbackService = playbackService;
+        LibraryFolders = libraryFolders;
         _libraryService.LibraryChanged += (_, _) => RefreshAll();
         RefreshVisibleTracks();
     }
@@ -35,29 +37,10 @@ public sealed partial class LibraryViewModel : ObservableObject
     }
 
     public ObservableCollection<TrackModel> VisibleTracks { get; } = new();
-    public ObservableCollection<string> Folders { get; } = new();
+    public LibraryFolderManagerViewModel LibraryFolders { get; }
     public int TrackCount => _libraryService.Tracks.Count;
     public int FolderCount => _libraryService.Folders.Count;
     public int FavoriteCount => _libraryService.Favorites.Count;
-    public bool IsScanning
-    {
-        get => _isScanning;
-        private set => SetProperty(ref _isScanning, value);
-    }
-
-    public string? Error
-    {
-        get => _error;
-        private set
-        {
-            if (SetProperty(ref _error, value))
-            {
-                OnPropertyChanged(nameof(HasError));
-            }
-        }
-    }
-
-    public bool HasError => !string.IsNullOrWhiteSpace(Error);
     public bool IsEmpty => VisibleTracks.Count == 0;
 
     [RelayCommand]
@@ -76,26 +59,9 @@ public sealed partial class LibraryViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task RescanAsync()
-    {
-        await _libraryService.RescanAsync();
-    }
-
-    [RelayCommand]
-    public async Task RemoveFolderAsync(string folder)
-    {
-        await _libraryService.RemoveFolderAsync(folder);
-    }
-
-    [RelayCommand]
     public async Task ToggleFavoriteAsync(TrackModel track)
     {
         await _libraryService.ToggleFavoriteAsync(track);
-    }
-
-    public async Task AddFolderAsync(string folder)
-    {
-        await _libraryService.AddFolderAsync(folder);
     }
 
     public async Task PersistVisibleOrderAsync()
@@ -137,14 +103,6 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     private void RefreshDerivedState()
     {
-        Folders.Clear();
-        foreach (var folder in _libraryService.Folders)
-        {
-            Folders.Add(folder);
-        }
-
-        IsScanning = _libraryService.IsScanning;
-        Error = _libraryService.Error;
         OnPropertyChanged(nameof(TrackCount));
         OnPropertyChanged(nameof(FolderCount));
         OnPropertyChanged(nameof(FavoriteCount));

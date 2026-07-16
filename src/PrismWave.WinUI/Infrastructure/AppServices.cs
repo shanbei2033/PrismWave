@@ -36,6 +36,7 @@ public sealed class AppServices
     public required HomeViewModel Home { get; init; }
     public required SearchViewModel Search { get; init; }
     public required LibraryViewModel Library { get; init; }
+    public required LibraryFolderManagerViewModel LibraryFolders { get; init; }
     public required AlbumsViewModel Albums { get; init; }
     public required ArtistsViewModel Artists { get; init; }
     public required FavoritesViewModel Favorites { get; init; }
@@ -48,7 +49,10 @@ public sealed class AppServices
         var developerLogService = new DeveloperLogService();
         var settingsService = new SettingsService(migration);
         var coverService = new CoverService(settingsService);
-        var libraryService = new LibraryService(settingsService, coverService);
+        var uiDispatcher = new WinUiDispatcher(App.DispatcherQueue);
+        var localMusicScanner = new LocalMusicScanner();
+        var musicFolderPicker = new WindowsMusicFolderPicker(() => App.WindowHandle);
+        var libraryService = new LibraryService(settingsService, coverService, localMusicScanner, uiDispatcher);
         var onlineAccountService = new OnlineAccountService(new PasswordVaultCredentialStore());
         var onlineProviderService = new OnlineProviderService(
             accountService: onlineAccountService,
@@ -69,11 +73,12 @@ public sealed class AppServices
         var shell = new ShellViewModel(settingsService, libraryService, playback);
         var home = new HomeViewModel(onlineHomeService, playbackService, coverService);
         var search = new SearchViewModel(onlineSearchService, playbackService, settingsService);
-        var library = new LibraryViewModel(libraryService, playbackService);
+        var libraryFolders = new LibraryFolderManagerViewModel(libraryService, musicFolderPicker);
+        var library = new LibraryViewModel(libraryService, playbackService, libraryFolders);
         var albums = new AlbumsViewModel(libraryService, playbackService);
         var artists = new ArtistsViewModel(libraryService, playbackService);
         var favorites = new FavoritesViewModel(libraryService, playbackService);
-        var settings = new SettingsViewModel(settingsService, libraryService, playbackService, themeService, developerLogService, onlineAccountService);
+        var settings = new SettingsViewModel(settingsService, libraryFolders, playbackService, themeService, developerLogService, onlineAccountService);
         var hits = new HitsStatusViewModel(hitsService, playbackService, settingsService);
 
         return new AppServices
@@ -96,6 +101,7 @@ public sealed class AppServices
             Home = home,
             Search = search,
             Library = library,
+            LibraryFolders = libraryFolders,
             Albums = albums,
             Artists = artists,
             Favorites = favorites,

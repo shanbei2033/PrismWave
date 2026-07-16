@@ -104,7 +104,7 @@ public sealed class SettingsOnlineAccountUiTests
             "Infrastructure",
             "AppServices.cs"));
 
-        Assert.Contains("new SettingsViewModel(settingsService, libraryService, playbackService, themeService, developerLogService, onlineAccountService)", source, StringComparison.Ordinal);
+        Assert.Contains("new SettingsViewModel(settingsService, libraryFolders, playbackService, themeService, developerLogService, onlineAccountService)", source, StringComparison.Ordinal);
         Assert.Equal(1, Count(source, "new OnlineAccountService("));
     }
 

@@ -141,9 +141,18 @@ public sealed class LibraryServiceTests
         var scanner = new FakeScanner();
         scanner.Enqueue(async (folders, _, token) =>
         {
-            using var registration = token.Register(() => canceled.TrySetResult());
+            var waitingForCancellation = Task.Delay(Timeout.InfiniteTimeSpan, token);
             started.TrySetResult();
-            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            try
+            {
+                await waitingForCancellation;
+            }
+            catch (OperationCanceledException)
+            {
+                canceled.TrySetResult();
+                throw;
+            }
+
             return Success(folders, []);
         });
         scanner.Enqueue((folders, _, _) => Task.FromResult(Success(

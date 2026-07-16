@@ -5,12 +5,12 @@ using PrismWave_WinUI.Services.Contracts;
 
 namespace PrismWave_WinUI.Services.Implementations;
 
-public sealed class PlaybackService : IPlaybackService
+public sealed class PlaybackService : IPlaybackService, IDisposable
 {
     private readonly List<TrackModel> _queue = new();
     private readonly ISettingsService _settingsService;
     private readonly IOnlinePlaybackResolver _onlinePlaybackResolver;
-    private readonly MpvPlaybackEngine _mpvEngine;
+    private readonly MpvPlaybackEngineHost _mpvHost;
     private readonly RemotePlaybackRecoveryPolicy _remoteRecoveryPolicy = new();
     private readonly PlaybackLoadEventGuard _mpvLoadEventGuard = new();
     private readonly WindowsDsdPlaybackEngine _dsdEngine = new();
@@ -20,6 +20,7 @@ public sealed class PlaybackService : IPlaybackService
     private IReadOnlyList<WindowsDsdDeviceModel> _windowsDsdDevices = new[] { WindowsDsdDeviceModel.Automatic };
     private int _loadRevision;
     private CancellationTokenSource? _loadCancellationSource;
+    private CancellationTokenSource? _localStartupCancellationSource;
     private double? _pendingRecoverySeekSeconds;
     private bool _usingDsdBackend;
     private string? _windowsDsdFallbackReason;
@@ -41,30 +42,27 @@ public sealed class PlaybackService : IPlaybackService
     public string? WindowsDsdFallbackReason => _windowsDsdFallbackReason ?? _dsdEngine.FallbackReason;
     public event EventHandler? StateChanged;
 
-    public PlaybackService(ISettingsService settingsService, IOnlinePlaybackResolver onlinePlaybackResolver)
+    public PlaybackService(
+        ISettingsService settingsService,
+        IOnlinePlaybackResolver onlinePlaybackResolver,
+        IPlaybackEngineFactory? playbackEngineFactory = null)
     {
         _settingsService = settingsService;
         _onlinePlaybackResolver = onlinePlaybackResolver;
         _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         var settings = _settingsService.Current;
-        _mpvEngine = new MpvPlaybackEngine(
-            AudioOutputPolicy.BuildFallbackChain(settings.AudioOutputMode)[0],
+        _mpvHost = new MpvPlaybackEngineHost(
+            playbackEngineFactory ?? new MpvPlaybackEngineFactory(),
+            settings.AudioOutputMode,
             settings.AudioOutputDevice);
-        _mpvEngine.PlaybackEnded += (_, _) => Dispatch(HandleMediaEnded);
-        _mpvEngine.PlaybackStarted += (_, args) => Dispatch(() => HandlePlaybackStarted(args));
-        _mpvEngine.PlaybackFailed += (_, args) => Dispatch(() => HandleMediaFailed(
+        _mpvHost.PlaybackEnded += (_, _) => Dispatch(HandleMediaEnded);
+        _mpvHost.PlaybackStarted += (_, args) => Dispatch(() => HandlePlaybackStarted(args));
+        _mpvHost.PlaybackFailed += (_, args) => Dispatch(() => HandleMediaFailed(
             args.Message,
             args.LoadSequence,
             args.SourceKey));
-        _mpvEngine.StateChanged += (_, _) => Dispatch(() =>
-        {
-            if (CurrentTrack is not null
-                && !_usingDsdBackend
-                && Status is not PlaybackStatus.Resolving and not PlaybackStatus.Buffering)
-            {
-                RefreshPlayerState();
-            }
-        });
+        _mpvHost.StateChanged += (_, _) => Dispatch(RefreshHostStateWhenReady);
+        _settingsService.SettingsChanged += (_, _) => Dispatch(ApplyAudioSettings);
         _dsdEngine.PlaybackEnded += (_, _) => Dispatch(HandleMediaEnded);
 
         _positionTimer = _dispatcherQueue.CreateTimer();
@@ -99,7 +97,7 @@ public sealed class PlaybackService : IPlaybackService
     public void Stop()
     {
         CancelPendingLoad();
-        _mpvEngine.Stop();
+        _mpvHost.Engine.Stop();
         _dsdEngine.Stop();
         _usingDsdBackend = false;
         CurrentTrack = null;
@@ -133,7 +131,7 @@ public sealed class PlaybackService : IPlaybackService
                 return;
             }
 
-            _mpvEngine.Pause();
+            _mpvHost.Engine.Pause();
         }
         else
         {
@@ -147,7 +145,7 @@ public sealed class PlaybackService : IPlaybackService
                 return;
             }
 
-            _mpvEngine.Play();
+            _mpvHost.Engine.Play();
         }
 
         RefreshPlayerState();
@@ -179,7 +177,7 @@ public sealed class PlaybackService : IPlaybackService
     public void SetVolume(double volume)
     {
         Volume = Math.Clamp(volume, 0, 1);
-        _mpvEngine.SetVolume(Volume);
+        _mpvHost.Engine.SetVolume(Volume);
         _dsdEngine.SetVolume(Volume);
         Notify();
     }
@@ -191,7 +189,7 @@ public sealed class PlaybackService : IPlaybackService
             return;
         }
 
-        var duration = DurationSeconds > 0 ? DurationSeconds : _mpvEngine.DurationSeconds;
+        var duration = DurationSeconds > 0 ? DurationSeconds : _mpvHost.Engine.DurationSeconds;
         var clamped = duration > 0 ? Math.Clamp(seconds, 0, duration) : Math.Max(0, seconds);
         if (_usingDsdBackend)
         {
@@ -199,7 +197,7 @@ public sealed class PlaybackService : IPlaybackService
         }
         else
         {
-            _mpvEngine.Seek(clamped);
+            _mpvHost.Engine.Seek(clamped);
         }
 
         PositionSeconds = clamped;
@@ -257,7 +255,7 @@ public sealed class PlaybackService : IPlaybackService
             CurrentTrack = _queue.FirstOrDefault();
             if (CurrentTrack is null)
             {
-                _mpvEngine.Stop();
+                _mpvHost.Engine.Stop();
                 _dsdEngine.Stop();
                 _usingDsdBackend = false;
                 IsPlaying = false;
@@ -281,7 +279,7 @@ public sealed class PlaybackService : IPlaybackService
         _queue.Clear();
         CurrentTrack = null;
         CancelPendingLoad();
-        _mpvEngine.Stop();
+        _mpvHost.Engine.Stop();
         _dsdEngine.Stop();
         _usingDsdBackend = false;
         IsPlaying = false;
@@ -326,12 +324,16 @@ public sealed class PlaybackService : IPlaybackService
         }
 
         CancelPendingLoad();
+        if (!CurrentTrack.IsDsd)
+        {
+            ResetPreferredAudioRouteForNewTrack();
+        }
         _loadCancellationSource = new CancellationTokenSource();
         var cancellationToken = _loadCancellationSource.Token;
         var revision = _loadRevision;
         if (CurrentTrack.IsDsd)
         {
-            _mpvEngine.Stop();
+            _mpvHost.Engine.Stop();
             if (_dsdEngine.Play(
                 CurrentTrack.Path,
                 Volume,
@@ -372,7 +374,7 @@ public sealed class PlaybackService : IPlaybackService
             Error = null;
             PositionSeconds = 0;
             DurationSeconds = CurrentTrack.DurationSeconds;
-            _mpvEngine.Stop();
+            _mpvHost.Engine.Stop();
             Notify();
             _ = ResolveAndLoadCurrentTrackAsync(CurrentTrack, autoplay, revision, cancellationToken);
             return;
@@ -391,6 +393,7 @@ public sealed class PlaybackService : IPlaybackService
 
     private void LoadMpvTrack(TrackModel track, bool autoplay)
     {
+        CancelLocalStartupWatchdog();
         _dsdEngine.Stop();
         _usingDsdBackend = false;
         IsLoading = true;
@@ -403,7 +406,7 @@ public sealed class PlaybackService : IPlaybackService
             _loadRevision,
             sourceKey,
             autoplay);
-        if (!_mpvEngine.Load(
+        if (!_mpvHost.Engine.Load(
             track,
             Volume,
             autoplay,
@@ -411,7 +414,7 @@ public sealed class PlaybackService : IPlaybackService
             loadContext.SourceKey,
             out var error))
         {
-            Error = error ?? _mpvEngine.Error;
+            Error = error ?? _mpvHost.Engine.Error;
             var failureKind = OnlinePlaybackFailureClassifier.Classify(Error);
             StartupLog.Write(
                 $"playback.mpv.load-failed: kind={failureKind}, provider={track.Provider}, candidate={OnlinePlaybackCandidateKey.Create(track)}, attempt={_remoteRecoveryPolicy.SourceAttemptCount}, source={DescribeSource(track.PlaybackSource)}");
@@ -424,6 +427,10 @@ public sealed class PlaybackService : IPlaybackService
 
         Error = null;
         StartupLog.Write($"playback.mpv.source-set: source={DescribeSource(track.PlaybackSource)}, autoplay={autoplay}");
+        if (!track.IsRemote)
+        {
+            ArmLocalStartupWatchdog(track, loadContext, _mpvHost.Generation);
+        }
         RefreshPosition();
     }
 
@@ -538,7 +545,7 @@ public sealed class PlaybackService : IPlaybackService
             }
             else
             {
-                _mpvEngine.Play();
+                _mpvHost.Engine.Play();
             }
             return;
         }
@@ -566,21 +573,22 @@ public sealed class PlaybackService : IPlaybackService
             return;
         }
 
+        CancelLocalStartupWatchdog();
         IsLoading = false;
-        IsPlaying = _mpvEngine.IsPlaying;
+        IsPlaying = _mpvHost.Engine.IsPlaying;
         Error = null;
         Status = IsPlaying ? PlaybackStatus.Playing : PlaybackStatus.Paused;
         _remoteRecoveryPolicy.MarkOpened(CurrentTrack.Id);
         if (_pendingRecoverySeekSeconds is double resumePosition)
         {
             _pendingRecoverySeekSeconds = null;
-            _mpvEngine.Seek(resumePosition);
+            _mpvHost.Engine.Seek(resumePosition);
             PositionSeconds = resumePosition;
             StartupLog.Write(
                 $"playback.remote.resume-seek: provider={CurrentTrack.Provider}, candidate={OnlinePlaybackCandidateKey.Create(CurrentTrack)}, attempt={_remoteRecoveryPolicy.SourceAttemptCount}, position={resumePosition:0.###}");
         }
         StartupLog.Write(
-            $"playback.mpv.opened: title=\"{CurrentTrack.Title}\", status={Status}, source={DescribeSource(CurrentTrack.PlaybackSource)}");
+            $"playback.mpv.started: title=\"{CurrentTrack.Title}\", status={Status}, route={_mpvHost.ActiveRoute}, source={DescribeSource(CurrentTrack.PlaybackSource)}");
         RefreshPosition();
     }
 
@@ -608,28 +616,30 @@ public sealed class PlaybackService : IPlaybackService
             return;
         }
 
+        CancelLocalStartupWatchdog();
         var failureKind = OnlinePlaybackFailureClassifier.Classify(message);
+        if (!failedTrack.IsRemote || failureKind == OnlinePlaybackFailureKind.AudioOutput)
+        {
+            if (TryFallbackAudioOutput(message, failedTrack, loadContext.Autoplay))
+            {
+                return;
+            }
+
+            SetPlaybackFailed(
+                string.IsNullOrWhiteSpace(message)
+                    ? "The audio source could not be opened."
+                    : message);
+            return;
+        }
+
         var recoveryAction = _remoteRecoveryPolicy.DecideFailure(
             failedTrack.Id,
             failedTrack.IsRemote,
             failureKind);
         var candidateKey = OnlinePlaybackCandidateKey.Create(failedTrack);
-        var resumePosition = Math.Max(PositionSeconds, _mpvEngine.PositionSeconds);
+        var resumePosition = Math.Max(PositionSeconds, _mpvHost.Engine.PositionSeconds);
         StartupLog.Write(
             $"playback.remote.failure: kind={failureKind}, provider={failedTrack.Provider}, candidate={candidateKey}, attempt={_remoteRecoveryPolicy.SourceAttemptCount}, action={recoveryAction}, source={DescribeSource(failedTrack.PlaybackSource)}");
-
-        if (recoveryAction == RemotePlaybackRecoveryAction.RetryAudioOutput)
-        {
-            IsLoading = true;
-            IsPlaying = false;
-            Error = null;
-            Status = PlaybackStatus.Buffering;
-            StartupLog.Write(
-                $"playback.output.retry: provider={failedTrack.Provider}, candidate={candidateKey}, attempt={_remoteRecoveryPolicy.SourceAttemptCount}");
-            Notify();
-            LoadMpvTrack(failedTrack, loadContext.Autoplay);
-            return;
-        }
 
         if (recoveryAction is RemotePlaybackRecoveryAction.ResolveNextSource
             or RemotePlaybackRecoveryAction.ResolveNextSourceAndResume)
@@ -758,8 +768,164 @@ public sealed class PlaybackService : IPlaybackService
         }
     }
 
+    private bool TryFallbackAudioOutput(
+        string reason,
+        TrackModel track,
+        bool autoplay)
+    {
+        var resumePosition = Math.Max(PositionSeconds, _mpvHost.Engine.PositionSeconds);
+        if (!_mpvHost.TryFallback(reason))
+        {
+            StartupLog.Write(
+                $"playback.output.exhausted: preferred={_mpvHost.PreferredModeId}, active={_mpvHost.ActiveRoute}, title=\"{track.Title}\"");
+            return false;
+        }
+
+        CancelPendingLoad();
+        _pendingRecoverySeekSeconds = resumePosition > 0 ? resumePosition : null;
+        StartupLog.Write(
+            $"playback.output.fallback: preferred={_mpvHost.PreferredModeId}, active={_mpvHost.ActiveRoute}, title=\"{track.Title}\", resume={(resumePosition > 0 ? "yes" : "no")}, reason={reason}");
+        LoadMpvTrack(track, autoplay);
+        Notify();
+        return true;
+    }
+
+    private void ArmLocalStartupWatchdog(
+        TrackModel track,
+        PlaybackLoadContext loadContext,
+        long engineGeneration)
+    {
+        CancelLocalStartupWatchdog();
+        _localStartupCancellationSource = new CancellationTokenSource();
+        _ = WatchLocalStartupAsync(
+            _loadRevision,
+            loadContext.Sequence,
+            loadContext.SourceKey,
+            engineGeneration,
+            track,
+            loadContext.Autoplay,
+            _localStartupCancellationSource.Token);
+    }
+
+    private async Task WatchLocalStartupAsync(
+        int revision,
+        long loadSequence,
+        string sourceKey,
+        long engineGeneration,
+        TrackModel track,
+        bool autoplay,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+            Dispatch(() =>
+            {
+                var currentSourceKey = CurrentTrack is null
+                    ? null
+                    : OnlinePlaybackCandidateKey.Create(CurrentTrack);
+                if (revision != _loadRevision
+                    || engineGeneration != _mpvHost.Generation
+                    || CurrentTrack?.Id != track.Id
+                    || !_mpvLoadEventGuard.TryAccept(
+                        loadSequence,
+                        sourceKey,
+                        _loadRevision,
+                        currentSourceKey,
+                        out _))
+                {
+                    return;
+                }
+
+                const string timeoutMessage = "Local playback did not start within 5 seconds.";
+                StartupLog.Write(
+                    $"playback.local.start-timeout: revision={revision}, route={_mpvHost.ActiveRoute}, title=\"{track.Title}\"");
+                if (!TryFallbackAudioOutput(timeoutMessage, track, autoplay))
+                {
+                    SetPlaybackFailed(timeoutMessage);
+                }
+            });
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private void CancelLocalStartupWatchdog()
+    {
+        var cancellation = _localStartupCancellationSource;
+        _localStartupCancellationSource = null;
+        if (cancellation is null)
+        {
+            return;
+        }
+
+        cancellation.Cancel();
+        cancellation.Dispose();
+    }
+
+    private MpvPlaybackSnapshot? CaptureMpvPlaybackSnapshot()
+    {
+        if (CurrentTrack is null
+            || _usingDsdBackend
+            || CurrentTrack.IsDsd
+            || NeedsOnlineResolution(CurrentTrack))
+        {
+            return null;
+        }
+
+        return new MpvPlaybackSnapshot(
+            CurrentTrack,
+            Math.Max(PositionSeconds, _mpvHost.Engine.PositionSeconds),
+            IsPlaying || Status == PlaybackStatus.Buffering);
+    }
+
+    private void RestoreMpvPlaybackSnapshot(MpvPlaybackSnapshot snapshot)
+    {
+        _pendingRecoverySeekSeconds = snapshot.PositionSeconds > 0
+            ? snapshot.PositionSeconds
+            : null;
+        LoadMpvTrack(snapshot.Track, snapshot.Autoplay);
+    }
+
+    private void ApplyAudioSettings()
+    {
+        var settings = _settingsService.Current;
+        var snapshot = CaptureMpvPlaybackSnapshot();
+        if (snapshot is not null)
+        {
+            CancelPendingLoad();
+        }
+
+        if (!_mpvHost.ResetPreference(settings.AudioOutputMode, settings.AudioOutputDevice))
+        {
+            return;
+        }
+
+        StartupLog.Write(
+            $"playback.output.preference: preferred={_mpvHost.PreferredModeId}, active={_mpvHost.ActiveRoute}, device={_mpvHost.OutputDevice}");
+        if (snapshot is not null)
+        {
+            RestoreMpvPlaybackSnapshot(snapshot);
+        }
+
+        Notify();
+    }
+
+    private void ResetPreferredAudioRouteForNewTrack()
+    {
+        var settings = _settingsService.Current;
+        if (_mpvHost.ResetPreference(settings.AudioOutputMode, settings.AudioOutputDevice))
+        {
+            StartupLog.Write(
+                $"playback.output.reset: preferred={_mpvHost.PreferredModeId}, active={_mpvHost.ActiveRoute}, device={_mpvHost.OutputDevice}");
+            Notify();
+        }
+    }
+
     private void SetPlaybackFailed(string message)
     {
+        CancelLocalStartupWatchdog();
         _pendingRecoverySeekSeconds = null;
         IsLoading = false;
         IsPlaying = false;
@@ -786,15 +952,25 @@ public sealed class PlaybackService : IPlaybackService
 
     private void RefreshPlayerState()
     {
-        IsPlaying = _mpvEngine.IsPlaying;
+        IsPlaying = _mpvHost.Engine.IsPlaying;
         IsLoading = false;
-        Error = _mpvEngine.Error;
+        Error = _mpvHost.Engine.Error;
         Status = Error is not null
             ? PlaybackStatus.Failed
             : IsPlaying
                 ? PlaybackStatus.Playing
                 : PlaybackStatus.Paused;
         RefreshPosition();
+    }
+
+    private void RefreshHostStateWhenReady()
+    {
+        if (CurrentTrack is not null
+            && !_usingDsdBackend
+            && Status is not PlaybackStatus.Resolving and not PlaybackStatus.Buffering)
+        {
+            RefreshPlayerState();
+        }
     }
 
     private void RefreshPosition()
@@ -816,8 +992,8 @@ public sealed class PlaybackService : IPlaybackService
             return;
         }
 
-        PositionSeconds = Math.Max(0, _mpvEngine.PositionSeconds);
-        var naturalDuration = _mpvEngine.DurationSeconds;
+        PositionSeconds = Math.Max(0, _mpvHost.Engine.PositionSeconds);
+        var naturalDuration = _mpvHost.Engine.DurationSeconds;
         if (naturalDuration > 0)
         {
             DurationSeconds = naturalDuration;
@@ -861,6 +1037,7 @@ public sealed class PlaybackService : IPlaybackService
 
     private void CancelPendingLoad()
     {
+        CancelLocalStartupWatchdog();
         _loadRevision++;
         _pendingRecoverySeekSeconds = null;
         _mpvLoadEventGuard.Invalidate();
@@ -873,6 +1050,14 @@ public sealed class PlaybackService : IPlaybackService
 
         cancellation.Cancel();
         cancellation.Dispose();
+    }
+
+    public void Dispose()
+    {
+        _positionTimer.Stop();
+        CancelPendingLoad();
+        _mpvHost.Dispose();
+        _dsdEngine.Dispose();
     }
 
     private static string DescribeSource(string source)
@@ -907,4 +1092,9 @@ public sealed class PlaybackService : IPlaybackService
             _dispatcherQueue.TryEnqueue(() => action());
         }
     }
+
+    private sealed record MpvPlaybackSnapshot(
+        TrackModel Track,
+        double PositionSeconds,
+        bool Autoplay);
 }

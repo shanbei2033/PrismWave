@@ -21,6 +21,7 @@ dist/
 .codex_bin/
 .codex_home/
 .codex_localappdata/
+.worktrees/
 .fake_android_sdk/
 .pub-cache/
 .tmp/

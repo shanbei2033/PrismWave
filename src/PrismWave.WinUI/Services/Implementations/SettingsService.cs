@@ -17,7 +17,11 @@ public sealed class SettingsService : ISettingsService
             "WinUI",
             "settings.json");
 
-        Current = LoadExisting() ?? CreateFromMigration(migrationService.Load());
+        var loaded = LoadExisting() ?? CreateFromMigration(migrationService.Load());
+        Current = loaded with
+        {
+            AudioOutputMode = AudioOutputPolicy.NormalizeModeId(loaded.AudioOutputMode)
+        };
         Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
         File.WriteAllText(_settingsPath, JsonSerializer.Serialize(Current, JsonOptions));
     }
@@ -65,7 +69,7 @@ public sealed class SettingsService : ISettingsService
             GetBool(values, "ui.experimentalFeaturesEnabled", false),
             GetBool(values, "online.modeEnabled", true),
             GetBool(values, "ui.lowEffects", false),
-            GetString(values, "audio.outputMode", "wasapi_exclusive"),
+            GetString(values, "audio.outputMode", AudioOutputPolicy.WasapiSharedId),
             GetString(values, "audio.outputDevice", "auto"),
             GetString(values, "audio.windowsDsdDevice", "auto"),
             GetBool(values, "audio.fadeEnabled", true),

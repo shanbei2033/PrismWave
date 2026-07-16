@@ -22,6 +22,39 @@ public sealed class SettingsMigrationTests
     }
 
     [Fact]
+    public void CreateFromMigration_DefaultsAudioOutputToWasapiShared()
+    {
+        var migration = new FlutterPreferencesMigrationResult(
+            "shared_preferences.json",
+            false,
+            0,
+            DateTimeOffset.UtcNow,
+            new Dictionary<string, object?>());
+
+        var settings = SettingsService.CreateFromMigration(migration);
+
+        Assert.Equal(AudioOutputPolicy.WasapiSharedId, settings.AudioOutputMode);
+    }
+
+    [Theory]
+    [InlineData("compatibility")]
+    [InlineData("wasapi_shared")]
+    [InlineData("wasapi_exclusive")]
+    public void CreateFromMigration_PreservesValidAudioOutputMode(string mode)
+    {
+        var migration = new FlutterPreferencesMigrationResult(
+            "shared_preferences.json",
+            true,
+            1,
+            DateTimeOffset.UtcNow,
+            new Dictionary<string, object?> { ["audio.outputMode"] = mode });
+
+        var settings = SettingsService.CreateFromMigration(migration);
+
+        Assert.Equal(mode, settings.AudioOutputMode);
+    }
+
+    [Fact]
     public void CreateFromMigration_ReadsOnlineQualityPreference()
     {
         var migration = new FlutterPreferencesMigrationResult(

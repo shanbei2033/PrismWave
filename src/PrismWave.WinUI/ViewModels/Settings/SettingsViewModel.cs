@@ -17,7 +17,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private bool _onlineModeEnabled = true;
     private OnlineQualityPreference _onlineQualityPreference = OnlineQualityPreference.Lossless;
     private bool _lowEffects;
-    private string _audioOutputMode = "wasapi_exclusive";
+    private string _audioOutputMode = AudioOutputPolicy.WasapiSharedId;
     private string _audioOutputDevice = "auto";
     private string _windowsDsdDevice = "auto";
     private bool _fadeEnabled = true;

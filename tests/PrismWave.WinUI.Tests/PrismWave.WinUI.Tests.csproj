@@ -26,6 +26,7 @@
     <Compile Include="../../src/PrismWave.WinUI/Models/OnlinePlaybackResolution.cs" Link="Models/OnlinePlaybackResolution.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/OnlinePlaybackFailure.cs" Link="Models/OnlinePlaybackFailure.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/OnlineAccountModels.cs" Link="Models/OnlineAccountModels.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/AudioOutputModels.cs" Link="Models/AudioOutputModels.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/OnlineProviderTrackModel.cs" Link="Models/OnlineProviderTrackModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/PlaybackMode.cs" Link="Models/PlaybackMode.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/PlaybackStatus.cs" Link="Models/PlaybackStatus.cs" />

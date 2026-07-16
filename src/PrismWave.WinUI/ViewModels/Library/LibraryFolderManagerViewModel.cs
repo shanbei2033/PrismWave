@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PrismWave_WinUI.Infrastructure.Library;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.Services.Contracts;
 
@@ -26,6 +27,7 @@ public sealed partial class LibraryFolderManagerViewModel : ObservableObject
     }
 
     public ObservableCollection<LibraryFolderStatus> Folders { get; } = new();
+    public ObservableCollection<LibraryFolderEntryViewModel> FolderEntries { get; } = new();
 
     public bool IsScanning
     {
@@ -107,14 +109,47 @@ public sealed partial class LibraryFolderManagerViewModel : ObservableObject
     private void Refresh()
     {
         Folders.Clear();
+        FolderEntries.Clear();
         foreach (var folder in _libraryService.FolderStatuses)
         {
             Folders.Add(folder);
+            FolderEntries.Add(new LibraryFolderEntryViewModel(
+                folder.Path,
+                _libraryService.Tracks.Count(track => IsTrackWithinFolder(track, folder.Path)),
+                folder.IsAvailable,
+                folder.StatusText,
+                folder.Error));
         }
 
         IsScanning = _libraryService.IsScanning;
         ScanProgress = _libraryService.ScanProgress;
         Error = _interactionError ?? _libraryService.Error;
         OnPropertyChanged(nameof(StatusText));
+    }
+
+    private static bool IsTrackWithinFolder(TrackModel track, string folder)
+    {
+        if (track.IsRemote || string.IsNullOrWhiteSpace(track.Path))
+        {
+            return false;
+        }
+
+        var root = LibraryFolderPath.Normalize(folder, requireExisting: false);
+        if (root is null)
+        {
+            return false;
+        }
+
+        var normalizedTrackPath = LibraryFolderPath.Normalize(track.Path, requireExisting: false);
+        if (normalizedTrackPath is null)
+        {
+            return false;
+        }
+
+        var prefix = root.EndsWith(Path.DirectorySeparatorChar)
+            || root.EndsWith(Path.AltDirectorySeparatorChar)
+            ? root
+            : root + Path.DirectorySeparatorChar;
+        return normalizedTrackPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
     }
 }

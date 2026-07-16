@@ -151,6 +151,12 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void CloseQueuePane()
+    {
+        IsQueuePaneOpen = false;
+    }
+
+    [RelayCommand]
     private void OpenFullPlay()
     {
         Navigate("FullPlay");

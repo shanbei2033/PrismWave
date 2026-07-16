@@ -27,6 +27,7 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     public TrackModel? CurrentTrack { get; private set; }
     public IReadOnlyList<TrackModel> Queue => _queue;
+    public long QueueRevision { get; private set; }
     public PlaybackMode Mode { get; private set; } = PlaybackMode.Loop;
     public PlaybackStatus Status { get; private set; } = PlaybackStatus.Idle;
     public double Volume { get; private set; } = 0.78;
@@ -92,6 +93,7 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
         DurationSeconds = track.DurationSeconds;
         _queue.Clear();
         _queue.AddRange(queue is { Count: > 0 } ? queue : new[] { track });
+        AdvanceQueueRevision();
         LoadCurrentTrack(autoplay: true);
         Notify();
     }
@@ -103,7 +105,11 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
         _dsdEngine.Stop();
         _usingDsdBackend = false;
         CurrentTrack = null;
-        _queue.Clear();
+        if (_queue.Count > 0)
+        {
+            _queue.Clear();
+            AdvanceQueueRevision();
+        }
         PositionSeconds = 0;
         DurationSeconds = 0;
         IsLoading = false;
@@ -241,8 +247,14 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
             return;
         }
 
+        if (_queue.SequenceEqual(tracks))
+        {
+            return;
+        }
+
         _queue.Clear();
         _queue.AddRange(tracks);
+        AdvanceQueueRevision();
         StartupLog.Write($"queue.reorder: count={_queue.Count}");
         Notify();
     }
@@ -250,7 +262,14 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
     public void RemoveFromQueue(TrackModel track)
     {
         StartupLog.Write($"queue.remove: title=\"{track.Title}\", current={CurrentTrack?.Id == track.Id}");
-        _queue.RemoveAll(item => item.Id == track.Id);
+        var removeIndex = _queue.FindIndex(item => item.Id == track.Id);
+        if (removeIndex < 0)
+        {
+            return;
+        }
+
+        _queue.RemoveAt(removeIndex);
+        AdvanceQueueRevision();
         if (CurrentTrack?.Id == track.Id)
         {
             CancelPendingLoad();
@@ -278,7 +297,12 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     public void ClearQueue()
     {
+        var hadQueue = _queue.Count > 0;
         _queue.Clear();
+        if (hadQueue)
+        {
+            AdvanceQueueRevision();
+        }
         CurrentTrack = null;
         CancelPendingLoad();
         _mpvHost.Engine.Stop();
@@ -512,9 +536,10 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
     private void ReplaceQueuedTrack(TrackModel track)
     {
         var index = _queue.FindIndex(item => item.Id == track.Id);
-        if (index >= 0)
+        if (index >= 0 && !Equals(_queue[index], track))
         {
             _queue[index] = track;
+            AdvanceQueueRevision();
         }
     }
 
@@ -1081,6 +1106,11 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
     private void Notify()
     {
         Dispatch(() => StateChanged?.Invoke(this, EventArgs.Empty));
+    }
+
+    private void AdvanceQueueRevision()
+    {
+        QueueRevision++;
     }
 
     private void Dispatch(Action action)

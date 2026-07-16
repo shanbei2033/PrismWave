@@ -31,6 +31,12 @@ public sealed partial class LibraryPage : Page
         }
     }
 
+    private async void OpenFolderManager_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new LibraryFoldersDialog { XamlRoot = XamlRoot };
+        await dialog.ShowAsync();
+    }
+
     private async void Tracks_DragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs args)
     {
         if (DataContext is LibraryViewModel viewModel)

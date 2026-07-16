@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "PrismWave.WinUI (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "PrismWave.WinUI (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

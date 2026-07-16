@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PrismWave_WinUI.Infrastructure.Navigation;
 using PrismWave_WinUI.Services.Contracts;
 using PrismWave_WinUI.ViewModels.Player;
 
@@ -77,21 +78,28 @@ public sealed partial class ShellViewModel : ObservableObject
 
     public bool CanGoBack => _backStack.Count > 0;
 
-    public event EventHandler<string>? NavigationRequested;
+    public event EventHandler<ShellNavigationRequest>? NavigationRequested;
 
-    public void RollbackNavigation(string currentRoute)
+    public void RollbackNavigation(string currentRoute, ShellNavigationRequest failedRequest)
     {
-        if (string.IsNullOrWhiteSpace(currentRoute) ||
-            string.Equals(currentRoute, SelectedRoute, StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(currentRoute))
         {
             return;
         }
 
         SelectedRoute = currentRoute;
-        if (_backStack.Count > 0 &&
+        if (failedRequest.Kind == ShellNavigationKind.Nested &&
+            _backStack.Count > 0 &&
             string.Equals(_backStack.Peek(), currentRoute, StringComparison.Ordinal))
         {
             _backStack.Pop();
+        }
+        else if (failedRequest.Kind == ShellNavigationKind.Back &&
+                 !string.IsNullOrWhiteSpace(failedRequest.Route) &&
+                 (_backStack.Count == 0 ||
+                  !string.Equals(_backStack.Peek(), failedRequest.Route, StringComparison.Ordinal)))
+        {
+            _backStack.Push(failedRequest.Route);
         }
 
         OnPropertyChanged(nameof(CanGoBack));
@@ -110,7 +118,10 @@ public sealed partial class ShellViewModel : ObservableObject
             return;
         }
 
-        if (NestedRoutes.Contains(route) && !string.IsNullOrWhiteSpace(SelectedRoute))
+        var kind = NestedRoutes.Contains(route)
+            ? ShellNavigationKind.Nested
+            : ShellNavigationKind.Primary;
+        if (kind == ShellNavigationKind.Nested && !string.IsNullOrWhiteSpace(SelectedRoute))
         {
             _backStack.Push(SelectedRoute);
         }
@@ -119,7 +130,7 @@ public sealed partial class ShellViewModel : ObservableObject
             _backStack.Clear();
         }
 
-        NavigateCore(route);
+        NavigateCore(route, kind);
         OnPropertyChanged(nameof(CanGoBack));
     }
 
@@ -129,7 +140,7 @@ public sealed partial class ShellViewModel : ObservableObject
         var route = _backStack.Count > 0
             ? _backStack.Pop()
             : IsOnlineNavigationVisible ? "Home" : "Library";
-        NavigateCore(route);
+        NavigateCore(route, ShellNavigationKind.Back);
         OnPropertyChanged(nameof(CanGoBack));
     }
 
@@ -173,9 +184,9 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(FavoriteCount));
     }
 
-    private void NavigateCore(string route)
+    private void NavigateCore(string route, ShellNavigationKind kind)
     {
         SelectedRoute = route;
-        NavigationRequested?.Invoke(this, route);
+        NavigationRequested?.Invoke(this, new ShellNavigationRequest(route, kind));
     }
 }

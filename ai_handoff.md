@@ -1,14 +1,246 @@
 # PrismWave AI 接手文档
 
-更新时间：2026-06-22
+更新时间：2026-07-16
 
-本文档用于让其他 AI 在尽量少读上下文的情况下，快速接手当前仓库 `F:\Project\PrismWave` 的开发工作。
+本文档用于让其他 AI 在尽量少读上下文的情况下，快速接手当前仓库 `D:\Project\PrismWave` 的开发工作。2026-06-22 之前的章节主要记录 Flutter R503 基线；2026-07-11 起项目主线已经转为原生 WinUI 3 / C# UI 重构，Flutter 工程继续保留为功能和行为回归基线。
+
+---
+
+## 0. 2026-07-16 当前主线速览（接手时优先阅读）
+
+### 0.1 当前结论
+
+| 项目 | 当前状态 |
+|------|----------|
+| 当前工作目录 | `D:\Project\PrismWave` |
+| 当前 Git 分支 | `WinUI`（由 `codex/ui-refactor` 当前工作状态建立） |
+| Flutter 发布基线 | R503，仍位于 `app/`，迁移期间不得删除 |
+| WinUI 主工程 | `src/PrismWave.WinUI/PrismWave.WinUI.csproj` |
+| WinUI 测试工程 | `tests/PrismWave.WinUI.Tests/PrismWave.WinUI.Tests.csproj` |
+| WinUI 技术栈 | WinUI 3、Windows App SDK 2.2、C#、.NET 10、CommunityToolkit.Mvvm 8.4.2、TagLibSharp 2.3.0 |
+| 普通播放后端 | 修补版 `native/libmpv/libmpv-2.dll`，通过 `MpvPlaybackEngine` P/Invoke |
+| DSD 播放后端 | `bass.dll`、`bassdsd.dll`、`bassasio.dll`，通过 `WindowsDsdPlaybackEngine` |
+| 最近完整验证 | 2026-07-16：293/293 单元与结构测试通过；x64 Debug 构建 0 警告、0 错误 |
+| 最近真机 UI 验证 | 首页、搜索、库、专辑、艺术家、收藏、HITS、设置、TopPlaylist、FullPlay 均可进入；FullPlay 单画布歌词、点击跳转、手动浏览回位和重新进入已验证 |
+| 当前最高优先级 | **修复设置页无法添加本地音乐目录，并删除本地库测试占位数据，使真实目录扫描、持久化和播放可用** |
+
+当前阶段不是简单的 Demo 皮肤：WinUI 工程已经具备应用壳层、MVVM、真实 mpv/DSD 播放服务、本地库、在线服务、歌词、封面、HITS、设置和多页面 UI 的代码骨架与大量实现。不过它仍处于迁移开发期，不能宣称已经完成 Flutter 全功能等价发布，尤其需要继续做真实音频设备、网络 provider、DSD/ASIO、删除源文件、缓存与安装包场景的人工验收。
+
+### 0.2 WinUI 3 架构
+
+```text
+src/PrismWave.WinUI/
+├── App.xaml / App.xaml.cs                 应用启动、服务创建、全局资源
+├── MainWindow.xaml / MainWindow.xaml.cs   原生窗口、自定义标题栏、Shell 宿主
+├── Infrastructure/
+│   ├── AppServices.cs                     当前应用级依赖组合根
+│   ├── Audio/
+│   │   ├── IPlaybackEngine.cs
+│   │   ├── MpvPlaybackEngine.cs
+│   │   └── WindowsDsdPlaybackEngine.cs
+│   ├── Navigation/CoverNavigationCoordinator.cs
+│   ├── Persistence/FlutterPreferencesMigrationService.cs
+│   ├── StartupLog.cs
+│   └── WindowLaunchSize.cs
+├── Models/                                Track、Home、Hits、Lyrics、Settings 等 DTO
+├── Services/
+│   ├── Contracts/                         UI/ViewModel 依赖的服务接口
+│   └── Implementations/                   播放、库、在线、歌词、封面、HITS、设置等实现
+├── ViewModels/
+│   ├── Shell/Player/Home/Search
+│   ├── Library                            Library/Albums/Artists/Favorites
+│   ├── Hits
+│   └── Settings
+├── Views/
+│   ├── Shell                              固定导航、内容区、底部播放器、QueuePane
+│   ├── Home                               Home/TopPlaylist/AlbumDetail
+│   ├── Search
+│   ├── Library                            Library/Albums/Artists/Favorites
+│   ├── Player                             FullPlay
+│   ├── Hits
+│   ├── Settings
+│   └── Dialogs                            风险、详情、删除、歌词/封面搜索
+├── Controls/
+│   ├── Navigation/Sidebar
+│   ├── Playback/BottomPlayerBar、QueuePane
+│   ├── Home/TrendingBanner、TrendingSongList、EditorialFeature、GenreExplorer、SongCard
+│   ├── Lyrics/LyricsStageControl          FullPlay 单画布 Win2D 歌词舞台
+│   ├── Media/StableCoverImage
+│   └── Common/MetricPill
+└── Themes/PrismTokens.xaml、PrismControls.xaml
+```
+
+当前采用 MVVM：View 负责 XAML 和视觉状态，ViewModel 基于 CommunityToolkit.Mvvm；服务通过接口提供播放、库、在线、歌词、封面、设置和日志能力。`Infrastructure/AppServices.cs` 是现阶段的手工组合根，负责创建应用级单例服务和各页面 ViewModel。后续若引入正式 DI 容器，应保持这些服务边界，不要把 mpv、BASS、文件系统或网络请求重新塞进页面 code-behind。
+
+### 0.3 已完成或已接入的 WinUI 能力
+
+#### 应用壳层和页面导航
+
+- 原生 WinUI 3 窗口、Shell、左侧导航、内容区、右侧 QueuePane 和固定底部播放器已经建立。
+- 侧栏包含首页、搜索、库、专辑、艺术家、我最爱的、HITS、设置；HITS 使用轻量 radio SVG 图标。
+- 首页顶部标题和刷新按钮、响应式内容滚动、横向歌曲卡片区域、底部播放栏的分行布局已经经过多轮截图修正。
+- 所有页面使用统一的“新页面从右向左覆盖旧页面”动画：
+  - 动画时长固定为 280ms。
+  - 旧页面完全静止，新页面从内容区右边界滑入。
+  - NavigationView、标题栏、QueuePane、底部播放器不参与移动。
+  - 启动首屏和同页导航不播放动画。
+  - 快速连续点击时，立即完成当前动画，仅对最新目标继续播放。
+  - 动画期间阻断页面指针和键盘输入，完成后恢复新页面焦点。
+  - 导航失败会回滚 Frame、路由状态和 NavigationView 选中项。
+  - Shell 卸载时会解绑事件、停止 Composition 动画、清空 Frame journal，避免窗口重开后的幽灵回调。
+- 导航核心文件：
+  - `src/PrismWave.WinUI/Views/Shell/ShellPage.xaml`
+  - `src/PrismWave.WinUI/Views/Shell/ShellPage.xaml.cs`
+  - `src/PrismWave.WinUI/Infrastructure/Navigation/CoverNavigationCoordinator.cs`
+  - `src/PrismWave.WinUI/ViewModels/Shell/ShellViewModel.cs`
+- 设计与实施说明：
+  - `docs/superpowers/specs/2026-07-13-prismwave-cover-navigation-design.md`
+  - `docs/superpowers/plans/2026-07-13-prismwave-cover-navigation.md`
+
+#### 首页 UI
+
+- 首页已按 WinUI 原生布局重构，保留现有深色 Fluent/PrismWave 风格，没有重新加入右侧“私人雷达”。
+- 已有模块：页面标题与刷新、今日趋势 Hero、全球热门双列歌曲榜单、精选/Play Now、频道、流派探索。
+- “频道”和“流派探索”条目已经改为轻量可点击入口，移除了“20首”数量文案；路由可进入相应列表/占位详情。
+- 精选区域文案已经按要求改为“小标题：精选”“主标题：Play Now”，说明段落删除，仅保留轻量 `TOP20`。
+- 歌曲卡片、横向 ScrollViewer、标题/歌手省略、右侧安全间距、刷新按钮与滚动条避让、底部控制区均有结构测试。
+- 首页 UI 分阶段设计文档位于 `docs/superpowers/plans/2026-07-11...2026-07-13...`，视觉截图位于 `docs/ui-review/`；这些目录当前有大量 untracked 文件，提交前要人工筛选。
+
+#### 普通播放、队列和 DSD
+
+- `PlaybackService` 已作为统一调度层，不再以 Windows `MediaPlayer` 作为主播放后端。
+- `MpvPlaybackEngine` 直接加载仓库中的修补版 `libmpv-2.dll`，已有本地路径、HTTP/HTTPS、headers、播放/暂停/停止、seek、音量、时长、进度、结束和错误事件代码。
+- mpv 路径保留缓存和 WASAPI 策略；设备失败恢复、解码失败恢复和队列推进逻辑已进入服务层。
+- `WindowsDsdPlaybackEngine` 已接入 BASS/BASSDSD/BASSASIO，包含设备枚举、raw DSD 与 DoP 分支、ASIO 回退和错误信息模型。
+- `PlaybackViewModel` 是全局播放状态入口；BottomPlayerBar、FullPlay 和 QueuePane 订阅同一播放服务，不应再各自维护第二套播放状态。
+- QueuePane 已从左侧导航中分离，作为右侧可停靠面板；队列点击切歌、移除、高亮和播放模式代码已存在。
+- 仍需人工验收：真实 MP3/FLAC/WAV/M4A/OGG 文件、中文/长路径、WASAPI shared/exclusive、多声卡切换、DSF/DFF 真机、ASIO raw DSD/DoP、设备断开回退。
+
+#### 本地库、元数据、收藏和详情
+
+- `LibraryService` 已有目录扫描、TagLibSharp 元数据读取、库集合、搜索、收藏、隐藏、顺序和封面关联等代码，但当前仍需按真实使用链路重新审查，不能视为已经完成。
+- Library、Albums、Artists、Favorites 页面和对应 ViewModel 已建立，但本地音乐库目前仍混有测试占位曲目；设置页添加本地音乐路径不可用，因此当前功能验收结论是“不可交付”。
+- TrackDetails、TrackDelete 等 ContentDialog 已建立；详情模型包含时长、码率、采样率、文件路径等字段。
+- `FlutterPreferencesMigrationService` 用于读取旧 Flutter `shared_preferences.json`，迁移逻辑和设置迁移测试已经存在。
+- 下一轮必须先完成：删除所有测试占位曲目；设置页使用 `FolderPicker` 添加/移除目录；目录授权与设置持久化；启动和手动刷新扫描；真实音频列表/专辑/艺术家聚合；扫描错误和空状态展示；本地文件点击、Play all 与队列播放。
+- 随后人工验收：大目录后台扫描的 UI 流畅度、WAV RIFF INFO、嵌入/旁置封面、拖拽排序持久化、移出库、删除源文件及旁置歌词联动删除。
+
+#### 在线首页、搜索和在线解析
+
+- `OnlineHomeService` 位于历史文件名 `SampleOnlineHomeService.cs`，类名已经不是 Sample；文件应在后续整理时改名，但不要仅为改名制造大范围 churn。
+- 在线首页代码支持 schema 8、当天缓存、远程 `latest_home.json`、昨日缓存与内置 `Assets/HomeFallback/latest_home.json` 兜底，并区分远端不可用状态。
+- `OnlineSearchService` 位于历史文件名 `SampleOnlineSearchService.cs`；已组合本地库与在线 provider 结果，并有搜索历史持久化入口。
+- `OnlineProviderService` 当前普通在线 provider 列表为：Audius、NetEase、Kuwo、Migu、QQ、Kugou、Taihe。
+- `OnlinePlaybackResolver` 支持 provider 固定 ID 解析和按标题/艺术家多源竞速解析；普通搜索不应加入 YouTube/Bilibili。
+- TopPlaylist、AlbumDetail、Home、Search 页面已接入导航和播放服务，但仍需持续做 provider 真机成功率验证，不能把接口单测等同于长期可播放保证。
+
+#### 歌词、封面和 FullPlay
+
+- `LyricsService`、`LyricsParser`、`QqQrcDecoder` 已实现本地歌词、在线歌词、时间轴、QRC 逐字结构和偏移相关代码。
+- `CoverService` 已实现本地/在线封面查找、下载、缓存和自定义封面更新；有离线与缓存相关测试。
+- FullPlay 已从 `ListView + KaraokeTextBlock + 多计时器` 重写为 `LyricsStageControl + LyricsSceneController` 单画布结构，使用一个 `CompositionTarget.Rendering` 时钟统一绘制滚动、模糊、缩放和逐字高亮；旧逐行控件及滚动协调器已删除。
+- 已确认的遗留问题：用户仍能观察到部分歌曲切行时上下颤动。2026-07-16 用户明确要求暂缓继续修复，后续不要在本地音乐功能完成前继续扩张歌词重构。
+- 仍需人工验收：颤动复现条件、逐字高亮同步、切歌后的歌词竞态、在线歌词 provider 超时、封面损坏文件和缓存清理。
+
+#### HITS、设置、主题和日志
+
+- `HitsService` 已实现 manifest/schedule 拉取、节目时间定位，以及 no-network、timeout、unavailable、off-air、standby 等状态模型和测试。
+- HITS 状态页和专用 ViewModel 已接入 Shell；HITS 入口仍需保持强制 WASAPI Shared 行为。
+- Settings 页面和 ViewModel 已建立，包含基础、在线、播放、开发者方向的服务入口。
+- BETA/实验性功能风险确认对话框、主题服务、开发者日志服务和旧设置迁移代码已存在。
+- `IWindowService`、`IDialogService`、`IUpdateService` 目前仍在 `PlaceholderContracts.cs` 中，没有完整正式实现；这是“全功能等价”尚未完成的明确标志。
+
+### 0.4 每日首页不重复推荐
+
+每日推荐轮换逻辑不在 WinUI 客户端生成，而在独立仓库 `D:\Project\prismwave-hits` 中生成 schema 8 JSON。当前状态：
+
+- 分支：`codex/daily-home-rotation`
+- 提交：`26f1df2 feat: rotate daily home recommendations`
+- 远端：`origin/codex/daily-home-rotation`，本地与远端 `0 ahead / 0 behind`
+- 测试：2026-07-14 使用 `py -3 -m unittest discover -s tests -v`，13/13 通过。
+- 规则：
+  - 读取前 7 天 `home/home_recommendations-YYYY-MM-DD.json`。
+  - Top100、全球热门、可直接播放、频道和所有流派分区优先排除整个昨日首页出现过的曲目。
+  - Top100 在候选不足时只允许复用“刚好补足缺口”的昨日歌曲。
+  - 频道和流派分区宁可少于 20 首，也不回填昨日重复曲目。
+  - 对第 2 至第 7 天的重复按距离施加递减惩罚，越近的历史歌曲越不容易再次出现。
+  - 输出可选 `rotationSnapshot`，记录加载历史天数、昨日曲目数、昨日重叠、近期复用和强制回填数量。
+- PrismWave 主仓库只保存该功能的设计和实施文档：
+  - `docs/superpowers/specs/2026-07-13-prismwave-daily-home-rotation-design.md`
+  - `docs/superpowers/plans/2026-07-13-prismwave-daily-home-rotation.md`
+
+注意：客户端的“刷新”只能重新拉取当天 edition，不能在同一天凭空生成一套全新推荐。真正的每日变化依赖 `prismwave-hits` GitHub Actions 按日运行生成器并发布新的 `latest_home.json`。若远端当天文件没有生成，客户端会按缓存/昨日/内置数据策略回退，因此用户看到的内容可能不会变化。
+
+### 0.5 最近提交
+
+主仓库 `codex/ui-refactor` 最近提交：
+
+```text
+c8fbc11 fix(winui): complete cover navigation review fixes
+91ee7ac fix(winui): order cover transition frames
+b1a908e fix(winui): harden cover navigation transition
+78d16fe feat(winui): add cover navigation transition
+8273ffd docs: plan cover navigation implementation
+5523171 docs: define cover navigation transition
+480862b docs: record daily rotation implementation
+3d586d1 docs: design daily home rotation
+b111275 feat: release R503 beta and online search history
+```
+
+### 0.6 构建、测试和启动
+
+在仓库根目录执行：
+
+```powershell
+dotnet test tests\PrismWave.WinUI.Tests\PrismWave.WinUI.Tests.csproj --no-restore
+dotnet build src\PrismWave.WinUI\PrismWave.WinUI.csproj -p:Platform=x64 --no-restore
+dotnet run --project src\PrismWave.WinUI\PrismWave.WinUI.csproj -p:Platform=x64 --no-build
+```
+
+最近一次已验证结果（2026-07-16）：
+
+```text
+Tests: 293 passed, 0 failed, 0 skipped
+Build: succeeded, 0 warnings, 0 errors
+Target: net10.0-windows10.0.26100.0 / win-x64
+```
+
+Debug 可执行文件通常位于：
+
+```text
+src\PrismWave.WinUI\bin\x64\Debug\net10.0-windows10.0.26100.0\win-x64\PrismWave.WinUI.exe
+```
+
+如果 `dotnet run` 无法弹出窗口，可先确认 Windows Developer Mode 与 Debug identity 注册状态；也可在完成构建后直接启动上述 exe。不要把“进程存在但无窗口”和“构建失败”混为一类问题。
+
+### 0.7 Git 边界和提交范围
+
+2026-07-16 建立 `WinUI` 分支，目标是把完整的 `src/PrismWave.WinUI`、`tests/PrismWave.WinUI.Tests` 和本交接文档作为可回滚基线推送到 `origin/WinUI`。Flutter 工程仍有一批既存 modified/untracked UI 改动，不属于该 WinUI 基线提交。接手时必须遵守：
+
+1. 不要运行 `git clean`、`git reset --hard` 或大范围 checkout。
+2. 不要因为文件是 untracked 就认定它可以删除；当前 WinUI Demo 依赖这些文件。
+3. `bin/`、`obj/`、`AppPackages/`、`artifacts/`、测试输出和临时截图不得进入 WinUI 分支。
+4. 不要把 Flutter 工作区改动与 WinUI 基线一次性混成一个不可审查的大提交。
+5. `native/libmpv/libmpv-2.dll` 是修补版，必须保留；BASS 三个原生 DLL 也要随 x64 输出部署。
+6. 不要提交任何 GitHub token、API key、日志中的敏感信息或本机绝对缓存路径。
+
+### 0.8 下一步推荐顺序
+
+1. **先完成本地音乐库**：删除占位数据，修复设置页目录选择、授权、持久化、扫描、刷新和错误处理，使 Library/Albums/Artists 能展示并播放真实本地文件。
+2. **做本地播放真机矩阵**：MP3/FLAC/WAV/M4A/OGG、本地中文长路径、seek、队列、设备切换、WASAPI shared/exclusive。
+3. **做 DSD 真机矩阵**：DSF/DFF、ASIO 设备枚举、raw DSD、DoP 回退、设备失效与设置持久化。
+4. **补齐明确缺口**：正式实现 `IWindowService`、`IDialogService`、`IUpdateService`，清理 `PlaceholderContracts.cs`；补版本更新、打开日志文件和窗口服务边界。
+5. **验证库写操作**：拖拽排序、收藏顺序、移出库、删除源文件、旁置歌词/封面联动、旧 Flutter 偏好幂等迁移。
+6. **验证在线链路**：schema 8 冷启动/当天缓存/昨日回退/内置回退；7 个普通 provider 的搜索和解析；TopPlaylist/AlbumDetail 播放全部与队列按需解析。
+7. **验证歌词和 FullPlay**：本地 LRC/QRC、嵌入歌词、LRCLIB/QQ、偏移、逐字高亮、切歌竞态和长歌词性能。
+8. **验证 HITS**：manifest、schedule、网络失败、off-air、standby、直连与多源回退、预加载、专用页面和日志。
+9. **发布前打磨**：UI 自动化、键盘/右键/可访问性、多 DPI、多显示器、低特效、语言资源、MSIX/安装包。
 
 ---
 
 ## 1. 项目概况
 
-PrismWave 是一个基于 Flutter 的 Windows 本地音乐播放器，当前发布版本 **R503**，`pubspec.yaml` 版本号 `503.0.0+505`。R503 汇总了 2026-06-18 至 2026-06-22 的在线首页 schema 8、Top100 去重、字体与今日趋势卡片 UI 改动，并新增实验性功能开关、风险提示弹窗与在线搜索历史。
+PrismWave 的当前公开发布基线是 Flutter Windows 本地音乐播放器 **R503**，`pubspec.yaml` 版本号 `503.0.0+505`。R503 汇总了 2026-06-18 至 2026-06-22 的在线首页 schema 8、Top100 去重、字体与今日趋势卡片 UI 改动，并新增实验性功能开关、风险提示弹窗与在线搜索历史。2026-07-11 起新增 `src/PrismWave.WinUI` 原生 WinUI 3 重构主线；本节以下内容仍主要描述 Flutter 基线，用于对照迁移行为。
 
 **GitHub 仓库**：
 - 主仓库：`https://github.com/shanbei2033/PrismWave`
@@ -81,15 +313,10 @@ PrismWave/
 │   │   └── i18n/                 多语言字符串
 │   ├── third_party/just_audio_media_kit/  自定义 patch 的 just_audio_media_kit
 │   └── pubspec.yaml              依赖声明
+├── src/PrismWave.WinUI/          当前 WinUI 3 / C# 重构主工程
+├── tests/PrismWave.WinUI.Tests/  WinUI 服务、ViewModel、XAML 结构与导航测试
 ├── native/windows_dsd/           BASS/BASSDSD/BASSASIO 原生运行库
 │   └── vendor/                   bass24/, bassasio14/, bassdsd24/
-├── prismwave-hits/               HITS 节目单生成仓库（本地副本）
-│   ├── scripts/build_hits.py     节目单生成脚本
-│   ├── scripts/build_home.py     在线首页 Top100 生成脚本
-│   ├── home/                     每日首页推荐 JSON
-│   ├── config/station.json       源权重与配置
-│   ├── schedules/                每日生成的 JSON 节目单
-│   └── data/                     辅助数据
 ├── installer/                    Inno Setup 安装包脚本
 ├── dist/                         构建产物（安装包、Release Notes）
 ├── release/                      历史 Release 安装包
@@ -97,6 +324,8 @@ PrismWave/
 ├── tools/flutter/                内置 Flutter SDK
 └── backups/                      备份文件
 ```
+
+HITS/首页推荐生成器现在是独立工作区 `D:\Project\prismwave-hits`，不在 PrismWave 主仓库目录内。其 `scripts/`、`home/`、`schedules/`、`config/` 和 `data/` 仍承担节目单与每日首页 JSON 生成。
 
 ### 关键代码文件索引
 
@@ -139,9 +368,9 @@ PrismWave/
 | Quote 服务 | `app/lib/src/services/quote_service.dart` | 顶栏在线 quote 拉取 |
 | 曲目时长 | `app/lib/src/services/track_duration_resolver.dart` | 曲目时长解析 |
 | 无级滚动 | `app/lib/src/ui/middle_click_autoscroll.dart` | 中键无级滚动 |
-| 节目单生成 | `prismwave-hits/scripts/build_hits.py` | Python 脚本生成每日节目单 |
-| 首页推荐生成 | `prismwave-hits/scripts/build_home.py` | Python 脚本生成在线首页 Top100 JSON |
-| 源配置 | `prismwave-hits/config/station.json` | 音源权重与拉取参数 |
+| 节目单生成 | `D:\Project\prismwave-hits\scripts\build_hits.py` | 独立仓库 Python 脚本生成每日节目单 |
+| 首页推荐生成 | `D:\Project\prismwave-hits\scripts\build_home.py` | 独立仓库生成 schema 8 每日首页与轮换诊断 |
+| 源配置 | `D:\Project\prismwave-hits\config\station.json` | 独立仓库音源权重与拉取参数 |
 
 ---
 
@@ -411,7 +640,7 @@ online.cover.failed
 
 验证结果（2026-06-06）：
 ```powershell
-cd F:\Project\PrismWave\app
+cd D:\Project\PrismWave\app
 ..\tools\flutter\bin\dart.bat analyze lib\src lib\main.dart
 ..\tools\flutter\bin\flutter.bat test test\playback_strategy_test.dart
 ..\tools\flutter\bin\flutter.bat build windows --release
@@ -419,7 +648,7 @@ cd F:\Project\PrismWave\app
 
 三项均通过。最终代码产物：
 ```text
-F:\Project\PrismWave\app\build\windows\x64\runner\Release\data\app.so
+D:\Project\PrismWave\app\build\windows\x64\runner\Release\data\app.so
 LastWriteTime: 2026-06-06 00:18:24
 ```
 
@@ -595,7 +824,7 @@ online.cover.failed
 
 验证（2026-06-18）：
 ```powershell
-cd F:\Project\PrismWave\app
+cd D:\Project\PrismWave\app
 ..\tools\flutter\bin\cache\dart-sdk\bin\dart.exe analyze `
   lib\src\services\netease_home_service.dart `
   lib\src\services\online_media_cache_service.dart `
@@ -611,8 +840,8 @@ cd F:\Project\PrismWave\app
 - `dart analyze`：No issues found。
 - `git diff --check`：无空白错误，只有 Windows CRLF 提示。
 - `flutter build windows --release`：成功。
-- Demo：`F:\Project\PrismWave\app\build\windows\x64\runner\Release\prismwave_demo.exe`。
-- 本次 Dart/AOT 产物：`F:\Project\PrismWave\app\build\windows\x64\runner\Release\data\app.so`，LastWriteTime `2026-06-18 23:00:00`。
+- Demo：`D:\Project\PrismWave\app\build\windows\x64\runner\Release\prismwave_demo.exe`。
+- 本次 Dart/AOT 产物：`D:\Project\PrismWave\app\build\windows\x64\runner\Release\data\app.so`，LastWriteTime `2026-06-18 23:00:00`。
 
 注意：
 - 用户日志里的 `Remote daily home payload is unavailable` 代表远端 daily JSON 当前不可用或未满足 schema 8 校验；这不一定是封面下载失败。当前逻辑会回退缓存/内置 schema 8 数据，并继续后台补封面。
@@ -647,7 +876,7 @@ cd F:\Project\PrismWave\app
 
 验证（2026-06-22）：
 ```powershell
-cd F:\Project\PrismWave\app
+cd D:\Project\PrismWave\app
 ..\tools\flutter\bin\cache\dart-sdk\bin\dart.exe format lib\src\ui\online_home_panel.dart lib\src\ui\online_top_playlist_panel.dart lib\src\i18n\app_strings.dart lib\src\ui\prismwave_theme.dart
 ..\tools\flutter\bin\flutter.bat analyze
 ..\tools\flutter\bin\flutter.bat build windows --release
@@ -656,8 +885,8 @@ cd F:\Project\PrismWave\app
 结果：
 - `flutter analyze` 仍退出 1，但仅剩既有 `tool/verify_online_lyrics.dart` 的 3 条 `avoid_print` info；本轮无新增 analyzer 问题。
 - `flutter build windows --release` 成功。
-- Demo：`F:\Project\PrismWave\app\build\windows\x64\runner\Release\prismwave_demo.exe`。
-- Windows demo zip：`F:\Project\PrismWave\app\build\windows\x64\runner\prismwave_demo-windows-release.zip`。
+- Demo：`D:\Project\PrismWave\app\build\windows\x64\runner\Release\prismwave_demo.exe`。
+- Windows demo zip：`D:\Project\PrismWave\app\build\windows\x64\runner\prismwave_demo-windows-release.zip`。
 
 ### 4.12 HITS 模式（广播电台）
 
@@ -858,13 +1087,13 @@ WASAPI Exclusive 模式在所有播放场景（本地文件 + HITS）的破音/�
 
 ### 构建命令
 ```powershell
-cd F:\Project\PrismWave\app
+cd D:\Project\PrismWave\app
 ..\tools\flutter\bin\flutter.bat build windows --release
 ```
 
 或使用环境中的 Flutter：
 ```powershell
-cd F:\Project\PrismWave\app
+cd D:\Project\PrismWave\app
 flutter pub get
 flutter build windows --release
 ```
@@ -879,19 +1108,19 @@ flutter build windows --release
 
 ### 分析命令
 ```powershell
-F:\Project\PrismWave\tools\flutter\bin\dart analyze <file>
+D:\Project\PrismWave\tools\flutter\bin\dart analyze <file>
 ```
 
 ### 节目单生成
 ```powershell
-cd F:\Project\PrismWave\prismwave-hits
+cd D:\Project\prismwave-hits
 python scripts/build_hits.py
 ```
 也可通过 GitHub Actions 每日自动触发。
 
 ### 在线首页 Top100 生成
 ```powershell
-cd F:\Project\PrismWave\prismwave-hits
+cd D:\Project\prismwave-hits
 python scripts/build_home.py
 ```
 GitHub Actions: `.github/workflows/build_home.yml`，定时 `0 2 * * *` UTC（北京时间 10:00）。
@@ -920,7 +1149,7 @@ GitHub Actions: `.github/workflows/build_home.yml`，定时 `0 2 * * *` UTC（�
 #### 验证
 - `flutter analyze` 只剩既有 `tool/verify_online_lyrics.dart` 的 3 条 `avoid_print` info。
 - `flutter build windows --release` 成功。
-- 最新 demo zip：`F:\Project\PrismWave\app\build\windows\x64\runner\prismwave_demo-windows-release.zip`。
+- 最新 demo zip：`D:\Project\PrismWave\app\build\windows\x64\runner\prismwave_demo-windows-release.zip`。
 
 ### 2026-06-18：在线首页 schema 8、风格分区恢复、国内封面优化（未发布）
 
@@ -943,7 +1172,7 @@ GitHub Actions: `.github/workflows/build_home.yml`，定时 `0 2 * * *` UTC（�
 
 #### 验证
 ```powershell
-cd F:\Project\PrismWave\app
+cd D:\Project\PrismWave\app
 ..\tools\flutter\bin\cache\dart-sdk\bin\dart.exe analyze `
   lib\src\services\netease_home_service.dart `
   lib\src\services\online_media_cache_service.dart `
@@ -1028,11 +1257,11 @@ cd F:\Project\PrismWave\app
 
 #### 验证
 ```powershell
-cd F:\Project\PrismWave\app
+cd D:\Project\PrismWave\app
 ..\tools\flutter\bin\dart.bat analyze lib\main.dart lib\src
 ..\tools\flutter\bin\flutter.bat build windows --release
 
-cd F:\Project\PrismWave\prismwave-hits
+cd D:\Project\prismwave-hits
 python -m py_compile scripts\build_home.py scripts\build_hits.py
 python scripts\build_home.py
 ```
@@ -1123,7 +1352,7 @@ python scripts\build_home.py
 
 #### 验证
 ```powershell
-cd F:\Project\PrismWave\app
+cd D:\Project\PrismWave\app
 ..\tools\flutter\bin\dart.bat analyze lib\src lib\main.dart
 ..\tools\flutter\bin\flutter.bat test test\playback_strategy_test.dart
 ..\tools\flutter\bin\flutter.bat build windows --release
@@ -1254,55 +1483,52 @@ ca1bb92 feat: improve lyrics flow and playlist management
 ## 9. 当前工作区状态
 
 ```
-分支: main
-当前发布: R503
-当前工作区含 2026-06-18 至 2026-06-22 未发布改动:
-  - app/lib/src/services/netease_home_service.dart（schema 8 校验、风格分区要求、网易云封面兜底、补全日志）
-  - app/lib/src/services/online_media_cache_service.dart（封面日志、超时优化、Deezer CDN 候选、decode failure 记录）
-  - app/lib/src/controllers/online_controller.dart（首页 section 随机展示、刷新失败后补封面、补封面竞态修复）
-  - app/lib/src/providers.dart（全局 onlineCoverCacheProvider 注入 developer log）
-  - app/lib/src/ui/online_home_panel.dart（今日趋势卡片：多封面模糊背景、右侧清晰封面拼贴、无 TOP100/副标题/按钮）
-  - app/lib/src/ui/online_top_playlist_panel.dart（榜单详情页本地格式化 generatedAt，生成时间显示 UTC）
-  - app/lib/src/i18n/app_strings.dart（英文标题 Trending；生成时间简体/繁体/英文文案）
-  - app/lib/src/ui/prismwave_theme.dart、app/pubspec.yaml（Inter + Noto Sans SC/TC 字体栈）
-  - app/assets/fonts/inter/、app/assets/fonts/noto_sans_cjk/（新增字体资源，未跟踪时需随字体改动一起提交）
-  - app/lib/src/ui/online_album_detail_panel.dart（共用全局封面缓存）
-  - app/assets/home/latest_home.json（schema 8 内置兜底）
-  - app/test/netease_home_service_test.dart（在线首页服务相关测试文件，当前可能仍是 untracked）
-  - prismwave-hits/scripts/build_home.py、config/station.json、home/latest_home.json（schema 8、风格分区与 Top100 歌手去重生成；位于子仓库工作区）
-  - prismwave-hits 本地副本当前 behind origin/main 1 个 GitHub Actions 生成提交；另有 untracked 的 home/home_recommendations-2026-06-18.local-untracked.json，不要盲目删除
-  - app/lib/src/ui/main_page.dart、app/windows/runner/flutter_window.cpp 也有既有未提交修改，接手前需确认是否属于本轮 UI/窗口调整，不要盲目覆盖
-  - 最新 Windows demo zip: app/build/windows/x64/runner/prismwave_demo-windows-release.zip
-提交后应只剩本地未纳入发布的工具/环境残留:
-  - tools/（本地 Flutter / potrace / userscripts，不要整体提交）
-  - app/.dart_tool/, app/build/ 等构建缓存
-注意：`app/assets/fonts/inter/`、`app/assets/fonts/noto_sans_cjk/`、`app/assets/fonts/resource_han_rounded/` 均已被 `pubspec.yaml` 引用；`app/assets/home/latest_home.json` 和 `app/assets/icons/refresh.svg` 是 R501_fix2 需要提交的资源；`app/assets/icons/chart_notice.svg` 是 R502 需要提交的资源。`app/assets/logo.png`、`app/assets/hits-loading.webp` 当前未被代码引用，除非后续 UI 明确使用，否则不要为了本次 release 强行提交。
+主仓库: D:\Project\PrismWave
+分支: WinUI
+Flutter 发布基线: R503
+WinUI 状态: 可构建、可运行、293 项测试通过；完整 WinUI 源码与测试已整理为分支基线
+最近 WinUI 基线: 2026-07-16 创建并推送 origin/WinUI
+
+当前已知的 WinUI 遗留问题:
+  - 设置页无法添加本地音乐路径
+  - 本地音乐库仍显示测试占位曲目，真实扫描/持久化/播放尚未完成验收
+  - FullPlay 部分歌曲切行仍会颤动；已按用户要求暂缓
+  - 在线 provider 长期可用性、DSD/ASIO 真机和安装包仍需端到端验证
+
+既存 Flutter 修改:
+  - app/lib/src/i18n/app_strings.dart
+  - app/lib/src/ui/fullplay_page.dart
+  - app/lib/src/ui/glass_panel.dart
+  - app/lib/src/ui/hits_fullplay_page.dart
+  - app/lib/src/ui/main_page.dart
+  - app/lib/src/ui/online_*_panel.dart
+  - app/lib/src/ui/prismwave_theme.dart
+  - app/lib/src/ui/window_top_bar.dart
+  - app/windows/flutter/generated_plugin_registrant.* / generated_plugins.cmake
+  - app/lib/src/ui/components/ 仍为 untracked
+
+独立推荐生成仓库: D:\Project\prismwave-hits
+分支: codex/daily-home-rotation
+提交: 26f1df2
+远端同步: origin/codex/daily-home-rotation，0 ahead / 0 behind
+工作区: clean
+测试: 13/13 passed（2026-07-14）
 ```
+
+上述列表是接手时的风险地图，不是提交清单。提交前必须重新运行 `git status --short`，因为用户可能在 AI 工作期间继续修改文件。不要覆盖或回退无法确认来源的改动。
 
 ---
 
 ## 10. 推荐的接手顺序
 
-1. 先确认用户当前要推进的主线（在线首页 / 在线播放 / 在线搜索 / DSD / HITS / 元数据 / UI）。
-2. 如果继续在线首页，优先：
-   - 让用户开开发者模式，观察 `online.home.load.*`、`online.home.refresh-background.*`、`online.home.cover-enrich.*`、`online.home.cover-fallback.*`、`online.cover.*`。
-   - 对比 `%LOCALAPPDATA%\PrismWave\online_home_cache\home.json` 的 `editionDate`。
-   - 检查 `prismwave-hits/home/latest_home.json` remote 是否当天更新、是否 schema 8、是否包含必需风格分区。
-   - 若用户说“刷新失败但页面有数据”，优先区分 remote daily JSON 不可用与封面下载失败；前者看 `online.home.manual-refresh.failed`，后者看 `online.cover.*`。
-3. 如果继续在线播放，优先：
-   - 看 `online.play.*`、`online.queue.*`、`queue.resolve-on-demand.*` 日志。
-   - 确认失败曲目是 resolver 找不到源，还是播放器无法解码 URL。
-4. 如果做普通在线搜索，优先：
-   - 保持 bilibili / bilivideo / YouTube 不进入搜索 UI。
-   - 真机验证 Taihe、Kuwo、Migu、QQ、Kugou、NetEase 的可用性。
-5. 如果做 HITS，优先：
-   - 真机验证 6 个中国 provider 解析成功率。
-   - 封面/歌词缓存命中率优化。
-   - 保持 HITS 内部视频源兜底，除非用户明确要求删除。
-6. 如果做 DSD，优先：
-   - 切换设备后即时重载
-   - 真机 ASIO 验证
-7. 如果做元数据，优先补 flac/m4a/ape fallback
+1. 先阅读本文 `0. 2026-07-14 当前主线速览`，不要从旧 Flutter 主页面直接开始重写。
+2. 运行 `git status --short`，确认用户是否在当前会话之外新增了修改；任何未知改动都按用户改动处理。
+3. 优先审查并实现设置页本地目录选择、目录持久化和真实媒体扫描；删除所有测试占位数据。
+4. 每次本地库修改后运行 WinUI 完整测试和 x64 构建，再用真实目录启动 Demo 验收。
+5. 接下来的功能优先级依次是：本地音乐库、真实普通播放矩阵、DSD/ASIO、在线 provider、歌词/FullPlay、HITS、窗口/更新/日志服务、发布打磨。
+6. 如果需要核对功能语义，再回看 Flutter 对应 controller/service/UI；迁移目标是行为等价，不是继续在 Flutter 中扩张第二套新 UI。
+7. 若任务只涉及每日推荐内容，进入 `D:\Project\prismwave-hits` 的 `codex/daily-home-rotation` 分支，不要在 WinUI 客户端重新实现推荐算法。
+8. 每轮 UI 修改后至少验证 1280、1440、1600、1920 宽度和侧栏展开/折叠；页面切换还要验证快速连续点击与导航失败回滚。
 
 ---
 
@@ -1321,7 +1547,7 @@ ca1bb92 feat: improve lyrics flow and playlist management
 - **不要**把 bilibili / bilivideo / YouTube 加回普通在线搜索 UI；这些只保留给 HITS 兜底
 - HITS 入口已移到侧栏，不要在标题栏再加按钮
 - **不要**上传 API key、CLAUDE.md 等隐私/无关文件到 GitHub
-- 当前工具链: `F:\Project\PrismWave\tools\flutter\bin\flutter.bat`
+- 当前 Flutter 工具链: `D:\Project\PrismWave\tools\flutter\bin\flutter.bat`
 - Windows 下 flutter build 可能静默几十秒，不要误判死锁
 - `dart:ui` 导入需加 `as ui` 前缀，`lerpDouble`、`ImageFilter` 等需加 `ui.` 前缀
 - Deezer/iTunes 音频 URL 都是 30 秒预览片段，**绝不能**作为播放源
@@ -1334,4 +1560,4 @@ ca1bb92 feat: improve lyrics flow and playlist management
 
 ## 12. 一句话总结
 
-PrismWave **R503** 已具备"玻璃拟态 Windows 播放器 UI + 可自由拉伸的无边框窗口 + Inter + Noto Sans SC/TC 字体栈 + 本地播放器 + 实验性功能/BETA 风险确认 + schema 8 Top100 歌手去重生成 + 多风格分区在线首页/搜索历史/专辑/队列 + 今日趋势多封面模糊背景卡片 + 榜单生成时间 UTC 本地化显示 + 今日榜单未生成/网络不可用分离提示 + 中国大陆封面兜底与封面日志 + 应用内推荐刷新 + 冷启动内置 Top100 兜底 + 更多非视频在线音源 + 更快的在线歌词自动匹配 + HITS 10 音源电台（+ Deezer/iTunes 元数据源）+ DSD 后端 + 开发者日志"的完整形态；WASAPI Exclusive 破音通过自定义 libmpv 已修复，当前最大风险仍是多个在线 provider 的长期可用性、远端 schema 8 daily home 是否及时推送，以及 DSD 设备切换不能即时重载。
+PrismWave 当前是“Flutter R503 稳定行为基线 + 原生 WinUI 3 重构主线”的双轨阶段：`WinUI` 分支保存完整原生工程与293项测试基线，Demo 已具备壳层、导航、首页/在线/播放/歌词/封面/设置等主体能力。当前最高优先级是删除本地库测试占位数据，修复设置页目录选择与持久化，使真实本地音乐扫描、聚合和播放形成可验收闭环；歌词颤动按用户要求暂缓。

@@ -38,6 +38,12 @@ app/tool/verify_online_lyrics.dart
 app/windows/flutter/ephemeral/
 app/windows/x64/
 
+# .NET / WinUI build outputs
+**/bin/
+**/obj/
+**/AppPackages/
+**/TestResults/
+
 # Rust
 native/rust_core/target/
 

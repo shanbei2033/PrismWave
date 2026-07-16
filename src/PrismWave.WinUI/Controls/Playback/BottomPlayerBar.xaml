@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="PrismWave_WinUI.Controls.Playback.BottomPlayerBar"
+    x:Name="PlayerRoot"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:PrismWave_WinUI.Converters"
+    xmlns:media="using:PrismWave_WinUI.Controls.Media"
+    SizeChanged="BottomPlayerBar_SizeChanged">
+
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="LoadingVisibilityConverter" />
+        <converters:BoolToVisibilityConverter x:Key="NotLoadingVisibilityConverter" Invert="True" />
+        <Style x:Key="PlayerSecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="18" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="UseSystemFocusVisuals" Value="True" />
+        </Style>
+    </UserControl.Resources>
+
+    <Border
+        Height="{StaticResource PrismPlayerBarHeight}"
+        Padding="20,11"
+        Background="{StaticResource PrismGlassBrush}"
+        BorderBrush="{StaticResource PrismCardBorderBrush}"
+        BorderThickness="1"
+        CornerRadius="18"
+        AutomationProperties.AutomationId="BottomPlayerSurface">
+    <VisualStateManager.VisualStateGroups>
+        <VisualStateGroup>
+            <VisualState x:Name="Compact">
+                <VisualState.Setters>
+                    <Setter Target="LeftColumn.Width" Value="*" />
+                    <Setter Target="CenterColumn.Width" Value="Auto" />
+                    <Setter Target="RightColumn.Width" Value="*" />
+                    <Setter Target="PlayerLayout.ColumnSpacing" Value="8" />
+                    <Setter Target="TrackCoverColumn.Width" Value="0" />
+                    <Setter Target="CoverButton.Visibility" Value="Collapsed" />
+                    <Setter Target="FavoriteButton.Visibility" Value="Collapsed" />
+                    <Setter Target="SubtitleText.Visibility" Value="Collapsed" />
+                    <Setter Target="ErrorText.Visibility" Value="Collapsed" />
+                    <Setter Target="ModeButton.Visibility" Value="Collapsed" />
+                    <Setter Target="QueueButton.Visibility" Value="Collapsed" />
+                    <Setter Target="VolumeSlider.Visibility" Value="Collapsed" />
+                    <Setter Target="VolumeRegion.Spacing" Value="0" />
+                </VisualState.Setters>
+            </VisualState>
+
+            <VisualState x:Name="Medium">
+                <VisualState.Setters>
+                    <Setter Target="LeftColumn.Width" Value="*" />
+                    <Setter Target="CenterColumn.Width" Value="*" />
+                    <Setter Target="RightColumn.Width" Value="*" />
+                    <Setter Target="PlayerLayout.ColumnSpacing" Value="14" />
+                    <Setter Target="TrackCoverColumn.Width" Value="58" />
+                    <Setter Target="CoverButton.Visibility" Value="Visible" />
+                    <Setter Target="FavoriteButton.Visibility" Value="Collapsed" />
+                    <Setter Target="SubtitleText.Visibility" Value="Visible" />
+                    <Setter Target="ErrorText.Visibility" Value="Collapsed" />
+                    <Setter Target="ModeButton.Visibility" Value="Visible" />
+                    <Setter Target="QueueButton.Visibility" Value="Visible" />
+                    <Setter Target="VolumeSlider.Visibility" Value="Visible" />
+                    <Setter Target="VolumeSlider.Width" Value="100" />
+                    <Setter Target="VolumeRegion.Spacing" Value="8" />
+                </VisualState.Setters>
+            </VisualState>
+
+            <VisualState x:Name="Wide">
+                <VisualState.Setters>
+                    <Setter Target="LeftColumn.Width" Value="*" />
+                    <Setter Target="CenterColumn.Width" Value="*" />
+                    <Setter Target="RightColumn.Width" Value="*" />
+                    <Setter Target="PlayerLayout.ColumnSpacing" Value="18" />
+                    <Setter Target="TrackCoverColumn.Width" Value="58" />
+                    <Setter Target="CoverButton.Visibility" Value="Visible" />
+                    <Setter Target="FavoriteButton.Visibility" Value="Visible" />
+                    <Setter Target="SubtitleText.Visibility" Value="Visible" />
+                    <Setter Target="ErrorText.Visibility" Value="Visible" />
+                    <Setter Target="ModeButton.Visibility" Value="Visible" />
+                    <Setter Target="QueueButton.Visibility" Value="Visible" />
+                    <Setter Target="VolumeSlider.Visibility" Value="Visible" />
+                    <Setter Target="VolumeSlider.Width" Value="130" />
+                    <Setter Target="VolumeRegion.Spacing" Value="8" />
+                </VisualState.Setters>
+            </VisualState>
+        </VisualStateGroup>
+    </VisualStateManager.VisualStateGroups>
+        <Grid x:Name="PlayerLayout" ColumnSpacing="18">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="LeftColumn" Width="*" />
+                <ColumnDefinition x:Name="CenterColumn" Width="*" />
+                <ColumnDefinition x:Name="RightColumn" Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Button
+                x:Name="TrackRegion"
+                MinWidth="0"
+                Padding="0"
+                Command="{x:Bind FullPlayCommand, Mode=OneWay}"
+                Background="Transparent"
+                BorderThickness="0"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch"
+                ToolTipService.ToolTip="打开全屏播放"
+                AutomationProperties.AutomationId="PlayerTrackRegion">
+                <Grid MinWidth="0" ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="TrackCoverColumn" Width="58" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border
+                        x:Name="CoverButton"
+                        Width="58"
+                        Height="58"
+                        Background="{StaticResource PrismAccentDeepBrush}"
+                        CornerRadius="9">
+                        <Grid>
+                            <FontIcon
+                                Glyph="&#xE8D6;"
+                                FontSize="22"
+                                Foreground="{StaticResource PrismTextSecondaryBrush}" />
+                            <media:StableCoverImage
+                                SourcePath="{Binding CurrentCoverPath}"
+                                Stretch="UniformToFill" />
+                            </Grid>
+                    </Border>
+
+                    <StackPanel
+                        x:Name="TrackTextStack"
+                        Grid.Column="1"
+                        MinWidth="0"
+                        VerticalAlignment="Center"
+                        Spacing="3">
+                        <TextBlock
+                            Text="{Binding CurrentTitle}"
+                            FontSize="15"
+                            FontWeight="SemiBold"
+                            Foreground="{StaticResource PrismTextPrimaryBrush}"
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="NoWrap"
+                            AutomationProperties.AutomationId="PlayerTrackTitle" />
+                        <TextBlock
+                            x:Name="SubtitleText"
+                            Text="{Binding CurrentSubtitle}"
+                            Style="{StaticResource PrismCaptionTextStyle}"
+                            FontSize="13"
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="NoWrap"
+                            AutomationProperties.AutomationId="PlayerTrackSubtitle" />
+                        <Grid x:Name="ErrorText">
+                            <TextBlock
+                                Text="{Binding StatusLabel}"
+                                Style="{StaticResource PrismCaptionTextStyle}"
+                                TextTrimming="CharacterEllipsis"
+                                TextWrapping="NoWrap"
+                                Visibility="{Binding IsLoading, Converter={StaticResource LoadingVisibilityConverter}}" />
+                            <TextBlock
+                                Text="{Binding Error}"
+                                Style="{StaticResource PrismCaptionTextStyle}"
+                                Foreground="{StaticResource PrismDangerBrush}"
+                                TextTrimming="CharacterEllipsis"
+                                TextWrapping="NoWrap"
+                                Visibility="{Binding HasError, Converter={StaticResource LoadingVisibilityConverter}}" />
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </Button>
+
+            <Grid
+                x:Name="CenterRegion"
+                Grid.Column="1"
+                MinWidth="0"
+                VerticalAlignment="Center"
+                AutomationProperties.AutomationId="PlayerCenterRegion">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel
+                    x:Name="TransportControls"
+                    Grid.Row="0"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Center"
+                    Spacing="8"
+                    AutomationProperties.AutomationId="PlayerTransportControls">
+                    <Button
+                        x:Name="FavoriteButton"
+                        Width="36"
+                        Height="36"
+                        Style="{StaticResource PlayerSecondaryButtonStyle}"
+                        Command="{Binding ToggleCurrentFavoriteCommand}"
+                        IsEnabled="{Binding CanFavoriteCurrentTrack}"
+                        ToolTipService.ToolTip="收藏当前歌曲"
+                        AutomationProperties.AutomationId="PlayerFavoriteButton">
+                        <FontIcon
+                            Glyph="{Binding CurrentFavoriteGlyph}"
+                            FontSize="16"
+                            AutomationProperties.AutomationId="PlayerFavoriteIcon" />
+                    </Button>
+                    <Button
+                        x:Name="ModeButton"
+                        Width="36"
+                        Height="36"
+                        Command="{Binding CycleModeCommand}"
+                        Style="{StaticResource PlayerSecondaryButtonStyle}"
+                        ToolTipService.ToolTip="{Binding ModeLabel}"
+                        AutomationProperties.AutomationId="PlayerModeButton">
+                        <FontIcon Glyph="&#xE8EE;" FontSize="15" />
+                    </Button>
+                    <Button
+                        x:Name="PreviousButton"
+                        Width="40"
+                        Height="40"
+                        Command="{Binding PreviousCommand}"
+                        Style="{StaticResource PlayerSecondaryButtonStyle}"
+                        ToolTipService.ToolTip="上一首"
+                        AutomationProperties.AutomationId="PlayerPreviousButton">
+                        <FontIcon Glyph="&#xE892;" FontSize="16" />
+                    </Button>
+                    <Button
+                        x:Name="PlayPauseButton"
+                        Width="52"
+                        Height="52"
+                        Padding="0"
+                        Command="{Binding TogglePlayPauseCommand}"
+                        Background="{StaticResource PrismAccentBrush}"
+                        BorderThickness="0"
+                        CornerRadius="26"
+                        ToolTipService.ToolTip="播放或暂停"
+                        AutomationProperties.AutomationId="PlayerPlayPauseButton">
+                        <Grid>
+                            <FontIcon
+                                Glyph="{Binding ToggleGlyph}"
+                                FontSize="20"
+                                Visibility="{Binding IsLoading, Converter={StaticResource NotLoadingVisibilityConverter}}" />
+                            <ProgressRing
+                                Width="22"
+                                Height="22"
+                                IsActive="{Binding IsLoading}"
+                                Visibility="{Binding IsLoading, Converter={StaticResource LoadingVisibilityConverter}}" />
+                        </Grid>
+                    </Button>
+                    <Button
+                        x:Name="NextButton"
+                        Width="40"
+                        Height="40"
+                        Command="{Binding NextCommand}"
+                        Style="{StaticResource PlayerSecondaryButtonStyle}"
+                        ToolTipService.ToolTip="下一首"
+                        AutomationProperties.AutomationId="PlayerNextButton">
+                        <FontIcon Glyph="&#xE893;" FontSize="16" />
+                    </Button>
+                    <Button
+                        x:Name="QueueButton"
+                        Width="36"
+                        Height="36"
+                        Command="{x:Bind QueueCommand, Mode=OneWay}"
+                        Style="{StaticResource PlayerSecondaryButtonStyle}"
+                        ToolTipService.ToolTip="播放队列"
+                        AutomationProperties.AutomationId="PlayerQueueButton">
+                        <FontIcon Glyph="&#xE8FD;" FontSize="16" />
+                    </Button>
+                </StackPanel>
+
+                <Grid
+                    Grid.Row="2"
+                    MinWidth="0"
+                    ColumnSpacing="10"
+                    AutomationProperties.AutomationId="PlayerProgressRow">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        MinWidth="42"
+                        Text="{Binding PositionLabel}"
+                        Style="{StaticResource PrismCaptionTextStyle}"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        TextAlignment="Right"
+                        AutomationProperties.AutomationId="PlayerPositionLabel" />
+                    <Slider
+                        x:Name="SeekSlider"
+                        Grid.Column="1"
+                        MinWidth="56"
+                        Minimum="0"
+                        Maximum="{Binding DurationSeconds}"
+                        Value="{Binding PositionSeconds, Mode=OneWay}"
+                        PointerCaptureLost="SeekSlider_PointerCaptureLost"
+                        KeyUp="SeekSlider_KeyUp"
+                        AutomationProperties.AutomationId="PlayerSeekSlider" />
+                    <TextBlock
+                        Grid.Column="2"
+                        MinWidth="42"
+                        Text="{Binding DurationLabel}"
+                        Style="{StaticResource PrismCaptionTextStyle}"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="PlayerDurationLabel" />
+                </Grid>
+            </Grid>
+
+            <StackPanel
+                x:Name="VolumeRegion"
+                Grid.Column="2"
+                Orientation="Horizontal"
+                Spacing="8"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                AutomationProperties.AutomationId="PlayerVolumeRegion">
+                <FontIcon
+                    Glyph="&#xE995;"
+                    FontSize="16"
+                    Foreground="{StaticResource PrismTextSecondaryBrush}" />
+                <Slider
+                    x:Name="VolumeSlider"
+                    Width="130"
+                    Minimum="0"
+                    Maximum="1"
+                    Value="{Binding Volume, Mode=TwoWay}"
+                    ValueChanged="VolumeSlider_ValueChanged"
+                    AutomationProperties.AutomationId="PlayerVolumeSlider" />
+            </StackPanel>
+
+        </Grid>
+    </Border>
+</UserControl>

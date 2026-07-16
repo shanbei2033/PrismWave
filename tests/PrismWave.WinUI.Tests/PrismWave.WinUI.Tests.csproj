@@ -24,6 +24,8 @@
     <Compile Include="../../src/PrismWave.WinUI/Models/HomeModels.cs" Link="Models/HomeModels.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/CoverModels.cs" Link="Models/CoverModels.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/OnlinePlaybackResolution.cs" Link="Models/OnlinePlaybackResolution.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/OnlinePlaybackFailure.cs" Link="Models/OnlinePlaybackFailure.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/OnlineAccountModels.cs" Link="Models/OnlineAccountModels.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/OnlineProviderTrackModel.cs" Link="Models/OnlineProviderTrackModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/PlaybackMode.cs" Link="Models/PlaybackMode.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/PlaybackStatus.cs" Link="Models/PlaybackStatus.cs" />
@@ -32,7 +34,13 @@
     <Compile Include="../../src/PrismWave.WinUI/Models/WindowsDsdDeviceModel.cs" Link="Models/WindowsDsdDeviceModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/StartupLog.cs" Link="Infrastructure/StartupLog.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/WindowLaunchSize.cs" Link="Infrastructure/WindowLaunchSize.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Audio/PlaybackHeaderLogSanitizer.cs" Link="Infrastructure/PlaybackHeaderLogSanitizer.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Online/OnlineLoginDialogCoordinator.cs" Link="Infrastructure/OnlineLoginDialogCoordinator.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Lyrics/LyricsSceneController.cs" Link="Infrastructure/LyricsSceneController.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Animation/MotionPolicy.cs" Link="Infrastructure/MotionPolicy.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Navigation/CoverNavigationCoordinator.cs" Link="Infrastructure/Navigation/CoverNavigationCoordinator.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Navigation/ShellNavigationRequest.cs" Link="Infrastructure/Navigation/ShellNavigationRequest.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Navigation/BackNavigationPageCache.cs" Link="Infrastructure/Navigation/BackNavigationPageCache.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Persistence/FlutterPreferencesMigrationService.cs" Link="Infrastructure/FlutterPreferencesMigrationService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/ISettingsService.cs" Link="Contracts/ISettingsService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IHitsService.cs" Link="Contracts/IHitsService.cs" />
@@ -40,7 +48,10 @@
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/ICoverService.cs" Link="Contracts/ICoverService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlinePlaybackResolver.cs" Link="Contracts/IOnlinePlaybackResolver.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlineProviderService.cs" Link="Contracts/IOnlineProviderService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlineAccountService.cs" Link="Contracts/IOnlineAccountService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlineMusicProviderAdapter.cs" Link="Contracts/IOnlineMusicProviderAdapter.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlineSearchService.cs" Link="Contracts/IOnlineSearchService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlineHomeService.cs" Link="Contracts/IOnlineHomeService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/ILibraryService.cs" Link="Contracts/ILibraryService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/PlaceholderContracts.cs" Link="Contracts/PlaceholderContracts.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/LyricsParser.cs" Link="Services/LyricsParser.cs" />
@@ -50,12 +61,21 @@
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/CoverService.cs" Link="Services/CoverService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/OnlinePlaybackResolver.cs" Link="Services/OnlinePlaybackResolver.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/OnlineProviderService.cs" Link="Services/OnlineProviderService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/OnlineProviderHealthTracker.cs" Link="Services/OnlineProviderHealthTracker.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/OnlineProviderLogSanitizer.cs" Link="Services/OnlineProviderLogSanitizer.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/BuiltInOnlineMusicProviderAdapter.cs" Link="Services/BuiltInOnlineMusicProviderAdapter.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/OnlineAccountService.cs" Link="Services/OnlineAccountService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/RemotePlaybackRecoveryPolicy.cs" Link="Services/RemotePlaybackRecoveryPolicy.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/PlaybackLoadEventGuard.cs" Link="Services/PlaybackLoadEventGuard.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/SampleOnlineSearchService.cs" Link="Services/OnlineSearchService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/SettingsService.cs" Link="Services/SettingsService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Player/PlaybackViewModel.cs" Link="ViewModels/PlaybackViewModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/ViewModels/Player/LyricsTimeline.cs" Link="ViewModels/LyricsTimeline.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Player/LyricsSearchViewModel.cs" Link="ViewModels/LyricsSearchViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Player/CoverSearchViewModel.cs" Link="ViewModels/CoverSearchViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Shell/ShellViewModel.cs" Link="ViewModels/ShellViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Hits/HitsStatusViewModel.cs" Link="ViewModels/HitsStatusViewModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/ViewModels/Home/HomeViewModel.cs" Link="ViewModels/HomeViewModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/ViewModels/Settings/OnlineAccountSettingsViewModel.cs" Link="ViewModels/OnlineAccountSettingsViewModel.cs" />
   </ItemGroup>
 </Project>

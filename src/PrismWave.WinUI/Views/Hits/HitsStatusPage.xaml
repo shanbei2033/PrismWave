@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="PrismWave_WinUI.Views.Hits.HitsStatusPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Padding="{StaticResource PrismPagePadding}" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid ColumnSpacing="22">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="132" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="8" VerticalAlignment="Center">
+                <TextBlock
+                    Text="HITS"
+                    FontFamily="Segoe UI Variable Display"
+                    FontSize="40"
+                    FontWeight="Bold" />
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="{Binding StatusLabel}" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                    <TextBlock Text="{Binding CacheLabel}" Style="{StaticResource PrismCaptionTextStyle}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding EditionDate}" Style="{StaticResource PrismCaptionTextStyle}" VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock
+                    Text="{Binding Description}"
+                    MaxWidth="720"
+                    TextWrapping="Wrap"
+                    Foreground="{StaticResource PrismTextSecondaryBrush}" />
+                <TextBlock Text="{Binding NextTrackLabel}" Style="{StaticResource PrismCaptionTextStyle}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button
+                        Command="{Binding PrepareHitsSessionCommand}"
+                        IsEnabled="{Binding IsAvailable}"
+                        Background="{StaticResource PrismAccentBrush}"
+                        ToolTipService.ToolTip="Start the live HITS session">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <FontIcon Glyph="&#xE768;" FontSize="15" />
+                            <TextBlock Text="Listen live" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding RefreshCommand}" ToolTipService.ToolTip="Refresh HITS schedule">
+                        <FontIcon Glyph="&#xE72C;" FontSize="15" />
+                    </Button>
+                    <ProgressRing Width="22" Height="22" IsActive="{Binding IsRefreshing}" />
+                </StackPanel>
+            </StackPanel>
+
+            <Border
+                Grid.Column="1"
+                Width="132"
+                Height="132"
+                CornerRadius="8"
+                Background="{StaticResource PrismSurfaceStrongBrush}"
+                BorderBrush="{StaticResource PrismCardBorderBrush}"
+                BorderThickness="1">
+                <Grid>
+                    <FontIcon Glyph="&#xE8D6;" FontSize="42" Foreground="{StaticResource PrismTextMutedBrush}" />
+                    <Image
+                        Source="{Binding CurrentTrack.Track.CoverPath, Converter={StaticResource CoverImageSourceConverter}}"
+                        Stretch="UniformToFill" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="1" Style="{StaticResource PrismPanelBorderStyle}" Padding="12">
+            <Grid RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid Margin="6,2" ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Schedule" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                        <TextBlock Text="{Binding CurrentTrackTitle}" Style="{StaticResource PrismCaptionTextStyle}" />
+                    </StackPanel>
+                    <TextBlock
+                        Grid.Column="1"
+                        Text="{Binding PlaybackOffsetLabel}"
+                        Style="{StaticResource PrismCaptionTextStyle}"
+                        VerticalAlignment="Center" />
+                </Grid>
+
+                <ListView
+                    Grid.Row="1"
+                    ItemsSource="{Binding Tracks}"
+                    SelectionMode="None"
+                    IsItemClickEnabled="True"
+                    ItemClick="Tracks_ItemClick"
+                    HorizontalContentAlignment="Stretch">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="MinHeight" Value="64" />
+                            <Setter Property="Padding" Value="8,6" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="52" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="146" />
+                                    <ColumnDefinition Width="90" />
+                                </Grid.ColumnDefinitions>
+                                <Border Width="52" Height="52" CornerRadius="8" Background="{StaticResource PrismSurfaceStrongBrush}">
+                                    <Image Source="{Binding Track.CoverPath, Converter={StaticResource CoverImageSourceConverter}}" Stretch="UniformToFill" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Track.Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Track.Artist}" Style="{StaticResource PrismCaptionTextStyle}" />
+                                </StackPanel>
+                                <TextBlock
+                                    Grid.Column="2"
+                                    Text="{Binding AirTimeLabel}"
+                                    Style="{StaticResource PrismCaptionTextStyle}"
+                                    VerticalAlignment="Center" />
+                                <TextBlock
+                                    Grid.Column="3"
+                                    Text="{Binding Track.Provider}"
+                                    Style="{StaticResource PrismCaptionTextStyle}"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+        </Border>
+    </Grid>
+</Page>

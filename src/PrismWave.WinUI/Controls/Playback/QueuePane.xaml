@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="PrismWave_WinUI.Controls.Playback.QueuePane"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:PrismWave_WinUI.Converters">
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="EmptyQueueVisibilityConverter" Invert="True" />
+    </UserControl.Resources>
+    <Border
+        Width="{StaticResource PrismQueuePaneWidth}"
+        Margin="0,12,18,12"
+        Padding="18"
+        HorizontalAlignment="Right"
+        Background="{StaticResource PrismSurfaceElevatedBrush}"
+        BorderBrush="{StaticResource PrismCardBorderBrush}"
+        BorderThickness="1"
+        CornerRadius="10">
+        <Grid RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid>
+                <StackPanel>
+                    <TextBlock Text="Playback Queue" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                    <TextBlock Text="{Binding ModeLabel}" Style="{StaticResource PrismCaptionTextStyle}" />
+                </StackPanel>
+                <Button HorizontalAlignment="Right" Command="{Binding ClearQueueCommand}" ToolTipService.ToolTip="Clear queue">
+                    <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                </Button>
+            </Grid>
+
+            <Grid Grid.Row="1">
+            <ListView
+                ItemsSource="{Binding Queue}"
+                SelectionMode="None"
+                IsItemClickEnabled="True"
+                ItemClick="Queue_ItemClick"
+                CanDragItems="True"
+                CanReorderItems="True"
+                AllowDrop="True"
+                DragItemsCompleted="Queue_DragItemsCompleted">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Padding="8" ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="42" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="54" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="42" Height="42" CornerRadius="6" Background="{StaticResource PrismSurfaceStrongBrush}">
+                                <FontIcon Glyph="&#xE8D6;" FontSize="16" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Artist}" Style="{StaticResource PrismCaptionTextStyle}" />
+                            </StackPanel>
+                            <Button Grid.Column="2" Tag="{Binding}" Click="Remove_Click" ToolTipService.ToolTip="Remove from queue">
+                                <FontIcon Glyph="&#xE711;" FontSize="13" />
+                            </Button>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" Visibility="{Binding HasQueue, Converter={StaticResource EmptyQueueVisibilityConverter}}">
+                <FontIcon Glyph="&#xE8FD;" FontSize="30" Foreground="{StaticResource PrismTextSecondaryBrush}" />
+                <TextBlock Text="Queue is empty" Style="{StaticResource PrismCaptionTextStyle}" />
+            </StackPanel>
+            </Grid>
+
+            <TextBlock Grid.Row="2" Text="Drag tracks to change playback order." TextWrapping="Wrap" Style="{StaticResource PrismCaptionTextStyle}" />
+        </Grid>
+    </Border>
+</UserControl>

@@ -35,17 +35,19 @@ public readonly record struct CoverNavigationIntent(
     string? Route = null,
     string? RollbackRoute = null,
     double HostWidth = 0,
-    CoverTransitionCompletionReason CompletionReason = CoverTransitionCompletionReason.None);
+    CoverTransitionCompletionReason CompletionReason = CoverTransitionCompletionReason.None,
+    ShellNavigationKind NavigationKind = ShellNavigationKind.Initial);
 
 public sealed class CoverNavigationCoordinator
 {
-    private string? _latestRoute;
+    private ShellNavigationRequest? _latestRequest;
     private bool _incomingReady;
 
     public bool IsLoaded { get; private set; }
     public long Revision { get; private set; }
     public string? CurrentRoute { get; private set; }
-    public string? ActiveRoute { get; private set; }
+    public ShellNavigationRequest? ActiveRequest { get; private set; }
+    public string? ActiveRoute => ActiveRequest?.Route;
     public CoverNavigationState State { get; private set; } = CoverNavigationState.Unloaded;
 
     public void Load()
@@ -64,16 +66,16 @@ public sealed class CoverNavigationCoordinator
         Revision++;
         IsLoaded = false;
         CurrentRoute = null;
-        ActiveRoute = null;
-        _latestRoute = null;
+        ActiveRequest = null;
+        _latestRequest = null;
         _incomingReady = false;
         State = CoverNavigationState.Unloaded;
         return new CoverNavigationIntent(CoverNavigationIntentKind.Reset, Revision);
     }
 
-    public CoverNavigationIntent RequestNavigation(string route)
+    public CoverNavigationIntent RequestNavigation(ShellNavigationRequest request)
     {
-        if (!IsLoaded || string.IsNullOrWhiteSpace(route))
+        if (!IsLoaded || string.IsNullOrWhiteSpace(request.Route))
         {
             return default;
         }
@@ -81,38 +83,38 @@ public sealed class CoverNavigationCoordinator
         switch (State)
         {
             case CoverNavigationState.Idle:
-                if (string.Equals(route, CurrentRoute, StringComparison.Ordinal))
+                if (string.Equals(request.Route, CurrentRoute, StringComparison.Ordinal))
                 {
                     return default;
                 }
 
-                return BeginNavigation(route, CurrentRoute is null);
+                return BeginNavigation(request, CurrentRoute is null);
 
             case CoverNavigationState.Initializing:
-                return string.Equals(route, ActiveRoute, StringComparison.Ordinal)
+                return string.Equals(request.Route, ActiveRoute, StringComparison.Ordinal)
                     ? default
-                    : BeginNavigation(route, initial: true);
+                    : BeginNavigation(request, initial: true);
 
             case CoverNavigationState.Preparing:
-                return string.Equals(route, ActiveRoute, StringComparison.Ordinal)
+                return string.Equals(request.Route, ActiveRoute, StringComparison.Ordinal)
                     ? default
-                    : BeginNavigation(route, initial: false);
+                    : BeginNavigation(request, initial: false);
 
             case CoverNavigationState.Animating:
-                if (string.Equals(route, ActiveRoute, StringComparison.Ordinal))
+                if (string.Equals(request.Route, ActiveRoute, StringComparison.Ordinal))
                 {
-                    _latestRoute = null;
+                    _latestRequest = null;
                     return default;
                 }
 
-                _latestRoute = route;
+                _latestRequest = request;
                 State = CoverNavigationState.Completing;
                 return CompleteTransition(CoverTransitionCompletionReason.Superseded);
 
             case CoverNavigationState.Completing:
-                _latestRoute = string.Equals(route, ActiveRoute, StringComparison.Ordinal)
+                _latestRequest = string.Equals(request.Route, ActiveRoute, StringComparison.Ordinal)
                     ? null
-                    : route;
+                    : request;
                 return default;
 
             default:
@@ -127,13 +129,15 @@ public sealed class CoverNavigationCoordinator
             return default;
         }
 
+        var completedRequest = ActiveRequest;
         CurrentRoute = ActiveRoute;
-        ActiveRoute = null;
+        ActiveRequest = null;
         State = CoverNavigationState.Idle;
         return new CoverNavigationIntent(
             CoverNavigationIntentKind.RestoreCurrent,
             revision,
-            CurrentRoute);
+            CurrentRoute,
+            NavigationKind: completedRequest?.Kind ?? ShellNavigationKind.Initial);
     }
 
     public CoverNavigationIntent IncomingReady(long revision, double hostWidth)
@@ -188,23 +192,26 @@ public sealed class CoverNavigationCoordinator
             return default;
         }
 
+        var completedRequest = ActiveRequest;
         CurrentRoute = ActiveRoute;
-        ActiveRoute = null;
+        ActiveRequest = null;
         _incomingReady = false;
 
-        var latestRoute = _latestRoute;
-        _latestRoute = null;
-        if (!string.IsNullOrWhiteSpace(latestRoute) &&
-            !string.Equals(latestRoute, CurrentRoute, StringComparison.Ordinal))
+        var latestRequest = _latestRequest;
+        _latestRequest = null;
+        if (latestRequest is { } request &&
+            !string.IsNullOrWhiteSpace(request.Route) &&
+            !string.Equals(request.Route, CurrentRoute, StringComparison.Ordinal))
         {
-            return BeginNavigation(latestRoute, initial: false);
+            return BeginNavigation(request, initial: false);
         }
 
         State = CoverNavigationState.Idle;
         return new CoverNavigationIntent(
             CoverNavigationIntentKind.RestoreCurrent,
             revision,
-            CurrentRoute);
+            CurrentRoute,
+            NavigationKind: completedRequest?.Kind ?? ShellNavigationKind.Initial);
     }
 
     public CoverNavigationIntent NavigationFailed(long revision)
@@ -215,24 +222,26 @@ public sealed class CoverNavigationCoordinator
             return default;
         }
 
+        var failedRequest = ActiveRequest;
         var rollbackRoute = CurrentRoute;
         Revision++;
-        ActiveRoute = null;
-        _latestRoute = null;
+        ActiveRequest = null;
+        _latestRequest = null;
         _incomingReady = false;
         State = CoverNavigationState.Idle;
         return new CoverNavigationIntent(
             CoverNavigationIntentKind.RestoreCurrent,
             revision,
             rollbackRoute,
-            rollbackRoute);
+            rollbackRoute,
+            NavigationKind: failedRequest?.Kind ?? ShellNavigationKind.Initial);
     }
 
-    private CoverNavigationIntent BeginNavigation(string route, bool initial)
+    private CoverNavigationIntent BeginNavigation(ShellNavigationRequest request, bool initial)
     {
         Revision++;
-        ActiveRoute = route;
-        _latestRoute = null;
+        ActiveRequest = request;
+        _latestRequest = null;
         _incomingReady = false;
         State = initial
             ? CoverNavigationState.Initializing
@@ -242,7 +251,8 @@ public sealed class CoverNavigationCoordinator
                 ? CoverNavigationIntentKind.NavigateInitial
                 : CoverNavigationIntentKind.PrepareIncoming,
             Revision,
-            route);
+            request.Route,
+            NavigationKind: request.Kind);
     }
 
     private CoverNavigationIntent StartAnimation(double hostWidth)
@@ -252,7 +262,8 @@ public sealed class CoverNavigationCoordinator
             CoverNavigationIntentKind.StartAnimation,
             Revision,
             ActiveRoute,
-            HostWidth: hostWidth);
+            HostWidth: hostWidth,
+            NavigationKind: ActiveRequest?.Kind ?? ShellNavigationKind.Initial);
     }
 
     private CoverNavigationIntent CompleteTransition(CoverTransitionCompletionReason reason) =>
@@ -260,7 +271,8 @@ public sealed class CoverNavigationCoordinator
             CoverNavigationIntentKind.CompleteTransition,
             Revision,
             ActiveRoute,
-            CompletionReason: reason);
+            CompletionReason: reason,
+            NavigationKind: ActiveRequest?.Kind ?? ShellNavigationKind.Initial);
 
     private bool IsCurrent(long revision, CoverNavigationState state) =>
         IsLoaded && revision == Revision && State == state;

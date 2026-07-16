@@ -90,9 +90,12 @@
                     <Grid.Clip>
                         <RectangleGeometry x:Name="PageTransitionClip" />
                     </Grid.Clip>
-                    <Frame x:Name="PrimaryContentFrame" />
+                    <Frame
+                        x:Name="PrimaryContentFrame"
+                        Background="{StaticResource PrismBackgroundBrush}" />
                     <Frame
                         x:Name="SecondaryContentFrame"
+                        Background="{StaticResource PrismBackgroundBrush}"
                         Visibility="Collapsed"
                         IsHitTestVisible="False" />
                 </Grid>
@@ -115,10 +118,26 @@
             Opacity="0" />
 
         <playback:BottomPlayerBar
+            x:Name="ShellBottomPlayerBar"
             Grid.Row="1"
             Margin="8,16,8,8"
             DataContext="{Binding Playback}"
             FullPlayCommand="{Binding DataContext.OpenFullPlayCommand, ElementName=ShellRoot}"
             QueueCommand="{Binding DataContext.ToggleQueuePaneCommand, ElementName=ShellRoot}" />
+
+        <Grid
+            x:Name="FullPlayOverlay"
+            Grid.RowSpan="2"
+            Margin="0"
+            Background="Transparent"
+            Visibility="Collapsed"
+            Opacity="0"
+            IsHitTestVisible="False"
+            AutomationProperties.AutomationId="FullPlayOverlay">
+            <Frame
+                x:Name="FullPlayFrame"
+                Background="Transparent"
+                IsTabStop="False" />
+        </Grid>
     </Grid>
 </Page>

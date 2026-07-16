@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="PrismWave_WinUI.Views.Dialogs.OnlineLoginDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Scan to connect"
+    CloseButtonText="Cancel"
+    DefaultButton="None">
+    <Grid Width="340" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border
+            Width="260"
+            Height="260"
+            Padding="12"
+            HorizontalAlignment="Center"
+            Background="White"
+            CornerRadius="12">
+            <Grid>
+                <ProgressRing x:Name="QrProgress" Width="32" Height="32" IsActive="True" />
+                <Image x:Name="QrImage" Stretch="Uniform" />
+            </Grid>
+        </Border>
+
+        <StackPanel Grid.Row="1" Spacing="5" HorizontalAlignment="Center">
+            <TextBlock x:Name="ProviderText" FontWeight="SemiBold" HorizontalAlignment="Center" />
+            <TextBlock
+                x:Name="StatusText"
+                Text="Creating a secure sign-in code…"
+                TextAlignment="Center"
+                TextWrapping="Wrap"
+                Style="{StaticResource PrismCaptionTextStyle}" />
+        </StackPanel>
+
+        <Button
+            x:Name="RefreshQrButton"
+            Grid.Row="2"
+            Content="Refresh QR code"
+            HorizontalAlignment="Center"
+            Visibility="Collapsed"
+            Click="RefreshQr_Click" />
+    </Grid>
+</ContentDialog>

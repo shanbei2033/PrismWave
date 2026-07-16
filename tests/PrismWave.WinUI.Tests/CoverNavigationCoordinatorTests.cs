@@ -10,7 +10,7 @@ public sealed class CoverNavigationCoordinatorTests
     {
         var coordinator = CreateLoadedCoordinator();
 
-        var request = coordinator.RequestNavigation("Home");
+        var request = Request(coordinator, "Home", ShellNavigationKind.Initial);
 
         Assert.Equal(CoverNavigationIntentKind.NavigateInitial, request.Kind);
         Assert.Equal("Home", request.Route);
@@ -28,7 +28,7 @@ public sealed class CoverNavigationCoordinatorTests
         var coordinator = CreateCoordinatorWithCurrentRoute("Home");
         var revision = coordinator.Revision;
 
-        var intent = coordinator.RequestNavigation("Home");
+        var intent = Request(coordinator, "Home");
 
         Assert.Equal(CoverNavigationIntentKind.None, intent.Kind);
         Assert.Equal(revision, coordinator.Revision);
@@ -39,9 +39,9 @@ public sealed class CoverNavigationCoordinatorTests
     public void SameTarget_WhenActive_DoesNotRestartPreparation()
     {
         var coordinator = CreateCoordinatorWithCurrentRoute("Home");
-        var preparation = coordinator.RequestNavigation("Search");
+        var preparation = Request(coordinator, "Search");
 
-        var repeated = coordinator.RequestNavigation("Search");
+        var repeated = Request(coordinator, "Search");
 
         Assert.Equal(CoverNavigationIntentKind.None, repeated.Kind);
         Assert.Equal(preparation.Revision, coordinator.Revision);
@@ -53,13 +53,13 @@ public sealed class CoverNavigationCoordinatorTests
     public void SupersedingAnimation_KeepsOnlyLatestTarget()
     {
         var coordinator = CreateCoordinatorWithCurrentRoute("Home");
-        var search = coordinator.RequestNavigation("Search");
+        var search = Request(coordinator, "Search");
         Assert.Equal(
             CoverNavigationIntentKind.StartAnimation,
             coordinator.IncomingReady(search.Revision, 1200).Kind);
 
-        var completion = coordinator.RequestNavigation("Albums");
-        var coalesced = coordinator.RequestNavigation("Artists");
+        var completion = Request(coordinator, "Albums");
+        var coalesced = Request(coordinator, "Artists");
 
         Assert.Equal(CoverNavigationIntentKind.CompleteTransition, completion.Kind);
         Assert.Equal(CoverTransitionCompletionReason.Superseded, completion.CompletionReason);
@@ -74,11 +74,31 @@ public sealed class CoverNavigationCoordinatorTests
     }
 
     [Fact]
+    public void SupersedingAnimation_PreservesLatestNavigationKind()
+    {
+        var coordinator = CreateCoordinatorWithCurrentRoute("Home");
+        var search = coordinator.RequestNavigation(
+            new ShellNavigationRequest("Search", ShellNavigationKind.Primary));
+        coordinator.IncomingReady(search.Revision, 1200);
+
+        coordinator.RequestNavigation(
+            new ShellNavigationRequest("AlbumDetail", ShellNavigationKind.Nested));
+        coordinator.RequestNavigation(
+            new ShellNavigationRequest("Home", ShellNavigationKind.Back));
+
+        var latest = coordinator.TransitionVisualCompleted(search.Revision);
+
+        Assert.Equal(CoverNavigationIntentKind.PrepareIncoming, latest.Kind);
+        Assert.Equal("Home", latest.Route);
+        Assert.Equal(ShellNavigationKind.Back, latest.NavigationKind);
+    }
+
+    [Fact]
     public void StaleRevisionCallbacks_DoNotChangeCurrentPreparation()
     {
         var coordinator = CreateCoordinatorWithCurrentRoute("Home");
-        var stale = coordinator.RequestNavigation("Search");
-        var current = coordinator.RequestNavigation("Albums");
+        var stale = Request(coordinator, "Search");
+        var current = Request(coordinator, "Albums");
 
         var staleReady = coordinator.IncomingReady(stale.Revision, 1200);
         var staleFailure = coordinator.NavigationFailed(stale.Revision);
@@ -95,7 +115,7 @@ public sealed class CoverNavigationCoordinatorTests
     public void ZeroWidth_KeepsReadyIncomingPagePending()
     {
         var coordinator = CreateCoordinatorWithCurrentRoute("Home");
-        var preparation = coordinator.RequestNavigation("Search");
+        var preparation = Request(coordinator, "Search");
 
         var pending = coordinator.IncomingReady(preparation.Revision, 0);
 
@@ -113,7 +133,7 @@ public sealed class CoverNavigationCoordinatorTests
     public void Unload_InvalidatesCallbacksAndResetsNavigation()
     {
         var coordinator = CreateCoordinatorWithCurrentRoute("Home");
-        var preparation = coordinator.RequestNavigation("Search");
+        var preparation = Request(coordinator, "Search");
 
         var reset = coordinator.Unload();
 
@@ -123,17 +143,17 @@ public sealed class CoverNavigationCoordinatorTests
         Assert.Null(coordinator.ActiveRoute);
         Assert.Equal(CoverNavigationState.Unloaded, coordinator.State);
         Assert.Equal(CoverNavigationIntentKind.None, coordinator.IncomingReady(preparation.Revision, 1200).Kind);
-        Assert.Equal(CoverNavigationIntentKind.None, coordinator.RequestNavigation("Library").Kind);
+        Assert.Equal(CoverNavigationIntentKind.None, Request(coordinator, "Library").Kind);
 
         coordinator.Load();
-        Assert.Equal(CoverNavigationIntentKind.NavigateInitial, coordinator.RequestNavigation("Library").Kind);
+        Assert.Equal(CoverNavigationIntentKind.NavigateInitial, Request(coordinator, "Library", ShellNavigationKind.Initial).Kind);
     }
 
     [Fact]
     public void ResizeDuringAnimation_RequestsImmediateCompletion()
     {
         var coordinator = CreateCoordinatorWithCurrentRoute("Home");
-        var preparation = coordinator.RequestNavigation("Search");
+        var preparation = Request(coordinator, "Search");
         coordinator.IncomingReady(preparation.Revision, 1280);
 
         var completion = coordinator.HostWidthChanged(1600);
@@ -147,7 +167,7 @@ public sealed class CoverNavigationCoordinatorTests
     public void FailedNavigation_RollsBackToCurrentRoute()
     {
         var coordinator = CreateCoordinatorWithCurrentRoute("Home");
-        var preparation = coordinator.RequestNavigation("Search");
+        var preparation = Request(coordinator, "Search");
 
         var rollback = coordinator.NavigationFailed(preparation.Revision);
 
@@ -168,8 +188,14 @@ public sealed class CoverNavigationCoordinatorTests
     private static CoverNavigationCoordinator CreateCoordinatorWithCurrentRoute(string route)
     {
         var coordinator = CreateLoadedCoordinator();
-        var initial = coordinator.RequestNavigation(route);
+        var initial = Request(coordinator, route, ShellNavigationKind.Initial);
         coordinator.NavigationSucceeded(initial.Revision);
         return coordinator;
     }
+
+    private static CoverNavigationIntent Request(
+        CoverNavigationCoordinator coordinator,
+        string route,
+        ShellNavigationKind kind = ShellNavigationKind.Primary) =>
+        coordinator.RequestNavigation(new ShellNavigationRequest(route, kind));
 }

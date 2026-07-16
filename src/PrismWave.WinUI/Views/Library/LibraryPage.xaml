@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="PrismWave_WinUI.Views.Library.LibraryPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:common="using:PrismWave_WinUI.Controls.Common"
+    xmlns:converters="using:PrismWave_WinUI.Converters">
+    <Page.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    </Page.Resources>
+    <Grid Padding="{StaticResource PrismPagePadding}" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid>
+            <StackPanel>
+                <TextBlock Text="Local Music" Style="{StaticResource PrismPageTitleTextStyle}" />
+                <TextBlock Text="Your folders, metadata, favorites and playback queue." Style="{StaticResource PrismCaptionTextStyle}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                <common:MetricPill Glyph="&#xE8D4;" Label="Tracks" Value="{Binding TrackCount}" />
+                <common:MetricPill Glyph="&#xE8B7;" Label="Folders" Value="{Binding FolderCount}" />
+                <common:MetricPill Glyph="&#xEB51;" Label="Favorites" Value="{Binding FavoriteCount}" />
+                <ProgressRing Width="20" Height="20" IsActive="{Binding IsScanning}" Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibilityConverter}}" />
+                <Button Click="AddFolder_Click" ToolTipService.ToolTip="Add music folder">
+                    <StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE8B7;" FontSize="14" /><TextBlock Text="Add folder" /></StackPanel>
+                </Button>
+                <Button Command="{Binding RescanCommand}" ToolTipService.ToolTip="Rescan all folders">
+                    <StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE895;" FontSize="14" /><TextBlock Text="Rescan" /></StackPanel>
+                </Button>
+                <Button Command="{Binding PlayAllCommand}" ToolTipService.ToolTip="Play all visible tracks">
+                    <StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE768;" FontSize="14" /><TextBlock Text="Play all" /></StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+        <TextBox Grid.Row="1" PlaceholderText="Search track / artist / album" Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        <InfoBar Grid.Row="2" IsOpen="{Binding HasError}" Severity="Error" Title="Library scan failed" Message="{Binding Error}" />
+        <Grid Grid.Row="3" ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Style="{StaticResource PrismPanelBorderStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Folders" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                    <ListView ItemsSource="{Binding Folders}" MaxHeight="520">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnSpacing="8" Padding="2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" Style="{StaticResource PrismCaptionTextStyle}" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Tag="{Binding}" Click="RemoveFolder_Click" ToolTipService.ToolTip="Remove folder">
+                                        <FontIcon Glyph="&#xE711;" FontSize="14" />
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
+        <Border Grid.Column="1" Style="{StaticResource PrismPanelBorderStyle}">
+            <Grid>
+            <ListView
+                x:Name="TracksList"
+                ItemsSource="{Binding VisibleTracks}"
+                SelectionMode="None"
+                IsItemClickEnabled="True"
+                ItemClick="Tracks_ItemClick"
+                CanDragItems="True"
+                CanReorderItems="True"
+                AllowDrop="True"
+                DragItemsCompleted="Tracks_DragItemsCompleted">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Padding="8" ColumnSpacing="12">
+                            <Grid.ContextFlyout>
+                                <MenuFlyout>
+                                    <MenuFlyoutItem Text="Track details" Tag="{Binding}" Click="TrackDetails_Click" />
+                                    <MenuFlyoutItem Text="Open file location" Tag="{Binding}" Click="OpenLocation_Click" />
+                                    <MenuFlyoutSeparator />
+                                    <MenuFlyoutItem Text="Remove from library..." Tag="{Binding}" Click="RemoveTrack_Click" />
+                                </MenuFlyout>
+                            </Grid.ContextFlyout>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="52" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="220" />
+                                <ColumnDefinition Width="70" />
+                                <ColumnDefinition Width="44" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="52" Height="52" CornerRadius="8" Background="{StaticResource PrismSurfaceStrongBrush}">
+                                <Image Source="{Binding CoverPath, Converter={StaticResource CoverImageSourceConverter}}" Stretch="UniformToFill" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding Artist}" Style="{StaticResource PrismCaptionTextStyle}" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="2" Text="{Binding Album}" Style="{StaticResource PrismCaptionTextStyle}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="3" Text="{Binding Duration}" Style="{StaticResource PrismCaptionTextStyle}" VerticalAlignment="Center" />
+                            <Button Grid.Column="4" Tag="{Binding}" Click="Favorite_Click" ToolTipService.ToolTip="Toggle favorite">
+                                <FontIcon Glyph="{Binding FavoriteGlyph}" FontSize="15" />
+                            </Button>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="8"
+                Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}">
+                <FontIcon Glyph="&#xE8D6;" FontSize="34" Foreground="{StaticResource PrismTextSecondaryBrush}" />
+                <TextBlock Text="No music found" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                <TextBlock Text="Add a music folder or clear the current search." Style="{StaticResource PrismCaptionTextStyle}" />
+            </StackPanel>
+            </Grid>
+        </Border>
+        </Grid>
+    </Grid>
+</Page>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="PrismWave_WinUI.Controls.Common.MetricPill"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Style="{StaticResource PrismCardBorderStyle}" Padding="12,8">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <FontIcon Glyph="{x:Bind Glyph, Mode=OneWay}" FontSize="14" Foreground="{StaticResource PrismAccentSoftBrush}" />
+            <StackPanel>
+                <TextBlock Text="{x:Bind Value, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource PrismTextPrimaryBrush}" />
+                <TextBlock Text="{x:Bind Label, Mode=OneWay}" Style="{StaticResource PrismCaptionTextStyle}" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

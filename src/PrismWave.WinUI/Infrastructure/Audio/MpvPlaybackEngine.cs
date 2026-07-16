@@ -7,12 +7,12 @@ namespace PrismWave_WinUI.Infrastructure.Audio;
 
 public sealed class MpvPlaybackEngine : IPlaybackEngine
 {
-    private const int MpvFormatString = 1;
     private const int MpvFormatFlag = 3;
     private const int MpvFormatDouble = 5;
     private const int MpvEventShutdown = 1;
     private const int MpvEventEndFileId = 7;
     private const int MpvEventFileLoadedId = 8;
+    private const int MpvEventPlaybackRestartId = 21;
     private const int MpvEndFileReasonEof = 0;
     private const int MpvEndFileReasonStop = 2;
 
@@ -28,7 +28,7 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
     private long _latestLoadSequence;
     private EngineLoadContext? _openedLoadContext;
 
-    public MpvPlaybackEngine()
+    public MpvPlaybackEngine(AudioOutputRoute route, string outputDevice)
     {
         var nativeDirectory = Path.Combine(AppContext.BaseDirectory, "Native");
         if (Directory.Exists(nativeDirectory))
@@ -43,10 +43,16 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
         }
 
         SetOption("terminal", "no");
+        SetOption("sub-auto", "no");
+        SetOption("cover-art-auto", "no");
+        SetOption("audio-display", "no");
+        SetOption("video", "no");
+        SetOption("force-window", "no");
         SetOption("msg-level", "all=v");
         SetOption("cache-secs", "12");
         SetOption("cache-on-disk", "no");
         SetOption("audio-client-name", "PrismWave");
+        ApplyOutputOptions(route, outputDevice);
 
         var initializeResult = mpv_initialize(_handle);
         if (initializeResult < 0)
@@ -60,7 +66,6 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
             Name = "PrismWave mpv event loop"
         };
         _eventThread.Start();
-        ConfigureOutput("wasapi_shared", "auto");
     }
 
     public double PositionSeconds => GetDouble("time-pos");
@@ -68,61 +73,9 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
     public bool IsPlaying => _loaded && !GetFlag("pause");
     public string? Error { get; private set; }
     public event EventHandler? PlaybackEnded;
-    public event EventHandler<PlaybackLoadEventArgs>? MediaOpened;
+    public event EventHandler<PlaybackLoadEventArgs>? PlaybackStarted;
     public event EventHandler<PlaybackFailedEventArgs>? PlaybackFailed;
     public event EventHandler? StateChanged;
-
-    public void ConfigureOutput(string outputMode, string outputDevice)
-    {
-        lock (_gate)
-        {
-            if (_handle == IntPtr.Zero)
-            {
-                return;
-            }
-
-            var mode = NormalizeOutputMode(outputMode);
-            var device = string.IsNullOrWhiteSpace(outputDevice) ? "auto" : outputDevice.Trim();
-            if (mode == "compatibility")
-            {
-                SetStringProperty("ao", "auto");
-                SetStringProperty("audio-exclusive", "no");
-                StartupLog.Write($"mpv route: output=compatibility, device={device}");
-            }
-            else
-            {
-                SetStringProperty("ao", "wasapi");
-                if (mode == "wasapi_exclusive")
-                {
-                    var exclusiveResult = SetStringProperty("audio-exclusive", "yes");
-                    SetStringProperty("wasapi-exclusive-buffer", "50000");
-                    if (exclusiveResult < 0)
-                    {
-                        SetStringProperty("audio-exclusive", "no");
-                        StartupLog.Write($"mpv route: exclusive failed, fallback to shared: {ErrorString(exclusiveResult)}");
-                    }
-                    else
-                    {
-                        StartupLog.Write($"mpv route: output=wasapi_exclusive, device={device}");
-                    }
-                }
-                else
-                {
-                    SetStringProperty("audio-exclusive", "no");
-                    StartupLog.Write($"mpv route: output=wasapi_shared, device={device}");
-                }
-            }
-
-            var deviceResult = SetStringProperty("audio-device", device);
-            if (deviceResult < 0 && !device.Equals("auto", StringComparison.OrdinalIgnoreCase))
-            {
-                SetStringProperty("audio-device", "auto");
-                StartupLog.Write($"mpv route: device failed, fallback to auto: {device}: {ErrorString(deviceResult)}");
-            }
-        }
-
-        StateChanged?.Invoke(this, EventArgs.Empty);
-    }
 
     public bool Load(TrackModel track, double volume, bool autoplay, out string? error)
     {
@@ -247,95 +200,116 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
     {
         while (!_disposed)
         {
-            var handle = _handle;
-            if (handle == IntPtr.Zero)
+            try
             {
-                return;
-            }
-
-            var eventPointer = mpv_wait_event(handle, 0.25);
-            if (eventPointer == IntPtr.Zero)
-            {
-                continue;
-            }
-
-            var evt = Marshal.PtrToStructure<MpvEvent>(eventPointer);
-            if (evt.EventId == MpvEventShutdown)
-            {
-                return;
-            }
-
-            if (evt.EventId == MpvEventEndFileId)
-            {
-                if (evt.Data != IntPtr.Zero)
+                var handle = _handle;
+                if (handle == IntPtr.Zero)
                 {
-                    var endFile = Marshal.PtrToStructure<MpvEventEndFile>(evt.Data);
-                    if (endFile.Reason == MpvEndFileReasonStop && TryConsumeSuppressedStop())
-                    {
-                        DiscardStoppedLoadContext();
-                        StateChanged?.Invoke(this, EventArgs.Empty);
-                        continue;
-                    }
-
-                    var completedContext = TakeCompletedLoadContext();
-                    var isLatest = completedContext is not null
-                        && completedContext.LoadSequence == Volatile.Read(ref _latestLoadSequence);
-                    if (isLatest)
-                    {
-                        _loaded = false;
-                    }
-
-                    if (endFile.Reason == MpvEndFileReasonEof)
-                    {
-                        if (isLatest)
-                        {
-                            Error = null;
-                            PlaybackEnded?.Invoke(this, EventArgs.Empty);
-                        }
-                    }
-                    else if (endFile.Error < 0 && completedContext is not null)
-                    {
-                        var failure = ErrorString(endFile.Error);
-                        if (isLatest)
-                        {
-                            Error = failure;
-                        }
-
-                        StartupLog.Write($"mpv playback ended with error: {failure}");
-                        PlaybackFailed?.Invoke(
-                            this,
-                            new PlaybackFailedEventArgs(
-                                failure,
-                                completedContext.LoadSequence,
-                                completedContext.SourceKey));
-                    }
+                    return;
                 }
-                else
+
+                var eventPointer = mpv_wait_event(handle, 0.25);
+                if (eventPointer == IntPtr.Zero)
+                {
+                    continue;
+                }
+
+                var evt = Marshal.PtrToStructure<MpvEvent>(eventPointer);
+                if (evt.EventId == MpvEventShutdown)
+                {
+                    return;
+                }
+
+                HandleEvent(evt);
+                StateChanged?.Invoke(this, EventArgs.Empty);
+            }
+            catch (Exception exception)
+            {
+                StartupLog.Write($"mpv event loop error: {exception}");
+            }
+        }
+    }
+
+    private void HandleEvent(MpvEvent evt)
+    {
+        if (evt.EventId == MpvEventEndFileId)
+        {
+            if (evt.Data != IntPtr.Zero)
+            {
+                var endFile = Marshal.PtrToStructure<MpvEventEndFile>(evt.Data);
+                if (endFile.Reason == MpvEndFileReasonStop && TryConsumeSuppressedStop())
+                {
+                    DiscardStoppedLoadContext();
+                    return;
+                }
+
+                var completedContext = TakeCompletedLoadContext();
+                var isLatest = completedContext is not null
+                    && completedContext.LoadSequence == Volatile.Read(ref _latestLoadSequence);
+                if (isLatest)
                 {
                     _loaded = false;
                 }
-            }
 
-            if (evt.EventId == MpvEventFileLoadedId)
-            {
-                var openedContext = TakeOpenedLoadContext();
-                if (openedContext is not null)
+                if (endFile.Reason == MpvEndFileReasonEof)
                 {
-                    if (openedContext.LoadSequence == Volatile.Read(ref _latestLoadSequence))
+                    if (isLatest)
                     {
-                        _loaded = true;
                         Error = null;
+                        PlaybackEnded?.Invoke(this, EventArgs.Empty);
+                    }
+                }
+                else if (endFile.Error < 0 && completedContext is not null)
+                {
+                    var failure = ErrorString(endFile.Error);
+                    if (isLatest)
+                    {
+                        Error = failure;
                     }
 
-                    MediaOpened?.Invoke(
+                    StartupLog.Write($"mpv playback ended with error: {failure}");
+                    PlaybackFailed?.Invoke(
                         this,
-                        new PlaybackLoadEventArgs(
-                            openedContext.LoadSequence,
-                            openedContext.SourceKey));
+                        new PlaybackFailedEventArgs(
+                            failure,
+                            completedContext.LoadSequence,
+                            completedContext.SourceKey));
                 }
             }
+            else
+            {
+                _loaded = false;
+            }
+        }
 
-            StateChanged?.Invoke(this, EventArgs.Empty);
+        if (evt.EventId == MpvEventFileLoadedId)
+        {
+            var openedContext = TakeOpenedLoadContext();
+            if (openedContext is not null
+                && openedContext.LoadSequence == Volatile.Read(ref _latestLoadSequence))
+            {
+                _loaded = false;
+                Error = null;
+            }
+        }
+
+        if (evt.EventId == MpvEventPlaybackRestartId)
+        {
+            var startedContext = TakePlaybackStartedContext();
+            if (startedContext is not null)
+            {
+                if (startedContext.LoadSequence == Volatile.Read(ref _latestLoadSequence))
+                {
+                    _loaded = true;
+                    Error = null;
+                }
+
+                PlaybackStarted?.Invoke(
+                    this,
+                    new PlaybackLoadEventArgs(
+                        startedContext.LoadSequence,
+                        startedContext.SourceKey));
+            }
         }
     }
 
@@ -390,6 +364,20 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
             }
 
             return DequeuePendingLoadContext();
+        }
+    }
+
+    private EngineLoadContext? TakePlaybackStartedContext()
+    {
+        lock (_loadContextGate)
+        {
+            if (_openedLoadContext is null || _openedLoadContext.Started)
+            {
+                return null;
+            }
+
+            _openedLoadContext.Started = true;
+            return _openedLoadContext;
         }
     }
 
@@ -519,6 +507,27 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
         }
     }
 
+    private void ApplyOutputOptions(AudioOutputRoute route, string outputDevice)
+    {
+        var device = string.IsNullOrWhiteSpace(outputDevice) ? "auto" : outputDevice.Trim();
+        if (route is AudioOutputRoute.WasapiShared or AudioOutputRoute.WasapiExclusive)
+        {
+            SetOption("ao", "wasapi");
+        }
+
+        SetOption(
+            "audio-exclusive",
+            route == AudioOutputRoute.WasapiExclusive ? "yes" : "no");
+        if (route == AudioOutputRoute.WasapiExclusive)
+        {
+            SetOption("wasapi-exclusive-buffer", "50000");
+        }
+
+        SetOption("audio-device", device);
+        StartupLog.Write(
+            $"mpv route configured: output={route}, device={device}");
+    }
+
     private void SetFlag(string name, bool value)
     {
         var flag = value ? 1 : 0;
@@ -535,17 +544,6 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
     private void SetDouble(string name, double value)
     {
         mpv_set_property(_handle, name, MpvFormatDouble, ref value);
-    }
-
-    private int SetStringProperty(string name, string value)
-    {
-        var result = mpv_set_property_string(_handle, name, value);
-        if (result < 0)
-        {
-            StartupLog.Write($"mpv property failed: {name}={value}: {ErrorString(result)}");
-        }
-
-        return result;
     }
 
     private double GetDouble(string name)
@@ -568,17 +566,6 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
         Marshal.Copy(bytes, 0, pointer, bytes.Length);
         Marshal.WriteByte(pointer, bytes.Length, 0);
         return pointer;
-    }
-
-    private static string NormalizeOutputMode(string outputMode)
-    {
-        return outputMode.Trim().ToLowerInvariant().Replace("-", "_") switch
-        {
-            "wasapishared" or "wasapi_shared" => "wasapi_shared",
-            "wasapiexclusive" or "wasapi_exclusive" => "wasapi_exclusive",
-            "compatibility" => "compatibility",
-            _ => "wasapi_shared"
-        };
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -605,6 +592,7 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
         public long LoadSequence { get; } = loadSequence;
         public string SourceKey { get; } = sourceKey;
         public bool Cancelled { get; set; }
+        public bool Started { get; set; }
     }
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -636,9 +624,6 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
 
     [DllImport("libmpv-2.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
     private static extern int mpv_set_property(IntPtr ctx, string name, int format, ref double value);
-
-    [DllImport("libmpv-2.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-    private static extern int mpv_set_property_string(IntPtr ctx, string name, string value);
 
     [DllImport("libmpv-2.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
     private static extern int mpv_get_property(IntPtr ctx, string name, int format, ref int value);

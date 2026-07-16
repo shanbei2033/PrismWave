@@ -46,11 +46,12 @@ public sealed class PlaybackService : IPlaybackService
         _settingsService = settingsService;
         _onlinePlaybackResolver = onlinePlaybackResolver;
         _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
-        _mpvEngine = new MpvPlaybackEngine();
-        ApplyAudioSettings();
-        _settingsService.SettingsChanged += (_, _) => Dispatch(ApplyAudioSettings);
+        var settings = _settingsService.Current;
+        _mpvEngine = new MpvPlaybackEngine(
+            AudioOutputPolicy.BuildFallbackChain(settings.AudioOutputMode)[0],
+            settings.AudioOutputDevice);
         _mpvEngine.PlaybackEnded += (_, _) => Dispatch(HandleMediaEnded);
-        _mpvEngine.MediaOpened += (_, args) => Dispatch(() => HandleMediaOpened(args));
+        _mpvEngine.PlaybackStarted += (_, args) => Dispatch(() => HandlePlaybackStarted(args));
         _mpvEngine.PlaybackFailed += (_, args) => Dispatch(() => HandleMediaFailed(
             args.Message,
             args.LoadSequence,
@@ -545,7 +546,7 @@ public sealed class PlaybackService : IPlaybackService
         Next();
     }
 
-    private void HandleMediaOpened(PlaybackLoadEventArgs args)
+    private void HandlePlaybackStarted(PlaybackLoadEventArgs args)
     {
         if (CurrentTrack is null || _usingDsdBackend)
         {
@@ -626,7 +627,6 @@ public sealed class PlaybackService : IPlaybackService
             StartupLog.Write(
                 $"playback.output.retry: provider={failedTrack.Provider}, candidate={candidateKey}, attempt={_remoteRecoveryPolicy.SourceAttemptCount}");
             Notify();
-            ApplyAudioSettings();
             LoadMpvTrack(failedTrack, loadContext.Autoplay);
             return;
         }
@@ -782,12 +782,6 @@ public sealed class PlaybackService : IPlaybackService
         }
 
         return next;
-    }
-
-    private void ApplyAudioSettings()
-    {
-        var settings = _settingsService.Current;
-        _mpvEngine.ConfigureOutput(settings.AudioOutputMode, settings.AudioOutputDevice);
     }
 
     private void RefreshPlayerState()

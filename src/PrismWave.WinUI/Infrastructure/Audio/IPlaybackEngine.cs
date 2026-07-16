@@ -23,10 +23,17 @@ public interface IPlaybackEngine : IDisposable
     bool IsPlaying { get; }
     string? Error { get; }
     event EventHandler? PlaybackEnded;
-    event EventHandler<PlaybackLoadEventArgs>? MediaOpened;
+    event EventHandler<PlaybackLoadEventArgs>? PlaybackStarted;
     event EventHandler<PlaybackFailedEventArgs>? PlaybackFailed;
     event EventHandler? StateChanged;
     bool Load(TrackModel track, double volume, bool autoplay, out string? error);
+    bool Load(
+        TrackModel track,
+        double volume,
+        bool autoplay,
+        long loadSequence,
+        string sourceKey,
+        out string? error);
     void Play();
     void Pause();
     void Stop();

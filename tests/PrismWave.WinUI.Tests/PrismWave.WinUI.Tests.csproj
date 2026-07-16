@@ -37,6 +37,10 @@
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/StartupLog.cs" Link="Infrastructure/StartupLog.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/WindowLaunchSize.cs" Link="Infrastructure/WindowLaunchSize.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Audio/PlaybackHeaderLogSanitizer.cs" Link="Infrastructure/PlaybackHeaderLogSanitizer.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Audio/IPlaybackEngine.cs" Link="Infrastructure/IPlaybackEngine.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Audio/IPlaybackEngineFactory.cs" Link="Infrastructure/IPlaybackEngineFactory.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Audio/AudioOutputFailoverState.cs" Link="Infrastructure/AudioOutputFailoverState.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Audio/MpvPlaybackEngineHost.cs" Link="Infrastructure/MpvPlaybackEngineHost.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Online/OnlineLoginDialogCoordinator.cs" Link="Infrastructure/OnlineLoginDialogCoordinator.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Lyrics/LyricsSceneController.cs" Link="Infrastructure/LyricsSceneController.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Library/LibraryFolderPath.cs" Link="Infrastructure/LibraryFolderPath.cs" />

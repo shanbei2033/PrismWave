@@ -15,13 +15,7 @@ public sealed class BundledLibMpvCodecTests
     public void BundledLibMpv_DecodesEac3Audio()
     {
         var dllPath = FindRepositoryFile("native", "libmpv-winui", "libmpv-2.dll");
-        var mediaPath = Path.Combine(Path.GetTempPath(), $"prismwave-eac3-{Guid.NewGuid():N}.m4a");
-        using (var compressed = new MemoryStream(Convert.FromBase64String(SilentEac3M4aGzipBase64)))
-        using (var gzip = new GZipStream(compressed, CompressionMode.Decompress))
-        using (var output = File.Create(mediaPath))
-        {
-            gzip.CopyTo(output);
-        }
+        var mediaPath = WriteEac3Fixture();
 
         try
         {
@@ -29,6 +23,28 @@ public sealed class BundledLibMpvCodecTests
             var result = probe.PlayToNullAudio(mediaPath, TimeSpan.FromSeconds(4));
 
             Assert.True(result.Started, result.Diagnostic);
+        }
+        finally
+        {
+            File.Delete(mediaPath);
+        }
+    }
+
+    [Fact]
+    public void BundledLibMpv_SequentialAudioOnlyLoadsRestartWithoutOpeningVideo()
+    {
+        var dllPath = FindRepositoryFile("native", "libmpv-winui", "libmpv-2.dll");
+        var mediaPath = WriteEac3Fixture();
+        try
+        {
+            using var probe = new LibMpvProbe(dllPath);
+            var first = probe.PlayToNullAudio(mediaPath, TimeSpan.FromSeconds(4));
+            var second = probe.PlayToNullAudio(mediaPath, TimeSpan.FromSeconds(4));
+            var third = probe.PlayToNullAudio(mediaPath, TimeSpan.FromSeconds(4));
+
+            Assert.True(first.Started, first.Diagnostic);
+            Assert.True(second.Started, second.Diagnostic);
+            Assert.True(third.Started, third.Diagnostic);
         }
         finally
         {
@@ -67,6 +83,16 @@ public sealed class BundledLibMpvCodecTests
         throw new FileNotFoundException(string.Join(Path.DirectorySeparatorChar, segments));
     }
 
+    private static string WriteEac3Fixture()
+    {
+        var mediaPath = Path.Combine(Path.GetTempPath(), $"prismwave-eac3-{Guid.NewGuid():N}.m4a");
+        using var compressed = new MemoryStream(Convert.FromBase64String(SilentEac3M4aGzipBase64));
+        using var gzip = new GZipStream(compressed, CompressionMode.Decompress);
+        using var output = File.Create(mediaPath);
+        gzip.CopyTo(output);
+        return mediaPath;
+    }
+
     private sealed class LibMpvProbe : IDisposable
     {
         private const int EventEndFile = 7;
@@ -90,6 +116,11 @@ public sealed class BundledLibMpvCodecTests
             _handle = create();
             Assert.NotEqual(nint.Zero, _handle);
             Assert.True(setOption(_handle, "terminal", "no") >= 0);
+            Assert.True(setOption(_handle, "sub-auto", "no") >= 0);
+            Assert.True(setOption(_handle, "cover-art-auto", "no") >= 0);
+            Assert.True(setOption(_handle, "audio-display", "no") >= 0);
+            Assert.True(setOption(_handle, "video", "no") >= 0);
+            Assert.True(setOption(_handle, "force-window", "no") >= 0);
             Assert.True(setOption(_handle, "ao", "null") >= 0);
             Assert.True(initialize(_handle) >= 0);
         }
@@ -120,6 +151,11 @@ public sealed class BundledLibMpvCodecTests
                 if (evt.EventId == EventEndFile && evt.Data != nint.Zero)
                 {
                     var ended = Marshal.PtrToStructure<MpvEventEndFile>(evt.Data);
+                    if (ended.Reason == 2 && ended.Error == 0)
+                    {
+                        continue;
+                    }
+
                     return (false, $"mpv ended before playback restart: reason={ended.Reason}, error={ended.Error}.");
                 }
             }

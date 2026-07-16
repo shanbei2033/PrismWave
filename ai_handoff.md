@@ -1484,15 +1484,26 @@ ca1bb92 feat: improve lyrics flow and playlist management
 
 ## 9. 当前工作区状态
 
+### 2026-07-16 WinUI 本地音频输出修复
+
+- WinUI 本地播放不再把 `MPV_EVENT_FILE_LOADED` 当成播放成功，改为等待 `MPV_EVENT_PLAYBACK_RESTART`；本地歌曲 5 秒内未真正启动会进入输出回退。
+- libmpv 在 `mpv_initialize()` 前按输出模式创建；切换输出模式会销毁旧实例并重建，避免运行中热改 `ao` 导致后续歌曲永久加载。
+- MPV 以纯音频模式初始化：`audio-display=no`、`video=no`、`force-window=no`、`cover-art-auto=no`，内嵌封面不会再弹出独立 mpv 窗口。
+- 输出模式固定为三档：`MPV（自动）`、`WASAPI 共享`、`WASAPI 独占`。默认 `WASAPI 共享`；共享失败回退 MPV，独占失败依次回退共享和 MPV。
+- 设置页 Playback 会同时显示用户首选输出和当前实际输出。切换模式/设备会保留当前歌曲、播放位置以及播放/暂停意图。
+- 自动化覆盖连续三次音频-only libmpv 加载、引擎替换、陈旧事件隔离、输出链和设置迁移；完整测试为 363/363。
+- Demo 已用真实本地 M4A 连续切换 `爱与诚`、`必杀技`、`大哥`、`跟悲伤结了帐`，MPV 自动、WASAPI 共享和 WASAPI 独占均成功启动且无额外窗口。
+- 实现位于 `codex/winui-audio-failover` 独立工作树；完成验收后应先合回 `WinUI`。`main` 仍是最终主分支，但应等整套 WinUI 重构完成后再统一合并，不要现在把局部修复直接合入 `main`。
+
 ```
 主仓库: D:\Project\PrismWave
 分支: WinUI
 Flutter 发布基线: R503
-WinUI 状态: 可构建、可运行、330 项测试通过；真实本地目录选择、扫描生命周期、共享目录管理和 E-AC-3 M4A 播放已接通
+WinUI 状态: 可构建、可运行、363 项测试通过；真实本地目录选择、扫描生命周期、共享目录管理和三档音频输出/自动回退已接通
 最近 WinUI 基线: 2026-07-16 创建并推送 origin/WinUI
 
 当前已知的 WinUI 遗留问题:
-  - 本地曲库自动化闭环已完成，真实 E-AC-3 M4A 已通过，仍需完成 MP3/FLAC/WAV/OGG、中文长路径和 exclusive 模式人工矩阵
+  - 本地曲库自动化闭环已完成，真实 ALAC/E-AC-3 M4A、MPV 自动、WASAPI 共享和 WASAPI 独占已通过；仍需完成 MP3/FLAC/WAV/OGG、中文长路径的人工矩阵
   - FullPlay 部分歌曲切行仍会颤动；已按用户要求暂缓
   - 在线 provider 长期可用性、DSD/ASIO 真机和安装包仍需端到端验证
 
@@ -1524,7 +1535,7 @@ WinUI 状态: 可构建、可运行、330 项测试通过；真实本地目录�
 
 1. 先阅读本文 `0. 2026-07-14 当前主线速览`，不要从旧 Flutter 主页面直接开始重写。
 2. 运行 `git status --short`，确认用户是否在当前会话之外新增了修改；任何未知改动都按用户改动处理。
-3. 使用真实大目录复核本地曲库扫描、取消、目录删除和重启恢复；E-AC-3 M4A 已通过，继续完成 MP3/FLAC/WAV/OGG 播放矩阵。
+3. 使用真实大目录复核本地曲库扫描、取消、目录删除和重启恢复；ALAC/E-AC-3 M4A 及三档输出已通过，继续完成 MP3/FLAC/WAV/OGG 播放矩阵。
 4. 每次本地库修改后运行 WinUI 完整测试和 x64 构建，再用真实目录启动 Demo 验收。
 5. 接下来的功能优先级依次是：真实普通播放矩阵、DSD/ASIO、在线 provider、歌词/FullPlay、HITS、窗口/更新/日志服务、发布打磨。
 6. 如果需要核对功能语义，再回看 Flutter 对应 controller/service/UI；迁移目标是行为等价，不是继续在 Flutter 中扩张第二套新 UI。
@@ -1562,4 +1573,4 @@ WinUI 状态: 可构建、可运行、330 项测试通过；真实本地目录�
 
 ## 12. 一句话总结
 
-PrismWave 当前是“Flutter R503 稳定行为基线 + 原生 WinUI 3 重构主线”的双轨阶段：`WinUI` 分支已接通真实本地目录选择、可取消扫描、设置持久化、设置/曲库共享管理及 E-AC-3 M4A 播放，并有 330 项测试保护；下一步是完成其余格式、写操作、DSD/ASIO 和在线 provider 验收，歌词颤动按用户要求暂缓。
+PrismWave 当前是“Flutter R503 稳定行为基线 + 原生 WinUI 3 重构主线”的双轨阶段：`WinUI` 分支已接通真实本地目录选择、可取消扫描、设置持久化、设置/曲库共享管理，以及 MPV 自动/WASAPI 共享/WASAPI 独占三档输出和自动回退，并有 363 项测试保护；下一步是完成其余格式、写操作、DSD/ASIO 和在线 provider 验收，整个 WinUI 重构完成后再统一合并到最重要的 `main` 分支。

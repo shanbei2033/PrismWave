@@ -324,7 +324,11 @@ public sealed class OnlineProviderArchitectureTests
 
     private sealed class DisconnectedAccountService(bool authenticated = true) : IOnlineAccountService
     {
-        public event EventHandler<OnlineAccountSnapshot>? AccountChanged;
+        public event EventHandler<OnlineAccountSnapshot>? AccountChanged
+        {
+            add { }
+            remove { }
+        }
         public Task<OnlineProviderSession?> GetSessionAsync(string providerKey, CancellationToken cancellationToken) => Task.FromResult<OnlineProviderSession?>(null);
         public Task<OnlineProviderSession?> HandleAuthenticationFailureAsync(string providerKey, CancellationToken cancellationToken) => Task.FromResult<OnlineProviderSession?>(null);
         public OnlineAccountSnapshot GetSnapshot(string providerKey) => new(

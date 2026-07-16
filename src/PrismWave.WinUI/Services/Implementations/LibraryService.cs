@@ -1,7 +1,6 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using PrismWave_WinUI.Infrastructure;
+using PrismWave_WinUI.Infrastructure.Library;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.Services.Contracts;
 
@@ -12,34 +11,37 @@ public sealed class LibraryService : ILibraryService
     private const char AlbumKeySeparator = '\u001f';
     private readonly ISettingsService _settingsService;
     private readonly ICoverService _coverService;
+    private readonly ILocalMusicScanner _scanner;
+    private readonly IUiDispatcher _uiDispatcher;
     private readonly List<TrackModel> _tracks = new();
     private readonly List<string> _folders = new();
     private readonly List<AlbumModel> _albums = new();
     private readonly List<ArtistModel> _artists = new();
     private readonly List<TrackModel> _favorites = new();
-    private readonly SemaphoreSlim _scanGate = new(1, 1);
-
-    private static readonly HashSet<string> AudioExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".mp3", ".aac", ".m4a", ".mp4", ".wav", ".flac", ".ogg", ".ape", ".wma", ".dsf", ".dff"
-    };
-
-    private static readonly string CoverCacheDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "PrismWave",
-        "WinUI",
-        "covers");
+    private readonly List<LibraryFolderStatus> _folderStatuses = new();
+    private readonly SemaphoreSlim _folderMutationGate = new(1, 1);
+    private readonly object _scanSync = new();
+    private CancellationTokenSource? _activeScanCancellation;
+    private long _scanRevision;
 
     public LibraryService(ISettingsService settingsService, ICoverService coverService)
+        : this(settingsService, coverService, new LocalMusicScanner(), new ImmediateUiDispatcher())
+    {
+    }
+
+    public LibraryService(
+        ISettingsService settingsService,
+        ICoverService coverService,
+        ILocalMusicScanner scanner,
+        IUiDispatcher uiDispatcher)
     {
         _settingsService = settingsService;
         _coverService = coverService;
+        _scanner = scanner;
+        _uiDispatcher = uiDispatcher;
         _coverService.CoverChanged += CoverService_CoverChanged;
         ReplaceFolders(settingsService.Current.LibraryFolders);
-        if (_folders.Count > 0)
-        {
-            _ = RescanAsync();
-        }
+        RefreshConfiguredFolderStatuses();
     }
 
     public IReadOnlyList<TrackModel> Tracks => _tracks;
@@ -47,13 +49,24 @@ public sealed class LibraryService : ILibraryService
     public IReadOnlyList<AlbumModel> Albums => _albums;
     public IReadOnlyList<ArtistModel> Artists => _artists;
     public IReadOnlyList<TrackModel> Favorites => _favorites;
+    public IReadOnlyList<LibraryFolderStatus> FolderStatuses => _folderStatuses;
+    public LibraryScanProgress ScanProgress { get; private set; } = LibraryScanProgress.Idle;
     public bool IsScanning { get; private set; }
     public string? Error { get; private set; }
     public event EventHandler? LibraryChanged;
 
-    public async Task AddFolderAsync(string folder)
+    public Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        var normalized = NormalizeDirectory(folder);
+        return _folders.Count == 0
+            ? CompleteEmptyInitializationAsync()
+            : RescanAsync(cancellationToken);
+    }
+
+    public Task AddFolderAsync(string folder) => AddFolderAsync(folder, CancellationToken.None);
+
+    public async Task AddFolderAsync(string folder, CancellationToken cancellationToken)
+    {
+        var normalized = LibraryFolderPath.Normalize(folder);
         if (normalized is null)
         {
             Error = "The selected music folder is unavailable.";
@@ -61,43 +74,118 @@ public sealed class LibraryService : ILibraryService
             return;
         }
 
-        var folders = _settingsService.Current.LibraryFolders
-            .Select(path => NormalizeDirectory(path) ?? path)
-            .ToList();
-        if (folders.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+        await _folderMutationGate.WaitAsync(cancellationToken);
+        try
         {
-            return;
+            var folders = _settingsService.Current.LibraryFolders
+                .Select(path => LibraryFolderPath.Normalize(path, requireExisting: false) ?? path)
+                .ToList();
+            if (folders.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            folders.Add(normalized);
+            await SaveSettingsAsync(_settingsService.Current with { LibraryFolders = folders });
+            ReplaceFolders(folders);
+        }
+        finally
+        {
+            _folderMutationGate.Release();
         }
 
-        folders.Add(normalized);
-        await SaveSettingsAsync(_settingsService.Current with { LibraryFolders = folders });
-        await RescanAsync();
+        await RescanAsync(cancellationToken);
     }
 
-    public async Task RemoveFolderAsync(string folder)
+    public Task RemoveFolderAsync(string folder) => RemoveFolderAsync(folder, CancellationToken.None);
+
+    public async Task RemoveFolderAsync(string folder, CancellationToken cancellationToken)
     {
-        var folders = _settingsService.Current.LibraryFolders
-            .Where(item => !string.Equals(item, folder, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        await SaveSettingsAsync(_settingsService.Current with { LibraryFolders = folders });
-        await RescanAsync();
+        await _folderMutationGate.WaitAsync(cancellationToken);
+        try
+        {
+            var normalized = LibraryFolderPath.Normalize(folder, requireExisting: false) ?? folder;
+            var folders = _settingsService.Current.LibraryFolders
+                .Where(item => !PathsEqual(
+                    LibraryFolderPath.Normalize(item, requireExisting: false) ?? item,
+                    normalized))
+                .ToList();
+            await SaveSettingsAsync(_settingsService.Current with { LibraryFolders = folders });
+            ReplaceFolders(folders);
+        }
+        finally
+        {
+            _folderMutationGate.Release();
+        }
+
+        await RescanAsync(cancellationToken);
     }
 
-    public async Task RescanAsync()
+    public Task RescanAsync() => RescanAsync(CancellationToken.None);
+
+    public async Task RescanAsync(CancellationToken cancellationToken)
     {
-        await _scanGate.WaitAsync();
+        var (revision, scanCancellation) = BeginScan(cancellationToken);
         try
         {
             IsScanning = true;
             Error = null;
             ReplaceFolders(_settingsService.Current.LibraryFolders);
+            RefreshConfiguredFolderStatuses();
+            ScanProgress = new LibraryScanProgress(revision, LibraryScanPhase.Enumerating, 0, 0, null);
             Notify();
+
+            if (_folders.Count == 0)
+            {
+                if (IsCurrentScan(revision))
+                {
+                    _folderStatuses.Clear();
+                    ReplaceTracks([], []);
+                    IsScanning = false;
+                    ScanProgress = new LibraryScanProgress(revision, LibraryScanPhase.Completed, 0, 0, null);
+                    Notify();
+                }
+                return;
+            }
 
             var settings = _settingsService.Current;
             StartupLog.Write($"library.scan.start: folders={_folders.Count}");
             var customCovers = settings.CustomCoverPaths
                 ?? DecodeStringMap(settings.Migration.Values, "library.customCoverPaths");
-            var scanResult = await Task.Run(() => LoadTracks(_folders, customCovers));
+            var progress = new InlineProgress<LibraryScanProgress>(value =>
+            {
+                if (!IsCurrentScan(revision))
+                {
+                    return;
+                }
+
+                ScanProgress = value with { Revision = revision };
+                Notify();
+            });
+            var scanResult = await _scanner.ScanAsync(
+                _folders.ToList(),
+                customCovers,
+                progress,
+                scanCancellation.Token);
+            if (!IsCurrentScan(revision))
+            {
+                return;
+            }
+
+            ReplaceFolderStatuses(scanResult.FolderStatuses);
+            if (scanResult.FatalError is not null)
+            {
+                Error = scanResult.FatalError;
+                ScanProgress = new LibraryScanProgress(
+                    revision,
+                    LibraryScanPhase.Failed,
+                    ScanProgress.DiscoveredFiles,
+                    ScanProgress.ProcessedFiles,
+                    null);
+                StartupLog.Write($"library.scan.failed: {scanResult.FatalError}");
+                return;
+            }
+
             var ordered = ApplyStoredTrackOrder(
                 scanResult.Tracks,
                 settings.TrackOrderPaths,
@@ -115,7 +203,13 @@ public sealed class LibraryService : ILibraryService
                 .ToList();
 
             ReplaceTracks(tracks, favoriteOrder);
-            Error = scanResult.FatalError;
+            Error = scanResult.Warnings.FirstOrDefault();
+            ScanProgress = new LibraryScanProgress(
+                revision,
+                LibraryScanPhase.Completed,
+                ScanProgress.DiscoveredFiles,
+                tracks.Count,
+                null);
             StartupLog.Write($"library.scan.complete: tracks={tracks.Count}, albums={_albums.Count}, artists={_artists.Count}");
 
             var normalizedOrder = tracks.Select(track => track.Path).ToList();
@@ -131,16 +225,36 @@ public sealed class LibraryService : ILibraryService
                 });
             }
         }
+        catch (OperationCanceledException) when (scanCancellation.IsCancellationRequested)
+        {
+            if (IsCurrentScan(revision))
+            {
+                ScanProgress = LibraryScanProgress.Idle with { Revision = revision };
+            }
+        }
         catch (Exception exception)
         {
-            Error = $"Library scan failed: {exception.Message}";
-            StartupLog.Write("library.scan.failed", exception);
+            if (IsCurrentScan(revision))
+            {
+                Error = $"Library scan failed: {exception.Message}";
+                ScanProgress = new LibraryScanProgress(
+                    revision,
+                    LibraryScanPhase.Failed,
+                    ScanProgress.DiscoveredFiles,
+                    ScanProgress.ProcessedFiles,
+                    null);
+                StartupLog.Write("library.scan.failed", exception);
+            }
         }
         finally
         {
-            IsScanning = false;
-            _scanGate.Release();
-            Notify();
+            if (IsCurrentScan(revision))
+            {
+                IsScanning = false;
+                Notify();
+            }
+
+            EndScan(scanCancellation);
         }
     }
 
@@ -285,310 +399,6 @@ public sealed class LibraryService : ILibraryService
         Notify();
     }
 
-    private static ScanResult LoadTracks(
-        IReadOnlyList<string> folders,
-        IReadOnlyDictionary<string, string> customCovers)
-    {
-        var tracks = new List<TrackModel>();
-        var seenFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var validRoots = 0;
-        string? firstError = null;
-
-        foreach (var folder in folders)
-        {
-            var root = NormalizeDirectory(folder);
-            if (root is null)
-            {
-                firstError ??= $"Music folder is unavailable: {folder}";
-                continue;
-            }
-
-            validRoots++;
-            foreach (var file in EnumerateAudioFiles(root, error => firstError ??= error))
-            {
-                if (!seenFiles.Add(file))
-                {
-                    continue;
-                }
-
-                customCovers.TryGetValue(file, out var legacyCover);
-                var track = FromFile(file, legacyCover);
-                var identityKey = TrackCoverIdentity.CreateKey(track.Title, track.Artist);
-                if (identityKey.Length > 0
-                    && customCovers.TryGetValue(identityKey, out var identityCover)
-                    && File.Exists(identityCover))
-                {
-                    track = track with { CoverPath = identityCover };
-                }
-
-                tracks.Add(track);
-            }
-        }
-
-        var fatalError = validRoots == 0 && folders.Count > 0 ? firstError : null;
-        return new ScanResult(tracks, fatalError);
-    }
-
-    private static IEnumerable<string> EnumerateAudioFiles(string root, Action<string> reportError)
-    {
-        var pending = new Stack<string>();
-        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        pending.Push(root);
-
-        while (pending.Count > 0)
-        {
-            var directory = pending.Pop();
-            if (!visited.Add(directory))
-            {
-                continue;
-            }
-
-            string[] files;
-            try
-            {
-                files = Directory.GetFiles(directory);
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-                reportError($"Cannot read {directory}: {exception.Message}");
-                files = Array.Empty<string>();
-            }
-
-            foreach (var file in files)
-            {
-                if (AudioExtensions.Contains(Path.GetExtension(file)))
-                {
-                    yield return Path.GetFullPath(file);
-                }
-            }
-
-            string[] directories;
-            try
-            {
-                directories = Directory.GetDirectories(directory);
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-                reportError($"Cannot enumerate {directory}: {exception.Message}");
-                directories = Array.Empty<string>();
-            }
-
-            foreach (var child in directories)
-            {
-                try
-                {
-                    if ((File.GetAttributes(child) & FileAttributes.ReparsePoint) == 0)
-                    {
-                        pending.Push(child);
-                    }
-                }
-                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-                {
-                    reportError($"Cannot inspect {child}: {exception.Message}");
-                }
-            }
-        }
-    }
-
-    private static TrackModel FromFile(string file, string? customCover)
-    {
-        var album = Path.GetFileName(Path.GetDirectoryName(file)) ?? "Unknown Album";
-        var title = Path.GetFileNameWithoutExtension(file);
-        var artist = "Unknown Artist";
-        var duration = "--:--";
-        var durationSeconds = 0d;
-        var bitrate = 0;
-        var sampleRate = 0;
-        var channels = 0;
-        var codec = Path.GetExtension(file).TrimStart('.').ToUpperInvariant();
-        string? coverPath = null;
-        var waveInfo = Path.GetExtension(file).Equals(".wav", StringComparison.OrdinalIgnoreCase)
-            ? ReadWaveInfo(file)
-            : default;
-
-        try
-        {
-            using var taggedFile = TagLib.File.Create(file);
-            title = FirstNonEmpty(taggedFile.Tag.Title, waveInfo.Title, title);
-            artist = FirstNonEmpty(taggedFile.Tag.FirstPerformer, waveInfo.Artist, artist);
-            album = FirstNonEmpty(taggedFile.Tag.Album, waveInfo.Album, album);
-            durationSeconds = taggedFile.Properties.Duration.TotalSeconds;
-            duration = FormatDuration(taggedFile.Properties.Duration);
-            bitrate = taggedFile.Properties.AudioBitrate;
-            sampleRate = taggedFile.Properties.AudioSampleRate;
-            channels = taggedFile.Properties.AudioChannels;
-            codec = taggedFile.Properties.Codecs.FirstOrDefault()?.Description ?? codec;
-            coverPath = ExtractCover(file, taggedFile.Tag.Pictures);
-        }
-        catch
-        {
-        }
-
-        if (!string.IsNullOrWhiteSpace(customCover) && File.Exists(customCover))
-        {
-            coverPath = customCover;
-        }
-        else
-        {
-            coverPath ??= FindSidecarCover(file);
-        }
-
-        long fileSize = 0;
-        try
-        {
-            fileSize = new FileInfo(file).Length;
-        }
-        catch
-        {
-        }
-
-        return new TrackModel(
-            file,
-            file,
-            title,
-            artist,
-            album,
-            duration,
-            coverPath,
-            DurationSeconds: durationSeconds,
-            BitrateKbps: bitrate,
-            SampleRateHz: sampleRate,
-            Channels: channels,
-            FileSizeBytes: fileSize,
-            Codec: codec);
-    }
-
-    private static WaveInfo ReadWaveInfo(string file)
-    {
-        try
-        {
-            using var stream = File.OpenRead(file);
-            using var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: false);
-            if (ReadFourCc(reader) != "RIFF")
-            {
-                return default;
-            }
-
-            _ = reader.ReadUInt32();
-            if (ReadFourCc(reader) != "WAVE")
-            {
-                return default;
-            }
-
-            string? title = null;
-            string? artist = null;
-            string? album = null;
-            while (stream.Position + 8 <= stream.Length)
-            {
-                var chunkId = ReadFourCc(reader);
-                var chunkSize = reader.ReadUInt32();
-                var chunkEnd = Math.Min(stream.Length, stream.Position + chunkSize);
-                if (chunkId == "LIST" && chunkSize >= 4 && ReadFourCc(reader) == "INFO")
-                {
-                    while (stream.Position + 8 <= chunkEnd)
-                    {
-                        var infoId = ReadFourCc(reader);
-                        var infoSize = reader.ReadUInt32();
-                        var available = (int)Math.Min(infoSize, chunkEnd - stream.Position);
-                        var value = Encoding.Default.GetString(reader.ReadBytes(available)).TrimEnd('\0', ' ', '\r', '\n');
-                        if ((infoSize & 1) != 0 && stream.Position < chunkEnd)
-                        {
-                            stream.Position++;
-                        }
-
-                        switch (infoId)
-                        {
-                            case "INAM": title = value; break;
-                            case "IART": artist = value; break;
-                            case "IPRD": album = value; break;
-                        }
-                    }
-                }
-
-                stream.Position = Math.Min(stream.Length, chunkEnd + (chunkSize & 1));
-            }
-
-            return new WaveInfo(title, artist, album);
-        }
-        catch
-        {
-            return default;
-        }
-    }
-
-    private static string ReadFourCc(BinaryReader reader)
-    {
-        return Encoding.ASCII.GetString(reader.ReadBytes(4));
-    }
-
-    private static string FirstNonEmpty(params string?[] values)
-    {
-        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? string.Empty;
-    }
-
-    private static string FormatDuration(TimeSpan duration)
-    {
-        if (duration <= TimeSpan.Zero)
-        {
-            return "--:--";
-        }
-
-        return duration.TotalHours >= 1
-            ? $"{(int)duration.TotalHours}:{duration.Minutes:00}:{duration.Seconds:00}"
-            : $"{duration.Minutes:00}:{duration.Seconds:00}";
-    }
-
-    private static string? ExtractCover(string file, TagLib.IPicture[] pictures)
-    {
-        var picture = pictures.FirstOrDefault(item => item.Data.Count > 0);
-        if (picture is null)
-        {
-            return null;
-        }
-
-        try
-        {
-            Directory.CreateDirectory(CoverCacheDirectory);
-            var extension = MimeToExtension(picture.MimeType);
-            var coverPath = Path.Combine(CoverCacheDirectory, $"{HashPath(file)}{extension}");
-            if (!File.Exists(coverPath))
-            {
-                File.WriteAllBytes(coverPath, picture.Data.Data);
-            }
-
-            return coverPath;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static string? FindSidecarCover(string file)
-    {
-        var directory = Path.GetDirectoryName(file);
-        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
-        {
-            return null;
-        }
-
-        var names = new[] { "cover", "folder", "front", "album", Path.GetFileNameWithoutExtension(file) };
-        var extensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".bmp" };
-        foreach (var name in names)
-        {
-            foreach (var extension in extensions)
-            {
-                var candidate = Path.Combine(directory, $"{name}{extension}");
-                if (File.Exists(candidate))
-                {
-                    return candidate;
-                }
-            }
-        }
-
-        return null;
-    }
-
     private static IReadOnlyList<TrackModel> ApplyStoredTrackOrder(
         IReadOnlyList<TrackModel> tracks,
         IReadOnlyList<string> savedOrder,
@@ -723,9 +533,72 @@ public sealed class LibraryService : ILibraryService
     {
         _folders.Clear();
         _folders.AddRange(folders
-            .Select(path => NormalizeDirectory(path) ?? path)
+            .Select(path => LibraryFolderPath.Normalize(path, requireExisting: false) ?? path)
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.OrdinalIgnoreCase));
+    }
+
+    private void ReplaceFolderStatuses(IReadOnlyList<LibraryFolderStatus> statuses)
+    {
+        _folderStatuses.Clear();
+        _folderStatuses.AddRange(statuses);
+    }
+
+    private void RefreshConfiguredFolderStatuses()
+    {
+        _folderStatuses.Clear();
+        foreach (var folder in _folders)
+        {
+            var available = Directory.Exists(folder);
+            _folderStatuses.Add(new LibraryFolderStatus(
+                folder,
+                available,
+                available ? null : $"Music folder is unavailable: {folder}"));
+        }
+    }
+
+    private Task CompleteEmptyInitializationAsync()
+    {
+        _folderStatuses.Clear();
+        ReplaceTracks([], []);
+        Error = null;
+        IsScanning = false;
+        ScanProgress = LibraryScanProgress.Idle;
+        Notify();
+        return Task.CompletedTask;
+    }
+
+    private (long Revision, CancellationTokenSource Cancellation) BeginScan(CancellationToken cancellationToken)
+    {
+        lock (_scanSync)
+        {
+            _activeScanCancellation?.Cancel();
+            _activeScanCancellation?.Dispose();
+            _activeScanCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            return (++_scanRevision, _activeScanCancellation);
+        }
+    }
+
+    private bool IsCurrentScan(long revision)
+    {
+        lock (_scanSync)
+        {
+            return revision == _scanRevision;
+        }
+    }
+
+    private void EndScan(CancellationTokenSource cancellation)
+    {
+        lock (_scanSync)
+        {
+            if (!ReferenceEquals(_activeScanCancellation, cancellation))
+            {
+                return;
+            }
+
+            _activeScanCancellation = null;
+            cancellation.Dispose();
+        }
     }
 
     private async Task SaveSettingsAsync(SettingsSnapshot snapshot)
@@ -772,29 +645,6 @@ public sealed class LibraryService : ILibraryService
         }
     }
 
-    private static string? NormalizeDirectory(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return null;
-        }
-
-        try
-        {
-            var normalized = Path.GetFullPath(path.Trim());
-            var root = Path.GetPathRoot(normalized);
-            if (!string.Equals(root, normalized, StringComparison.OrdinalIgnoreCase))
-            {
-                normalized = normalized.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            }
-            return Directory.Exists(normalized) ? normalized : null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
     private static bool SequenceEqual(IReadOnlyList<string> left, IReadOnlyList<string> right)
     {
         return left.Count == right.Count
@@ -815,48 +665,27 @@ public sealed class LibraryService : ILibraryService
 
     private static string NormalizeArtist(string? value) => FirstNonEmpty(value, "Unknown Artist");
 
+    private static string FirstNonEmpty(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? string.Empty;
+
     private static string InitialOf(string value)
     {
         var text = string.IsNullOrWhiteSpace(value) ? "?" : value.Trim();
         return text[..1].ToUpperInvariant();
     }
 
-    private static string MimeToExtension(string? mime)
-    {
-        return mime?.ToLowerInvariant() switch
-        {
-            "image/png" => ".png",
-            "image/webp" => ".webp",
-            "image/bmp" => ".bmp",
-            _ => ".jpg"
-        };
-    }
-
-    private static string HashPath(string value)
-    {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(value));
-        return Convert.ToHexString(bytes).ToLowerInvariant();
-    }
-
     private void Notify()
     {
-        var dispatcher = App.DispatcherQueue;
-        if (dispatcher is null)
-        {
-            return;
-        }
-
-        if (dispatcher.HasThreadAccess)
-        {
-            LibraryChanged?.Invoke(this, EventArgs.Empty);
-        }
-        else
-        {
-            dispatcher.TryEnqueue(() => LibraryChanged?.Invoke(this, EventArgs.Empty));
-        }
+        _uiDispatcher.Enqueue(() => LibraryChanged?.Invoke(this, EventArgs.Empty));
     }
 
-    private sealed record ScanResult(IReadOnlyList<TrackModel> Tracks, string? FatalError);
+    private sealed class ImmediateUiDispatcher : IUiDispatcher
+    {
+        public void Enqueue(Action action) => action();
+    }
 
-    private readonly record struct WaveInfo(string? Title, string? Artist, string? Album);
+    private sealed class InlineProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
+    }
 }

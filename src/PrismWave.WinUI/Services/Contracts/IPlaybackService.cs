@@ -19,6 +19,8 @@ public interface IPlaybackService
     string? WindowsDsdOutputModeLabel { get; }
     string? WindowsDsdActiveDeviceName { get; }
     string? WindowsDsdFallbackReason { get; }
+    string ActiveAudioOutputModeLabel => string.Empty;
+    string? AudioOutputFallbackReason => null;
     event EventHandler? StateChanged;
     void Play(TrackModel track, IReadOnlyList<TrackModel>? queue = null);
     void Stop();

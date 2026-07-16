@@ -161,7 +161,20 @@
                         <Border Style="{StaticResource PrismPanelBorderStyle}">
                             <StackPanel Spacing="8">
                                 <TextBlock Text="Audio output" Style="{StaticResource PrismSectionTitleTextStyle}" />
-                                <ComboBox Header="Output mode" ItemsSource="{Binding AudioOutputModeOptions}" SelectedItem="{Binding AudioOutputMode, Mode=TwoWay}" Width="280" />
+                                <ComboBox
+                                    Header="Output mode"
+                                    ItemsSource="{Binding AudioOutputModeOptions}"
+                                    DisplayMemberPath="DisplayName"
+                                    SelectedValuePath="Id"
+                                    SelectedValue="{Binding AudioOutputMode, Mode=TwoWay}"
+                                    Width="280"
+                                    HorizontalAlignment="Left" />
+                                <TextBlock Text="{Binding AudioOutputModeDescription}" TextWrapping="Wrap" Style="{StaticResource PrismCaptionTextStyle}" />
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="Active output" Style="{StaticResource PrismCaptionTextStyle}" />
+                                    <TextBlock Text="{Binding ActiveAudioOutputMode}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding AudioOutputFallbackReason}" TextWrapping="Wrap" Foreground="#FFFFB4B4" FontSize="12" />
+                                </StackPanel>
                                 <TextBox Header="Output device id" Text="{Binding AudioOutputDevice, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <Grid ColumnSpacing="10">
                                     <Grid.ColumnDefinitions>

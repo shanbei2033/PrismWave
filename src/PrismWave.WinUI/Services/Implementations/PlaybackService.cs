@@ -40,6 +40,8 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
     public string? WindowsDsdOutputModeLabel => _usingDsdBackend ? _dsdEngine.OutputModeLabel : null;
     public string? WindowsDsdActiveDeviceName => _usingDsdBackend ? _dsdEngine.ActiveDeviceName : null;
     public string? WindowsDsdFallbackReason => _windowsDsdFallbackReason ?? _dsdEngine.FallbackReason;
+    public string ActiveAudioOutputModeLabel => _mpvHost.ActiveRouteLabel;
+    public string? AudioOutputFallbackReason => _mpvHost.FallbackReason;
     public event EventHandler? StateChanged;
 
     public PlaybackService(

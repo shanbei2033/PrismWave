@@ -66,7 +66,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     public IReadOnlyList<string> LanguageOptions { get; } = new[] { "zh-CN", "zh-TW", "en-US" };
-    public IReadOnlyList<string> AudioOutputModeOptions { get; } = new[] { "compatibility", "wasapi_shared", "wasapi_exclusive" };
+    public IReadOnlyList<AudioOutputModeOptionModel> AudioOutputModeOptions { get; } =
+        AudioOutputPolicy.Options;
     public IReadOnlyList<OnlineQualityPreference> OnlineQualityOptions { get; } =
         [OnlineQualityPreference.Lossless, OnlineQualityPreference.High, OnlineQualityPreference.Standard];
     public OnlineAccountSettingsViewModel OnlineAccounts { get; }
@@ -154,6 +155,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _audioOutputMode, value))
             {
+                OnPropertyChanged(nameof(AudioOutputModeDescription));
+                OnPropertyChanged(nameof(ActiveAudioOutputMode));
                 Save();
             }
         }
@@ -210,6 +213,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     public string FadeDuration => $"{FadeDurationMs} ms";
+    public string AudioOutputModeDescription =>
+        AudioOutputModeOptions.FirstOrDefault(option => option.Id == AudioOutputMode)?.Description
+        ?? AudioOutputPolicy.Options[1].Description;
+    public string ActiveAudioOutputMode =>
+        string.IsNullOrWhiteSpace(_playbackService.ActiveAudioOutputModeLabel)
+            ? AudioOutputPolicy.GetRouteDisplayName(
+                AudioOutputPolicy.BuildFallbackChain(AudioOutputMode)[0])
+            : _playbackService.ActiveAudioOutputModeLabel;
+    public string? AudioOutputFallbackReason => _playbackService.AudioOutputFallbackReason;
     public string MigrationSource { get; }
     public string MigrationStatus { get; }
     public ObservableCollection<WindowsDsdDeviceModel> WindowsDsdDevices { get; } = new();
@@ -320,6 +332,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(WindowsDsdOutputStatus));
         OnPropertyChanged(nameof(WindowsDsdActiveDevice));
         OnPropertyChanged(nameof(WindowsDsdFallbackReason));
+        OnPropertyChanged(nameof(ActiveAudioOutputMode));
+        OnPropertyChanged(nameof(AudioOutputFallbackReason));
     }
 
     private void RefreshOnlineAccountAvailability()

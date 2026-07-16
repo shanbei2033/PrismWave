@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.ComponentModel;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -23,6 +24,10 @@ namespace PrismWave_WinUI.Views.Shell;
 public sealed partial class ShellPage : Page
 {
     private const double FullPlayTransitionDurationMilliseconds = 280;
+    private const double QueueOpenTransitionDurationMilliseconds = 240;
+    private const double QueueCloseTransitionDurationMilliseconds = 210;
+    private const double QueuePaneWidth = 344;
+    private const double QueuePaneWidthRatio = 0.85;
 
     private readonly CoverNavigationCoordinator _navigationCoordinator = new();
     private readonly BackNavigationPageCache<Page> _backPageCache = new();
@@ -34,16 +39,20 @@ public sealed partial class ShellPage : Page
     private long _incomingLoadedRevision;
     private CompositionScopedBatch? _activeAnimationBatch;
     private CompositionScopedBatch? _fullPlayExitBatch;
+    private CompositionScopedBatch? _queueExitBatch;
     private long _activeAnimationRevision;
     private long _navigatingRevision;
     private Exception? _navigationFailedException;
     private bool _isFullPlayVisible;
     private bool _animationsEnabled = true;
+    private long _queueAnimationRevision;
+    private long _queueExitRevision;
 
     public ShellPage()
     {
         StartupLog.Write("ShellPage constructor");
         InitializeComponent();
+        PlaybackQueuePane.CloseRequested += PlaybackQueuePane_CloseRequested;
         _currentContentFrame = PrimaryContentFrame;
         _incomingContentFrame = SecondaryContentFrame;
         DataContext = App.Services.Shell;
@@ -63,9 +72,11 @@ public sealed partial class ShellPage : Page
         _isShellLoaded = true;
         _animationsEnabled = ResolveAnimationsEnabled();
         App.Services.Shell.NavigationRequested += ShellViewModel_NavigationRequested;
+        App.Services.Shell.PropertyChanged += ShellViewModel_PropertyChanged;
         PrimaryContentFrame.NavigationFailed += ContentFrame_NavigationFailed;
         SecondaryContentFrame.NavigationFailed += ContentFrame_NavigationFailed;
         _navigationCoordinator.Load();
+        SynchronizeQueueOverlayState();
 
         if (AppNavigationView.SettingsItem is NavigationViewItem settingsItem)
         {
@@ -88,12 +99,15 @@ public sealed partial class ShellPage : Page
 
         _isShellLoaded = false;
         App.Services.Shell.NavigationRequested -= ShellViewModel_NavigationRequested;
+        App.Services.Shell.PropertyChanged -= ShellViewModel_PropertyChanged;
         PrimaryContentFrame.NavigationFailed -= ContentFrame_NavigationFailed;
         SecondaryContentFrame.NavigationFailed -= ContentFrame_NavigationFailed;
         _navigationCoordinator.Unload();
         _backPageCache.Clear();
         DetachIncomingLoadedHandler();
         DetachAnimationBatch();
+        DetachQueueAnimationBatch();
+        ResetQueueOverlay();
         ResetFullPlayOverlay();
         ResetFrame(PrimaryContentFrame);
         ResetFrame(SecondaryContentFrame);
@@ -106,6 +120,215 @@ public sealed partial class ShellPage : Page
 
     private void ShellViewModel_NavigationRequested(object? sender, ShellNavigationRequest request) =>
         ProcessNavigationRequest(request);
+
+    private void ShellViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(App.Services.Shell.IsQueuePaneOpen))
+        {
+            SynchronizeQueueOverlayState();
+        }
+    }
+
+    private void SynchronizeQueueOverlayState()
+    {
+        if (App.Services.Shell.IsQueuePaneOpen)
+        {
+            ShowQueueOverlay();
+        }
+        else
+        {
+            HideQueueOverlay();
+        }
+    }
+
+    private void ShowQueueOverlay()
+    {
+        var revision = ++_queueAnimationRevision;
+        DetachQueueAnimationBatch();
+        UpdateQueuePaneWidth(QueueOverlay.ActualWidth);
+        QueueOverlay.Visibility = Visibility.Visible;
+        QueueOverlay.IsHitTestVisible = true;
+
+        ElementCompositionPreview.SetIsTranslationEnabled(PlaybackQueuePane, true);
+        var visual = ElementCompositionPreview.GetElementVisual(PlaybackQueuePane);
+        var backdropVisual = ElementCompositionPreview.GetElementVisual(QueueBackdrop);
+        visual.StopAnimation("Translation.X");
+        visual.StopAnimation("Opacity");
+        backdropVisual.StopAnimation("Opacity");
+        visual.Properties.InsertVector3("Translation", Vector3.Zero);
+        visual.Opacity = 1;
+        backdropVisual.Opacity = 1;
+
+        if (!_animationsEnabled)
+        {
+            FocusQueueCloseButton(revision);
+            StartupLog.Write("queue.overlay.opened durationMs=0");
+            return;
+        }
+
+        var compositor = visual.Compositor;
+        var offset = (float)Math.Max(1, PlaybackQueuePane.Width + 16);
+        var easing = compositor.CreateCubicBezierEasingFunction(
+            new Vector2(0.1f, 0.9f),
+            new Vector2(0.2f, 1.0f));
+        var slide = compositor.CreateScalarKeyFrameAnimation();
+        slide.InsertKeyFrame(0f, offset);
+        slide.InsertKeyFrame(1f, 0f, easing);
+        slide.Duration = TimeSpan.FromMilliseconds(QueueOpenTransitionDurationMilliseconds);
+        var fade = compositor.CreateScalarKeyFrameAnimation();
+        fade.InsertKeyFrame(0f, 0.35f);
+        fade.InsertKeyFrame(1f, 1f, easing);
+        fade.Duration = slide.Duration;
+        var backdropFade = compositor.CreateScalarKeyFrameAnimation();
+        backdropFade.InsertKeyFrame(0f, 0f);
+        backdropFade.InsertKeyFrame(1f, 1f, easing);
+        backdropFade.Duration = slide.Duration;
+        visual.StartAnimation("Translation.X", slide);
+        visual.StartAnimation("Opacity", fade);
+        backdropVisual.StartAnimation("Opacity", backdropFade);
+        FocusQueueCloseButton(revision);
+        StartupLog.Write($"queue.overlay.opened durationMs={QueueOpenTransitionDurationMilliseconds:0}");
+    }
+
+    private void HideQueueOverlay()
+    {
+        if (QueueOverlay.Visibility != Visibility.Visible)
+        {
+            ResetQueueOverlay();
+            return;
+        }
+
+        var revision = ++_queueAnimationRevision;
+        QueueOverlay.IsHitTestVisible = false;
+        DetachQueueAnimationBatch();
+        if (!_animationsEnabled)
+        {
+            ResetQueueOverlay();
+            RestoreQueueToggleFocus();
+            StartupLog.Write("queue.overlay.closed durationMs=0");
+            return;
+        }
+
+        ElementCompositionPreview.SetIsTranslationEnabled(PlaybackQueuePane, true);
+        var visual = ElementCompositionPreview.GetElementVisual(PlaybackQueuePane);
+        var backdropVisual = ElementCompositionPreview.GetElementVisual(QueueBackdrop);
+        visual.StopAnimation("Translation.X");
+        visual.StopAnimation("Opacity");
+        backdropVisual.StopAnimation("Opacity");
+        var compositor = visual.Compositor;
+        var offset = (float)Math.Max(1, PlaybackQueuePane.Width + 16);
+        visual.Properties.InsertVector3("Translation", new Vector3(offset, 0, 0));
+        visual.Opacity = 0;
+        backdropVisual.Opacity = 0;
+        var easing = compositor.CreateCubicBezierEasingFunction(
+            new Vector2(0.4f, 0.0f),
+            new Vector2(1.0f, 1.0f));
+        var slide = compositor.CreateScalarKeyFrameAnimation();
+        slide.InsertKeyFrame(0f, 0f);
+        slide.InsertKeyFrame(1f, offset, easing);
+        slide.Duration = TimeSpan.FromMilliseconds(QueueCloseTransitionDurationMilliseconds);
+        var fade = compositor.CreateScalarKeyFrameAnimation();
+        fade.InsertKeyFrame(0f, 1f);
+        fade.InsertKeyFrame(1f, 0f, easing);
+        fade.Duration = slide.Duration;
+        var batch = compositor.CreateScopedBatch(CompositionBatchTypes.Animation);
+        visual.StartAnimation("Translation.X", slide);
+        visual.StartAnimation("Opacity", fade);
+        backdropVisual.StartAnimation("Opacity", fade);
+        batch.End();
+        _queueExitBatch = batch;
+        _queueExitRevision = revision;
+        batch.Completed += QueueExitBatch_Completed;
+        StartupLog.Write($"queue.overlay.closing durationMs={QueueCloseTransitionDurationMilliseconds:0}");
+    }
+
+    private void QueueExitBatch_Completed(object? sender, CompositionBatchCompletedEventArgs args)
+    {
+        if (_queueExitRevision != _queueAnimationRevision || App.Services.Shell.IsQueuePaneOpen)
+        {
+            return;
+        }
+
+        DetachQueueAnimationBatch();
+        ResetQueueOverlay();
+        RestoreQueueToggleFocus();
+        StartupLog.Write($"queue.overlay.closed durationMs={QueueCloseTransitionDurationMilliseconds:0}");
+    }
+
+    private void FocusQueueCloseButton(long revision)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (revision == _queueAnimationRevision && App.Services.Shell.IsQueuePaneOpen)
+            {
+                PlaybackQueuePane.FocusCloseButton();
+            }
+        });
+    }
+
+    private void RestoreQueueToggleFocus()
+    {
+        ShellBottomPlayerBar.Focus(FocusState.Programmatic);
+    }
+
+    private void ResetQueueOverlay()
+    {
+        ElementCompositionPreview.SetIsTranslationEnabled(PlaybackQueuePane, true);
+        var visual = ElementCompositionPreview.GetElementVisual(PlaybackQueuePane);
+        var backdropVisual = ElementCompositionPreview.GetElementVisual(QueueBackdrop);
+        visual.StopAnimation("Translation.X");
+        visual.StopAnimation("Opacity");
+        backdropVisual.StopAnimation("Opacity");
+        visual.Properties.InsertVector3(
+            "Translation",
+            new Vector3((float)Math.Max(1, PlaybackQueuePane.Width + 16), 0, 0));
+        visual.Opacity = 0;
+        backdropVisual.Opacity = 0;
+        QueueOverlay.IsHitTestVisible = false;
+        QueueOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void DetachQueueAnimationBatch()
+    {
+        if (_queueExitBatch is not null)
+        {
+            _queueExitBatch.Completed -= QueueExitBatch_Completed;
+        }
+
+        _queueExitBatch = null;
+        _queueExitRevision = 0;
+    }
+
+    private void UpdateQueuePaneWidth(double availableWidth)
+    {
+        if (availableWidth > 0)
+        {
+            PlaybackQueuePane.Width = Math.Min(QueuePaneWidth, availableWidth * QueuePaneWidthRatio);
+        }
+    }
+
+    private void QueueOverlay_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        UpdateQueuePaneWidth(e.NewSize.Width);
+
+    private void QueueBackdrop_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        App.Services.Shell.CloseQueuePaneCommand.Execute(null);
+        e.Handled = true;
+    }
+
+    private void PlaybackQueuePane_CloseRequested(object? sender, EventArgs e) =>
+        App.Services.Shell.CloseQueuePaneCommand.Execute(null);
+
+    private void QueueEscapeKeyboardAccelerator_Invoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (App.Services.Shell.IsQueuePaneOpen)
+        {
+            App.Services.Shell.CloseQueuePaneCommand.Execute(null);
+            args.Handled = true;
+        }
+    }
 
     private void ProcessNavigationRequest(ShellNavigationRequest request)
     {

@@ -82,12 +82,15 @@
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/LocalMusicScanner.cs" Link="Services/LocalMusicScanner.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/LibraryService.cs" Link="Services/LibraryService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Player/PlaybackViewModel.cs" Link="ViewModels/PlaybackViewModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/ViewModels/Player/PlaybackQueueItemViewModel.cs" Link="ViewModels/PlaybackQueueItemViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Player/LyricsTimeline.cs" Link="ViewModels/LyricsTimeline.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Player/LyricsSearchViewModel.cs" Link="ViewModels/LyricsSearchViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Player/CoverSearchViewModel.cs" Link="ViewModels/CoverSearchViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Shell/ShellViewModel.cs" Link="ViewModels/ShellViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Hits/HitsStatusViewModel.cs" Link="ViewModels/HitsStatusViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Home/HomeViewModel.cs" Link="ViewModels/HomeViewModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/ViewModels/Library/LibraryViewModel.cs" Link="ViewModels/LibraryViewModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/ViewModels/Library/LibraryFolderEntryViewModel.cs" Link="ViewModels/LibraryFolderEntryViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Library/LibraryFolderManagerViewModel.cs" Link="ViewModels/LibraryFolderManagerViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Settings/OnlineAccountSettingsViewModel.cs" Link="ViewModels/OnlineAccountSettingsViewModel.cs" />
   </ItemGroup>

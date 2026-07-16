@@ -11,6 +11,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     private readonly ILibraryService _libraryService;
     private readonly IPlaybackService _playbackService;
     private string _searchQuery = string.Empty;
+    private string? _currentTrackId;
 
     public LibraryViewModel(
         ILibraryService libraryService,
@@ -21,7 +22,9 @@ public sealed partial class LibraryViewModel : ObservableObject
         _playbackService = playbackService;
         LibraryFolders = libraryFolders;
         _libraryService.LibraryChanged += (_, _) => RefreshAll();
+        _playbackService.StateChanged += (_, _) => RefreshCurrentTrack();
         RefreshVisibleTracks();
+        RefreshCurrentTrack();
     }
 
     public string SearchQuery
@@ -38,6 +41,11 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     public ObservableCollection<TrackModel> VisibleTracks { get; } = new();
     public LibraryFolderManagerViewModel LibraryFolders { get; }
+    public string? CurrentTrackId
+    {
+        get => _currentTrackId;
+        private set => SetProperty(ref _currentTrackId, value);
+    }
     public int TrackCount => _libraryService.Tracks.Count;
     public int FolderCount => _libraryService.Folders.Count;
     public int FavoriteCount => _libraryService.Favorites.Count;
@@ -107,4 +115,6 @@ public sealed partial class LibraryViewModel : ObservableObject
         OnPropertyChanged(nameof(FolderCount));
         OnPropertyChanged(nameof(FavoriteCount));
     }
+
+    private void RefreshCurrentTrack() => CurrentTrackId = _playbackService.CurrentTrack?.Id;
 }

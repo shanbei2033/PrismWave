@@ -26,7 +26,7 @@ public sealed partial class PlaybackViewModel : ObservableObject
     private bool _isPlaying;
     private bool _isLoading;
     private bool _isLyricsLoading;
-    private string _modeLabel = "Loop";
+    private string _modeLabel = "列表循环";
     private double _volume = 0.78;
     private double _positionSeconds;
     private double _durationSeconds;
@@ -42,6 +42,8 @@ public sealed partial class PlaybackViewModel : ObservableObject
     private int _selectedLyricIndex = -1;
     private bool _lyricsPresentationUpdatesActive;
     private double _lyricsPresentationPositionSeconds;
+    private long _observedQueueRevision = long.MinValue;
+    private bool _isQueueReorderActive;
 
     public PlaybackViewModel(
         IPlaybackService playbackService,
@@ -233,6 +235,7 @@ public sealed partial class PlaybackViewModel : ObservableObject
     }
 
     public ObservableCollection<TrackModel> Queue { get; } = new();
+    public ObservableCollection<PlaybackQueueItemViewModel> QueueItems { get; } = new();
     public ObservableCollection<LyricLineDisplayModel> Lyrics { get; } = new();
 
     public string CurrentTitle => CurrentTrack?.Title ?? "未选择歌曲";
@@ -245,7 +248,8 @@ public sealed partial class PlaybackViewModel : ObservableObject
                                            !string.IsNullOrWhiteSpace(track.Path);
     public string CurrentFavoriteGlyph => IsCurrentTrackFavorite ? "\uEB52" : "\uEB51";
     public bool HasTrack => CurrentTrack is not null;
-    public bool HasQueue => Queue.Count > 0;
+    public bool HasQueue => QueueItems.Count > 0;
+    public string QueueCountLabel => $"{QueueItems.Count} 首";
     public bool HasLyrics => Lyrics.Count > 0;
     public bool ShowLyricsEmptyState => !IsLyricsLoading && Lyrics.Count == 0;
     public string LyricsEmptyMessage => CurrentTrack is null
@@ -447,7 +451,18 @@ public sealed partial class PlaybackViewModel : ObservableObject
 
     public void PersistQueueOrder()
     {
-        _playbackService.ReorderQueue(Queue.ToList());
+        CompleteQueueReorder();
+    }
+
+    public void BeginQueueReorder()
+    {
+        _isQueueReorderActive = true;
+    }
+
+    public void CompleteQueueReorder()
+    {
+        _isQueueReorderActive = false;
+        _playbackService.ReorderQueue(QueueItems.Select(item => item.Track).ToArray());
     }
 
     public void SetVolume(double value)
@@ -590,16 +605,19 @@ public sealed partial class PlaybackViewModel : ObservableObject
         Error = _playbackService.Error;
         ModeLabel = _playbackService.Mode switch
         {
-            PlaybackMode.Single => "Single",
-            PlaybackMode.Shuffle => "Shuffle",
-            _ => "Loop"
+            PlaybackMode.Single => "单曲循环",
+            PlaybackMode.Shuffle => "随机播放",
+            _ => "列表循环"
         };
 
-        Queue.Clear();
-        foreach (var track in _playbackService.Queue)
+        var queueRevision = _playbackService.QueueRevision;
+        if (!_isQueueReorderActive && queueRevision != _observedQueueRevision)
         {
-            Queue.Add(track);
+            SynchronizeQueueCollections(_playbackService.Queue);
+            _observedQueueRevision = queueRevision;
         }
+
+        RefreshQueueCurrentState();
 
         if (!_lyricsPresentationUpdatesActive || trackChanged)
         {
@@ -616,6 +634,7 @@ public sealed partial class PlaybackViewModel : ObservableObject
         }
         RefreshCurrentCoverPath();
         OnPropertyChanged(nameof(HasQueue));
+        OnPropertyChanged(nameof(QueueCountLabel));
         OnPropertyChanged(nameof(CurrentTitle));
         OnPropertyChanged(nameof(CurrentArtist));
         OnPropertyChanged(nameof(CurrentAlbum));
@@ -645,6 +664,22 @@ public sealed partial class PlaybackViewModel : ObservableObject
             }
         }
 
+        foreach (var item in QueueItems)
+        {
+            var queuedTrack = item.Track;
+            if (string.Equals(queuedTrack.Id, e.TrackId, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(queuedTrack.Path, e.TrackPath, StringComparison.OrdinalIgnoreCase)
+                || TrackCoverIdentity.Matches(
+                    queuedTrack.Title,
+                    queuedTrack.Artist,
+                    e.Title,
+                    e.Artist))
+            {
+                var updated = queuedTrack with { CoverPath = e.CoverPath };
+                item.Update(updated, item.Position, e.CoverPath, item.IsCurrent);
+            }
+        }
+
         if (CurrentTrack is not null
             && (string.Equals(CurrentTrack.Id, e.TrackId, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(CurrentTrack.Path, e.TrackPath, StringComparison.OrdinalIgnoreCase)
@@ -671,6 +706,125 @@ public sealed partial class PlaybackViewModel : ObservableObject
         _currentCoverPath = next;
         OnPropertyChanged(nameof(CurrentCoverPath));
     }
+
+    private void SynchronizeQueueCollections(IReadOnlyList<TrackModel> desiredTracks)
+    {
+        SynchronizeTrackQueue(desiredTracks);
+
+        var occurrences = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (var index = 0; index < desiredTracks.Count; index++)
+        {
+            var track = desiredTracks[index];
+            var occurrence = occurrences.TryGetValue(track.Id, out var count) ? count : 0;
+            occurrences[track.Id] = occurrence + 1;
+            var entryId = $"{track.Id}\u001f{occurrence}";
+            var existingIndex = FindQueueItemIndex(entryId, index);
+            PlaybackQueueItemViewModel item;
+            if (existingIndex < 0)
+            {
+                item = new PlaybackQueueItemViewModel(
+                    entryId,
+                    track,
+                    index + 1,
+                    ResolveQueueCoverPath(track),
+                    IsCurrentTrack(track));
+                QueueItems.Insert(index, item);
+            }
+            else
+            {
+                if (existingIndex != index)
+                {
+                    QueueItems.Move(existingIndex, index);
+                }
+
+                item = QueueItems[index];
+                item.Update(
+                    track,
+                    index + 1,
+                    ResolveQueueCoverPath(track),
+                    IsCurrentTrack(track));
+            }
+        }
+
+        while (QueueItems.Count > desiredTracks.Count)
+        {
+            QueueItems.RemoveAt(QueueItems.Count - 1);
+        }
+    }
+
+    private void SynchronizeTrackQueue(IReadOnlyList<TrackModel> desiredTracks)
+    {
+        for (var index = 0; index < desiredTracks.Count; index++)
+        {
+            var desired = desiredTracks[index];
+            var existingIndex = FindTrackIndex(desired.Id, index);
+            if (existingIndex < 0)
+            {
+                Queue.Insert(index, desired);
+                continue;
+            }
+
+            if (existingIndex != index)
+            {
+                Queue.Move(existingIndex, index);
+            }
+
+            if (!Equals(Queue[index], desired))
+            {
+                Queue[index] = desired;
+            }
+        }
+
+        while (Queue.Count > desiredTracks.Count)
+        {
+            Queue.RemoveAt(Queue.Count - 1);
+        }
+    }
+
+    private int FindQueueItemIndex(string entryId, int startIndex)
+    {
+        for (var index = startIndex; index < QueueItems.Count; index++)
+        {
+            if (string.Equals(QueueItems[index].EntryId, entryId, StringComparison.Ordinal))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private int FindTrackIndex(string trackId, int startIndex)
+    {
+        for (var index = startIndex; index < Queue.Count; index++)
+        {
+            if (string.Equals(Queue[index].Id, trackId, StringComparison.Ordinal))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private void RefreshQueueCurrentState()
+    {
+        for (var index = 0; index < QueueItems.Count; index++)
+        {
+            var item = QueueItems[index];
+            item.Update(
+                item.Track,
+                index + 1,
+                item.CoverPath,
+                IsCurrentTrack(item.Track));
+        }
+    }
+
+    private string? ResolveQueueCoverPath(TrackModel track) =>
+        _coverService?.ResolveCoverPath(track) ?? track.CoverPath;
+
+    private bool IsCurrentTrack(TrackModel track) =>
+        string.Equals(track.Id, CurrentTrack?.Id, StringComparison.Ordinal);
 
     private bool CanToggleCurrentFavorite()
     {

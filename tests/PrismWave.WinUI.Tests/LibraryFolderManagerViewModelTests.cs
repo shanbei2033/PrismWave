@@ -83,6 +83,43 @@ public sealed class LibraryFolderManagerViewModelTests
         Assert.Equal("Scanning 3 / 10", viewModel.StatusText);
     }
 
+    [Fact]
+    public void FolderEntries_ShowOnlyTracksWithinEachFolder()
+    {
+        var library = new FakeLibraryService();
+        library.SetTracks(
+        [
+            CreateTrack(@"C:\Music\Album\inside.flac"),
+            CreateTrack(@"C:\MusicTwo\outside.flac")
+        ]);
+        library.SetState(
+            [new LibraryFolderStatus(@"C:\Music", true, null)],
+            LibraryScanProgress.Idle,
+            false,
+            null);
+
+        var viewModel = new LibraryFolderManagerViewModel(
+            library,
+            new FakePicker(MusicFolderPickResult.Canceled()));
+
+        var entriesProperty = typeof(LibraryFolderManagerViewModel).GetProperty("FolderEntries");
+        Assert.NotNull(entriesProperty);
+        var entries = Assert.IsAssignableFrom<System.Collections.IEnumerable>(entriesProperty!.GetValue(viewModel));
+        var entry = Assert.Single(entries.Cast<object>());
+        var count = Assert.IsType<int>(entry.GetType().GetProperty("TrackCount")?.GetValue(entry));
+
+        Assert.Equal(1, count);
+    }
+
+    private static TrackModel CreateTrack(string path) => new(
+        Guid.NewGuid().ToString("N"),
+        path,
+        Path.GetFileNameWithoutExtension(path),
+        "Artist",
+        "Album",
+        "03:00",
+        null);
+
     private sealed class FakePicker(MusicFolderPickResult result) : IMusicFolderPicker
     {
         public Task<MusicFolderPickResult> PickAsync(CancellationToken cancellationToken = default) =>
@@ -93,7 +130,9 @@ public sealed class LibraryFolderManagerViewModelTests
     {
         private IReadOnlyList<LibraryFolderStatus> _folderStatuses = [];
 
-        public IReadOnlyList<TrackModel> Tracks => [];
+        private IReadOnlyList<TrackModel> _tracks = [];
+
+        public IReadOnlyList<TrackModel> Tracks => _tracks;
         public IReadOnlyList<string> Folders => _folderStatuses.Select(status => status.Path).ToList();
         public IReadOnlyList<AlbumModel> Albums => [];
         public IReadOnlyList<ArtistModel> Artists => [];
@@ -118,6 +157,8 @@ public sealed class LibraryFolderManagerViewModelTests
             IsScanning = isScanning;
             Error = error;
         }
+
+        public void SetTracks(IReadOnlyList<TrackModel> tracks) => _tracks = tracks;
 
         public void RaiseChanged() => LibraryChanged?.Invoke(this, EventArgs.Empty);
 

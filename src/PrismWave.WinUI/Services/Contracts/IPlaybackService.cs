@@ -6,6 +6,7 @@ public interface IPlaybackService
 {
     TrackModel? CurrentTrack { get; }
     IReadOnlyList<TrackModel> Queue { get; }
+    long QueueRevision => 0;
     PlaybackMode Mode { get; }
     PlaybackStatus Status { get; }
     double Volume { get; }

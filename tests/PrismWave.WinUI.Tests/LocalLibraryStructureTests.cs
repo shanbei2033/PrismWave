@@ -36,11 +36,83 @@ public sealed class LocalLibraryStructureTests
             element.Attribute("Command")?.Value == "{Binding LibraryFolders.AddFolderCommand}");
         Assert.Contains(document.Descendants(), element =>
             element.Attribute("Command")?.Value == "{Binding LibraryFolders.RescanCommand}");
-        Assert.Contains(document.Descendants(), element =>
-            element.Attribute("ItemsSource")?.Value == "{Binding LibraryFolders.Folders}");
         Assert.DoesNotContain("FolderPicker", code, StringComparison.Ordinal);
         Assert.DoesNotContain("InitializeWithWindow", code, StringComparison.Ordinal);
         Assert.DoesNotContain("AddFolder_Click", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LibraryPage_UsesSongTableInsteadOfPermanentFolderRail()
+    {
+        var xamlPath = FindFile(
+            "src", "PrismWave.WinUI", "Views", "Library", "LibraryPage.xaml");
+        var document = XDocument.Load(xamlPath);
+        var code = File.ReadAllText(Path.ChangeExtension(xamlPath, ".xaml.cs"));
+
+        Assert.Contains(document.Descendants(), element =>
+            element.Name.LocalName == "AutoSuggestBox" &&
+            element.Attribute("QueryIcon")?.Value == "Find");
+        Assert.Contains(document.Descendants(), element =>
+            element.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml"))?.Value == "TableHeader");
+        Assert.Contains(document.Descendants(), element =>
+            element.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml"))?.Value == "TracksList" &&
+            element.Attribute("ItemsSource")?.Value == "{Binding VisibleTracks}");
+        Assert.DoesNotContain(document.Descendants(), element =>
+            element.Name.LocalName == "MetricPill");
+        Assert.DoesNotContain(document.Descendants(), element =>
+            element.Attribute("ItemsSource")?.Value == "{Binding LibraryFolders.Folders}");
+        Assert.DoesNotContain(document.Descendants(), element =>
+            element.Name.LocalName == "ColumnDefinition" && element.Attribute("Width")?.Value == "260");
+        Assert.Contains("OpenFolderManager_Click", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LibraryPage_KeepsAlbumColumnsAlignedWithoutConditionalLayoutJumps()
+    {
+        var document = XDocument.Load(FindFile(
+            "src", "PrismWave.WinUI", "Views", "Library", "LibraryPage.xaml"));
+
+        Assert.Contains(document.Descendants(), element =>
+            element.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml"))?.Value == "AlbumHeader" &&
+            element.Attribute("Grid.Column")?.Value == "3");
+        Assert.Contains(document.Descendants(), element =>
+            element.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml"))?.Value == "AlbumCell" &&
+            element.Attribute("Grid.Column")?.Value == "3");
+        Assert.Contains(document.Descendants(), element =>
+            element.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml"))?.Value == "HeaderAlbumColumn" &&
+            element.Attribute("Width")?.Value == "1.15*");
+        Assert.Contains(document.Descendants(), element =>
+            element.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml"))?.Value == "AlbumColumn" &&
+            element.Attribute("Width")?.Value == "1.15*");
+        Assert.DoesNotContain(document.Descendants(), element =>
+            element.Name.LocalName == "AdaptiveTrigger");
+    }
+
+    [Fact]
+    public void FolderDialog_UsesSharedManagerAndShowsTrackCounts()
+    {
+        var document = XDocument.Load(FindFile(
+            "src", "PrismWave.WinUI", "Views", "Dialogs", "LibraryFoldersDialog.xaml"));
+
+        Assert.Contains(document.Descendants(), element =>
+            element.Attribute("ItemsSource")?.Value == "{Binding FolderEntries}");
+        Assert.Contains(document.Descendants(), element =>
+            element.Attribute("Text")?.Value == "{Binding TrackCount}");
+        Assert.Contains(document.Descendants(), element =>
+            element.Attribute("Text")?.Value == "{Binding StatusText}");
+        Assert.Contains(document.Descendants(), element =>
+            element.Attribute("Command")?.Value == "{Binding AddFolderCommand}");
+        Assert.Contains(document.Descendants(), element =>
+            element.Attribute("Command")?.Value == "{Binding RescanCommand}");
+        Assert.Contains(document.Descendants(), element =>
+            element.Attribute("Command")?.Value == "{Binding DataContext.RemoveFolderCommand, ElementName=FolderDialogRoot}");
+        Assert.Contains(document.Descendants(), element =>
+            element.Name.LocalName == "StackPanel" &&
+            element.Attribute("Grid.Row")?.Value == "1" &&
+            element.Attribute("Orientation")?.Value == "Horizontal");
+        Assert.DoesNotContain(document.Descendants(), element =>
+            element.Name.LocalName == "Grid" &&
+            element.Attribute("MinWidth")?.Value == "560");
     }
 
     [Fact]

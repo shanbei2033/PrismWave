@@ -7,6 +7,10 @@
     xmlns:converters="using:PrismWave_WinUI.Converters"
     xmlns:playback="using:PrismWave_WinUI.Controls.Playback">
 
+    <Page.KeyboardAccelerators>
+        <KeyboardAccelerator Key="Escape" Invoked="QueueEscapeKeyboardAccelerator_Invoked" />
+    </Page.KeyboardAccelerators>
+
     <Page.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
     </Page.Resources>
@@ -99,9 +103,6 @@
                         Visibility="Collapsed"
                         IsHitTestVisible="False" />
                 </Grid>
-                <playback:QueuePane
-                    DataContext="{Binding Playback}"
-                    Visibility="{Binding DataContext.IsQueuePaneOpen, ElementName=ShellRoot, Converter={StaticResource BoolToVisibilityConverter}}" />
             </Grid>
         </NavigationView>
 
@@ -124,6 +125,26 @@
             DataContext="{Binding Playback}"
             FullPlayCommand="{Binding DataContext.OpenFullPlayCommand, ElementName=ShellRoot}"
             QueueCommand="{Binding DataContext.ToggleQueuePaneCommand, ElementName=ShellRoot}" />
+
+        <Grid
+            x:Name="QueueOverlay"
+            Grid.Row="0"
+            Margin="0,42,0,0"
+            Visibility="Collapsed"
+            IsHitTestVisible="False"
+            SizeChanged="QueueOverlay_SizeChanged"
+            AutomationProperties.AutomationId="QueueOverlay">
+            <Border
+                x:Name="QueueBackdrop"
+                Background="#16000000"
+                Opacity="0"
+                PointerPressed="QueueBackdrop_PointerPressed" />
+            <playback:QueuePane
+                x:Name="PlaybackQueuePane"
+                Width="344"
+                HorizontalAlignment="Right"
+                DataContext="{Binding Playback}" />
+        </Grid>
 
         <Grid
             x:Name="FullPlayOverlay"

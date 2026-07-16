@@ -18,11 +18,11 @@
 | WinUI 主工程 | `src/PrismWave.WinUI/PrismWave.WinUI.csproj` |
 | WinUI 测试工程 | `tests/PrismWave.WinUI.Tests/PrismWave.WinUI.Tests.csproj` |
 | WinUI 技术栈 | WinUI 3、Windows App SDK 2.2、C#、.NET 10、CommunityToolkit.Mvvm 8.4.2、TagLibSharp 2.3.0 |
-| 普通播放后端 | 修补版 `native/libmpv/libmpv-2.dll`，通过 `MpvPlaybackEngine` P/Invoke |
+| 普通播放后端 | WinUI 专用完整解码版 `native/libmpv-winui/libmpv-2.dll`，通过 `MpvPlaybackEngine` P/Invoke；Flutter 继续使用原修补版 |
 | DSD 播放后端 | `bass.dll`、`bassdsd.dll`、`bassasio.dll`，通过 `WindowsDsdPlaybackEngine` |
-| 最近完整验证 | 2026-07-16：328/328 单元与结构测试通过；x64 Debug 构建 0 警告、0 错误 |
-| 最近真机 UI 验证 | 设置 → Basic → Music folders 已验证真实系统目录选择器可打开和取消；设置页与曲库页共享空目录状态，未注入模拟歌曲 |
-| 当前最高优先级 | **使用真实大目录完成本地播放矩阵与扫描压力验收，并继续验证删除源文件、DSD/ASIO 和在线 provider** |
+| 最近完整验证 | 2026-07-16：330/330 单元与结构测试通过；x64 Debug 构建 0 警告、0 错误 |
+| 最近真机 UI 验证 | `D:\Music` 扫描出 34 首真实歌曲；`Sunset Jesus.m4a`（E-AC-3）在 Demo 中持续进入 Playing，AppX 实际加载 WinUI 专用 DLL |
+| 当前最高优先级 | **继续完成 MP3/FLAC/WAV/OGG、中文长路径、删除源文件、DSD/ASIO 和在线 provider 真机矩阵** |
 
 当前阶段不是简单的 Demo 皮肤：WinUI 工程已经具备应用壳层、MVVM、真实 mpv/DSD 播放服务、本地库、在线服务、歌词、封面、HITS、设置和多页面 UI 的代码骨架与大量实现。不过它仍处于迁移开发期，不能宣称已经完成 Flutter 全功能等价发布，尤其需要继续做真实音频设备、网络 provider、DSD/ASIO、删除源文件、缓存与安装包场景的人工验收。
 
@@ -109,12 +109,13 @@ src/PrismWave.WinUI/
 #### 普通播放、队列和 DSD
 
 - `PlaybackService` 已作为统一调度层，不再以 Windows `MediaPlayer` 作为主播放后端。
-- `MpvPlaybackEngine` 直接加载仓库中的修补版 `libmpv-2.dll`，已有本地路径、HTTP/HTTPS、headers、播放/暂停/停止、seek、音量、时长、进度、结束和错误事件代码。
+- `MpvPlaybackEngine` 从 `AppX\Native` 加载 WinUI 专用完整解码版 `native/libmpv-winui/libmpv-2.dll`，已有本地路径、HTTP/HTTPS、headers、播放/暂停/停止、seek、音量、时长、进度、结束和错误事件代码。旧 `native/libmpv/libmpv-2.dll` 缺少用户 M4A 所需的 E-AC-3 解码能力，仅保留给依赖其 WASAPI exclusive-buffer 修补的 Flutter 构建。
+- `BundledLibMpvCodecTests` 使用仓库内嵌的微型静音 E-AC-3/M4A fixture 验证解码启动，并锁定 WinUI `.csproj` 以 `Content + PackagePath + Always` 将专用 DLL 写入实际 AppX staging，防止根输出更新而 `AppX\Native` 残留旧 DLL。
 - mpv 路径保留缓存和 WASAPI 策略；设备失败恢复、解码失败恢复和队列推进逻辑已进入服务层。
 - `WindowsDsdPlaybackEngine` 已接入 BASS/BASSDSD/BASSASIO，包含设备枚举、raw DSD 与 DoP 分支、ASIO 回退和错误信息模型。
 - `PlaybackViewModel` 是全局播放状态入口；BottomPlayerBar、FullPlay 和 QueuePane 订阅同一播放服务，不应再各自维护第二套播放状态。
 - QueuePane 已从左侧导航中分离，作为右侧可停靠面板；队列点击切歌、移除、高亮和播放模式代码已存在。
-- 仍需人工验收：真实 MP3/FLAC/WAV/M4A/OGG 文件、中文/长路径、WASAPI shared/exclusive、多声卡切换、DSF/DFF 真机、ASIO raw DSD/DoP、设备断开回退。
+- 已用真实 `D:\Music\Stories(1440834059)\10. Avicii - Sunset Jesus.m4a` 验证 E-AC-3 M4A 在 shared WASAPI 下播放；仍需人工验收 MP3/FLAC/WAV/OGG、中文/长路径、WASAPI exclusive、多声卡切换、DSF/DFF 真机、ASIO raw DSD/DoP、设备断开回退。
 
 #### 本地库、元数据、收藏和详情
 
@@ -201,7 +202,7 @@ dotnet run --project src\PrismWave.WinUI\PrismWave.WinUI.csproj -p:Platform=x64 
 最近一次已验证结果（2026-07-16）：
 
 ```text
-Tests: 328 passed, 0 failed, 0 skipped
+Tests: 330 passed, 0 failed, 0 skipped
 Build: succeeded, 0 warnings, 0 errors
 Target: net10.0-windows10.0.26100.0 / win-x64
 ```
@@ -222,12 +223,12 @@ src\PrismWave.WinUI\bin\x64\Debug\net10.0-windows10.0.26100.0\win-x64\PrismWave.
 2. 不要因为文件是 untracked 就认定它可以删除；当前 WinUI Demo 依赖这些文件。
 3. `bin/`、`obj/`、`AppPackages/`、`artifacts/`、测试输出和临时截图不得进入 WinUI 分支。
 4. 不要把 Flutter 工作区改动与 WinUI 基线一次性混成一个不可审查的大提交。
-5. `native/libmpv/libmpv-2.dll` 是修补版，必须保留；BASS 三个原生 DLL 也要随 x64 输出部署。
+5. 两套 mpv 二进制用途不同：`native/libmpv/libmpv-2.dll` 是 Flutter 的 WASAPI 修补版，`native/libmpv-winui/libmpv-2.dll` 是 WinUI 的完整解码版，均必须保留；BASS 三个原生 DLL 也要随 x64 输出部署。
 6. 不要提交任何 GitHub token、API key、日志中的敏感信息或本机绝对缓存路径。
 
 ### 0.8 下一步推荐顺序
 
-1. **完成本地播放真机矩阵**：使用真实大目录验证 MP3/FLAC/WAV/M4A/OGG、本地中文长路径、seek、队列、设备切换、WASAPI shared/exclusive，并观察扫描进度和取消行为。
+1. **完成剩余本地播放真机矩阵**：E-AC-3 M4A shared-WASAPI 已通过；继续验证 MP3/FLAC/WAV/OGG、本地中文长路径、seek、队列、设备切换、WASAPI exclusive，并观察扫描进度和取消行为。
 2. **验证本地库写操作**：拖拽排序、收藏顺序、移出库、删除源文件、旁置歌词/封面联动和重启恢复。
 3. **做 DSD 真机矩阵**：DSF/DFF、ASIO 设备枚举、raw DSD、DoP 回退、设备失效与设置持久化。
 4. **补齐明确缺口**：正式实现 `IWindowService`、`IDialogService`、`IUpdateService`，清理 `PlaceholderContracts.cs`；补版本更新、打开日志文件和窗口服务边界。
@@ -1487,11 +1488,11 @@ ca1bb92 feat: improve lyrics flow and playlist management
 主仓库: D:\Project\PrismWave
 分支: WinUI
 Flutter 发布基线: R503
-WinUI 状态: 可构建、可运行、328 项测试通过；真实本地目录选择、扫描生命周期和共享目录管理已接通
+WinUI 状态: 可构建、可运行、330 项测试通过；真实本地目录选择、扫描生命周期、共享目录管理和 E-AC-3 M4A 播放已接通
 最近 WinUI 基线: 2026-07-16 创建并推送 origin/WinUI
 
 当前已知的 WinUI 遗留问题:
-  - 本地曲库自动化闭环已完成，仍需用真实大目录和多格式音频完成人工播放矩阵
+  - 本地曲库自动化闭环已完成，真实 E-AC-3 M4A 已通过，仍需完成 MP3/FLAC/WAV/OGG、中文长路径和 exclusive 模式人工矩阵
   - FullPlay 部分歌曲切行仍会颤动；已按用户要求暂缓
   - 在线 provider 长期可用性、DSD/ASIO 真机和安装包仍需端到端验证
 
@@ -1523,7 +1524,7 @@ WinUI 状态: 可构建、可运行、328 项测试通过；真实本地目录�
 
 1. 先阅读本文 `0. 2026-07-14 当前主线速览`，不要从旧 Flutter 主页面直接开始重写。
 2. 运行 `git status --short`，确认用户是否在当前会话之外新增了修改；任何未知改动都按用户改动处理。
-3. 使用真实大目录复核本地曲库扫描、取消、目录删除和重启恢复，再完成 MP3/FLAC/WAV/M4A/OGG 播放矩阵。
+3. 使用真实大目录复核本地曲库扫描、取消、目录删除和重启恢复；E-AC-3 M4A 已通过，继续完成 MP3/FLAC/WAV/OGG 播放矩阵。
 4. 每次本地库修改后运行 WinUI 完整测试和 x64 构建，再用真实目录启动 Demo 验收。
 5. 接下来的功能优先级依次是：真实普通播放矩阵、DSD/ASIO、在线 provider、歌词/FullPlay、HITS、窗口/更新/日志服务、发布打磨。
 6. 如果需要核对功能语义，再回看 Flutter 对应 controller/service/UI；迁移目标是行为等价，不是继续在 Flutter 中扩张第二套新 UI。
@@ -1552,6 +1553,7 @@ WinUI 状态: 可构建、可运行、328 项测试通过；真实本地目录�
 - `dart:ui` 导入需加 `as ui` 前缀，`lerpDouble`、`ImageFilter` 等需加 `ui.` 前缀
 - Deezer/iTunes 音频 URL 都是 30 秒预览片段，**绝不能**作为播放源
 - **不要**删除 `native/libmpv/libmpv-2.dll` —— 这是修补过的 WASAPI exclusive 缓冲版本，删了破音会复发
+- **不要**让 WinUI 改回加载 `native/libmpv/libmpv-2.dll`；WinUI 必须使用 `native/libmpv-winui/libmpv-2.dll`，否则 E-AC-3 M4A 会在 opened 后立即以 mpv error 结束
 - **不要**升级 media_kit / media_kit_libs_windows_audio 而不重新核对自定义 libmpv 兼容性
 - **不要**在 `nativeMpvProperties` 里设 `audio-buffer` —— 它是 player-side 解码缓冲，跟修复无关，反而可能干扰
 - media_kit 的 `PlayerConfiguration` 已扩展 `nativeMpvOptions` 字段（`platform_player.dart`），作为备用通道保留
@@ -1560,4 +1562,4 @@ WinUI 状态: 可构建、可运行、328 项测试通过；真实本地目录�
 
 ## 12. 一句话总结
 
-PrismWave 当前是“Flutter R503 稳定行为基线 + 原生 WinUI 3 重构主线”的双轨阶段：`WinUI` 分支已接通真实本地目录选择、可取消扫描、设置持久化和设置/曲库共享管理，并有328项测试保护；下一步是使用真实大目录完成本地播放矩阵和写操作验收，歌词颤动按用户要求暂缓。
+PrismWave 当前是“Flutter R503 稳定行为基线 + 原生 WinUI 3 重构主线”的双轨阶段：`WinUI` 分支已接通真实本地目录选择、可取消扫描、设置持久化、设置/曲库共享管理及 E-AC-3 M4A 播放，并有 330 项测试保护；下一步是完成其余格式、写操作、DSD/ASIO 和在线 provider 验收，歌词颤动按用户要求暂缓。

@@ -62,7 +62,7 @@
 
   <ItemGroup>
     <None Include="..\..\app\assets\home\latest_home.json" Link="Assets\HomeFallback\latest_home.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\native\libmpv\libmpv-2.dll" Link="Native\libmpv-2.dll" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\native\libmpv-winui\libmpv-2.dll" Link="Native\libmpv-2.dll" PackagePath="Native\libmpv-2.dll" CopyToOutputDirectory="Always" />
     <None Include="..\..\native\windows_dsd\vendor\bass24\x64\bass.dll" Link="Native\bass.dll" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\native\windows_dsd\vendor\bassdsd24\x64\bassdsd.dll" Link="Native\bassdsd.dll" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\native\windows_dsd\vendor\bassasio14\x64\bassasio.dll" Link="Native\bassasio.dll" CopyToOutputDirectory="PreserveNewest" />

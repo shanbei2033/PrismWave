@@ -59,7 +59,7 @@ Every route applies:
 
 The compatibility route does not force `ao`; mpv performs its normal automatic selection. WASAPI routes force `ao=wasapi`. A selected `audio-device` is applied before initialization, with `auto` as the safe default.
 
-Changing output settings or falling back creates a replacement engine, subscribes it to events, restores the playback snapshot, and only then disposes the retired engine. Engine generations and load revisions guard every callback.
+Changing output settings or falling back captures the playback snapshot, detaches and disposes the retired engine so it releases any exclusive device claim, then creates and subscribes the replacement engine before restoring playback. Engine generations and load revisions guard every callback.
 
 ## Playback State Model
 

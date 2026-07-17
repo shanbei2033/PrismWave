@@ -1,4 +1,5 @@
 using Xunit;
+using System.Xml.Linq;
 
 namespace PrismWave_WinUI.Tests;
 
@@ -75,6 +76,54 @@ public sealed class HitsImmersivePageStructureTests
         Assert.Contains("UIElement? dragRegion", mainWindow, StringComparison.Ordinal);
         Assert.Contains("SetTitleBar(dragRegion", mainWindow, StringComparison.Ordinal);
         Assert.Contains("SetTitleBar(AppTitleBar)", mainWindow, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TitleBar_HasNoBottomDivider()
+    {
+        var document = XDocument.Parse(Read("Views", "Hits", "HitsStatusPage.xaml"));
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        var titleBar = document
+            .Descendants()
+            .Single(node => (string?)node.Attribute(x + "Name") == "HitsTitleBar");
+
+        Assert.Null(titleBar.Attribute("BorderBrush"));
+        Assert.Null(titleBar.Attribute("BorderThickness"));
+    }
+
+    [Fact]
+    public void PageUnload_EndsHitsSessionAsFallback()
+    {
+        var page = Read("Views", "Hits", "HitsStatusPage.xaml.cs");
+        var unload = SliceMethod(page, "private void HitsStatusPage_Unloaded", "private void ScheduleTimer_Tick");
+
+        Assert.Contains("EndHitsSessionCommand.Execute(null)", unload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Shell_EndsHitsBeforePlayerBarReturnsAndBeforeRouteIsCleared()
+    {
+        var shell = Read("Views", "Shell", "ShellPage.xaml.cs");
+        var hide = SliceMethod(shell, "private void HideFullPlayOverlay", "private void FullPlayExitBatch_Completed");
+        var reset = SliceMethod(shell, "private void ResetFullPlayOverlay", "private static void SetFullPlayImmersiveTitleBar");
+
+        Assert.Contains("EndHitsSessionIfNeeded();", hide, StringComparison.Ordinal);
+        Assert.True(
+            hide.IndexOf("EndHitsSessionIfNeeded();", StringComparison.Ordinal) <
+            hide.IndexOf("ShellBottomPlayerBar.IsHitTestVisible = true", StringComparison.Ordinal));
+        Assert.Contains("EndHitsSessionIfNeeded();", reset, StringComparison.Ordinal);
+        Assert.True(
+            reset.IndexOf("EndHitsSessionIfNeeded();", StringComparison.Ordinal) <
+            reset.IndexOf("_immersiveRoute = null", StringComparison.Ordinal));
+    }
+
+    private static string SliceMethod(string source, string startMarker, string endMarker)
+    {
+        var start = source.IndexOf(startMarker, StringComparison.Ordinal);
+        var end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
+        Assert.InRange(start, 0, source.Length - 1);
+        Assert.InRange(end, start + 1, source.Length - 1);
+        return source[start..end];
     }
 
     private static string Read(params string[] segments)

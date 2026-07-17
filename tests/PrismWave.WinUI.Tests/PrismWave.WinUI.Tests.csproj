@@ -29,6 +29,7 @@
     <Compile Include="../../src/PrismWave.WinUI/Models/AudioOutputModels.cs" Link="Models/AudioOutputModels.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/OnlineProviderTrackModel.cs" Link="Models/OnlineProviderTrackModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/PlaybackMode.cs" Link="Models/PlaybackMode.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/PlaybackSessionModels.cs" Link="Models/PlaybackSessionModels.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/PlaybackStatus.cs" Link="Models/PlaybackStatus.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/SettingsModels.cs" Link="Models/SettingsModels.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/TrackModel.cs" Link="Models/TrackModel.cs" />
@@ -37,6 +38,7 @@
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/StartupLog.cs" Link="Infrastructure/StartupLog.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/WindowLaunchSize.cs" Link="Infrastructure/WindowLaunchSize.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Audio/PlaybackHeaderLogSanitizer.cs" Link="Infrastructure/PlaybackHeaderLogSanitizer.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Audio/TransientPlaybackSessionGuard.cs" Link="Infrastructure/TransientPlaybackSessionGuard.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Audio/IPlaybackEngine.cs" Link="Infrastructure/IPlaybackEngine.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Audio/IPlaybackEngineFactory.cs" Link="Infrastructure/IPlaybackEngineFactory.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Audio/AudioOutputFailoverState.cs" Link="Infrastructure/AudioOutputFailoverState.cs" />
@@ -51,6 +53,7 @@
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Persistence/FlutterPreferencesMigrationService.cs" Link="Infrastructure/FlutterPreferencesMigrationService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/ISettingsService.cs" Link="Contracts/ISettingsService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IHitsService.cs" Link="Contracts/IHitsService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IHitsPlaybackSession.cs" Link="Contracts/IHitsPlaybackSession.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IPlaybackService.cs" Link="Contracts/IPlaybackService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/ICoverService.cs" Link="Contracts/ICoverService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlinePlaybackResolver.cs" Link="Contracts/IOnlinePlaybackResolver.cs" />

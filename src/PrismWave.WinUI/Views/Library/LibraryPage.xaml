@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="PrismWave_WinUI.Views.Library.LibraryPage"
+    x:Name="LibraryRoot"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:PrismWave_WinUI.Converters"
+    xmlns:media="using:PrismWave_WinUI.Controls.Media">
+    <Page.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <Style x:Key="LibraryTrackListItemStyle" TargetType="ListViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinHeight" Value="64" />
+            <Setter Property="Margin" Value="0,1" />
+        </Style>
+    </Page.Resources>
+    <Grid Padding="{StaticResource PrismPagePadding}" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid ColumnSpacing="16">
+            <StackPanel Spacing="3">
+                <TextBlock Text="Local Music" Style="{StaticResource PrismPageTitleTextStyle}" />
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="{Binding TrackCount}" Style="{StaticResource PrismCaptionTextStyle}" />
+                    <TextBlock Text="tracks" Style="{StaticResource PrismCaptionTextStyle}" />
+                    <TextBlock Text="·" Style="{StaticResource PrismCaptionTextStyle}" />
+                    <TextBlock Text="{Binding FolderCount}" Style="{StaticResource PrismCaptionTextStyle}" />
+                    <TextBlock Text="folders" Style="{StaticResource PrismCaptionTextStyle}" />
+                </StackPanel>
+            </StackPanel>
+            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
+                <ProgressRing Width="18" Height="18" IsActive="{Binding LibraryFolders.IsScanning}" />
+                <Button Click="OpenFolderManager_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <FontIcon Glyph="&#xE8B7;" FontSize="14" />
+                        <TextBlock Text="Folders" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding LibraryFolders.AddFolderCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <FontIcon Glyph="&#xE710;" FontSize="14" />
+                        <TextBlock Text="Add folder" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding LibraryFolders.RescanCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <FontIcon Glyph="&#xE895;" FontSize="14" />
+                        <TextBlock Text="Rescan" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding PlayAllCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <FontIcon Glyph="&#xE768;" FontSize="14" />
+                        <TextBlock Text="Play all" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <AutoSuggestBox
+            Grid.Row="1"
+            QueryIcon="Find"
+            PlaceholderText="Search tracks, artists, or albums"
+            Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+        <InfoBar
+            Grid.Row="2"
+            IsOpen="{Binding LibraryFolders.HasError}"
+            Severity="Error"
+            Title="Library scan failed"
+            Message="{Binding LibraryFolders.Error}" />
+
+        <Grid x:Name="TableHeader" Grid.Row="3" Padding="8,4" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="44" />
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="1.25*" />
+                <ColumnDefinition x:Name="HeaderAlbumColumn" Width="1.15*" />
+                <ColumnDefinition Width="64" />
+                <ColumnDefinition Width="44" />
+                <ColumnDefinition Width="36" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="1" Text="Title" Style="{StaticResource PrismCaptionTextStyle}" />
+            <TextBlock Grid.Column="2" Text="Artist" Style="{StaticResource PrismCaptionTextStyle}" />
+            <TextBlock x:Name="AlbumHeader" Grid.Column="3" Text="Album" Style="{StaticResource PrismCaptionTextStyle}" />
+            <TextBlock Grid.Column="4" Text="Time" HorizontalAlignment="Right" Style="{StaticResource PrismCaptionTextStyle}" />
+        </Grid>
+
+        <Grid Grid.Row="4">
+            <ListView
+                x:Name="TracksList"
+                ItemsSource="{Binding VisibleTracks}"
+                ItemContainerStyle="{StaticResource LibraryTrackListItemStyle}"
+                SelectionMode="Single"
+                SelectedValuePath="Id"
+                SelectedValue="{Binding CurrentTrackId, Mode=OneWay}"
+                IsItemClickEnabled="True"
+                ItemClick="Tracks_ItemClick"
+                CanDragItems="True"
+                CanReorderItems="True"
+                AllowDrop="True"
+                DragItemsCompleted="Tracks_DragItemsCompleted">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Padding="8,6" ColumnSpacing="12">
+                            <Grid.ContextFlyout>
+                                <MenuFlyout>
+                                    <MenuFlyoutItem Text="Track details" Tag="{Binding}" Click="TrackDetails_Click" />
+                                    <MenuFlyoutItem Text="Open file location" Tag="{Binding}" Click="OpenLocation_Click" />
+                                    <MenuFlyoutSeparator />
+                                    <MenuFlyoutItem Text="Remove from library..." Tag="{Binding}" Click="RemoveTrack_Click" />
+                                </MenuFlyout>
+                            </Grid.ContextFlyout>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="44" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="1.25*" />
+                                <ColumnDefinition x:Name="AlbumColumn" Width="1.15*" />
+                                <ColumnDefinition Width="64" />
+                                <ColumnDefinition Width="44" />
+                                <ColumnDefinition Width="36" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="44" Height="44" CornerRadius="6" Background="{StaticResource PrismSurfaceStrongBrush}">
+                                <media:StableCoverImage SourcePath="{Binding CoverPath}" Stretch="UniformToFill" />
+                            </Border>
+                            <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="{Binding Artist}" TextTrimming="CharacterEllipsis" Style="{StaticResource PrismCaptionTextStyle}" VerticalAlignment="Center" />
+                            <TextBlock x:Name="AlbumCell" Grid.Column="3" Text="{Binding Album}" TextTrimming="CharacterEllipsis" Style="{StaticResource PrismCaptionTextStyle}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="4" Text="{Binding Duration}" HorizontalAlignment="Right" Style="{StaticResource PrismCaptionTextStyle}" VerticalAlignment="Center" />
+                            <Button
+                                Grid.Column="5"
+                                Width="40"
+                                Height="40"
+                                Padding="0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Tag="{Binding}"
+                                Click="Favorite_Click">
+                                <FontIcon Glyph="{Binding FavoriteGlyph}" FontSize="18" />
+                            </Button>
+                            <Button Grid.Column="6">
+                                <FontIcon Glyph="&#xE712;" FontSize="15" />
+                                <Button.Flyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem Text="Track details" Tag="{Binding}" Click="TrackDetails_Click" />
+                                        <MenuFlyoutItem Text="Open file location" Tag="{Binding}" Click="OpenLocation_Click" />
+                                        <MenuFlyoutSeparator />
+                                        <MenuFlyoutItem Text="Remove from library..." Tag="{Binding}" Click="RemoveTrack_Click" />
+                                    </MenuFlyout>
+                                </Button.Flyout>
+                            </Button>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="8"
+                Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}">
+                <FontIcon Glyph="&#xE8D6;" FontSize="34" Foreground="{StaticResource PrismTextSecondaryBrush}" />
+                <TextBlock Text="No music found" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                <TextBlock Text="Add a music folder or clear the current search." Style="{StaticResource PrismCaptionTextStyle}" />
+                <Button
+                    Command="{Binding LibraryFolders.AddFolderCommand}"
+                    Content="Add folder"
+                    HorizontalAlignment="Center"
+                    AutomationProperties.Name="Add folder from empty library" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Page>

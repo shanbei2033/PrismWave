@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="PrismWave_WinUI.Views.Dialogs.LyricsSearchDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Search online lyrics"
+    CloseButtonText="Close"
+    DefaultButton="None">
+    <Grid Width="500" MaxHeight="560" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                x:Name="QueryBox"
+                Text="{Binding Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                PlaceholderText="Track title and artist"
+                KeyDown="QueryBox_KeyDown" />
+            <Button
+                Grid.Column="1"
+                Command="{Binding SearchCommand}"
+                >
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                    <FontIcon Glyph="&#xE721;" FontSize="15" />
+                    <TextBlock Text="Search" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <ProgressRing Width="18" Height="18" IsActive="{Binding IsSearching}" />
+            <TextBlock
+                Grid.Column="1"
+                Text="{Binding Status}"
+                Style="{StaticResource PrismCaptionTextStyle}"
+                VerticalAlignment="Center" />
+        </Grid>
+
+        <ListView
+            Grid.Row="2"
+            MinHeight="300"
+            MaxHeight="390"
+            ItemsSource="{Binding Results}"
+            IsItemClickEnabled="True"
+            SelectionMode="Single"
+            ItemClick="ResultsList_ItemClick"
+            HorizontalContentAlignment="Stretch">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="MinHeight" Value="64" />
+                    <Setter Property="Padding" Value="10,7" />
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="92" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock
+                                Text="{Binding DisplayTitle}"
+                                Foreground="{StaticResource PrismTextPrimaryBrush}"
+                                FontWeight="SemiBold"
+                                TextTrimming="CharacterEllipsis" />
+                            <TextBlock
+                                Text="{Binding AlbumName}"
+                                Style="{StaticResource PrismCaptionTextStyle}" />
+                        </StackPanel>
+                        <StackPanel
+                            Grid.Column="1"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Spacing="2">
+                            <TextBlock
+                                Text="{Binding LyricsKindLabel}"
+                                Foreground="{StaticResource PrismTextSecondaryBrush}"
+                                HorizontalAlignment="Right" />
+                            <TextBlock
+                                Text="{Binding Provider}"
+                                Style="{StaticResource PrismCaptionTextStyle}"
+                                HorizontalAlignment="Right" />
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+    </Grid>
+</ContentDialog>

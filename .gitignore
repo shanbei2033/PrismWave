@@ -21,6 +21,7 @@ dist/
 .codex_bin/
 .codex_home/
 .codex_localappdata/
+.worktrees/
 .fake_android_sdk/
 .pub-cache/
 .tmp/
@@ -37,6 +38,12 @@ app/tool/verify_online_lyrics.dart
 # Windows build leftovers
 app/windows/flutter/ephemeral/
 app/windows/x64/
+
+# .NET / WinUI build outputs
+**/bin/
+**/obj/
+**/AppPackages/
+**/TestResults/
 
 # Rust
 native/rust_core/target/

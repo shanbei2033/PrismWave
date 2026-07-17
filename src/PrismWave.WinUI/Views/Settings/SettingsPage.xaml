@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="PrismWave_WinUI.Views.Settings.SettingsPage"
+    x:Name="SettingsRoot"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Padding="{StaticResource PrismPagePadding}" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <TextBlock Text="{Binding Text.SettingsTitle}" Style="{StaticResource PrismPageTitleTextStyle}" />
+        <Pivot Grid.Row="1">
+                <PivotItem Header="{Binding Text.BasicTab}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="14" Padding="0,16,12,16">
+                        <Border Style="{StaticResource PrismPanelBorderStyle}">
+                            <StackPanel Spacing="10">
+                                <Grid ColumnSpacing="10">
+                                    <TextBlock Text="{Binding Text.MusicFolders}" Style="{StaticResource PrismSectionTitleTextStyle}" VerticalAlignment="Center" />
+                                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+                                        <ProgressRing Width="20" Height="20" IsActive="{Binding LibraryFolders.IsScanning}" />
+                                        <Button Command="{Binding LibraryFolders.AddFolderCommand}" AutomationProperties.Name="Add music folder">
+                                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                                <FontIcon Glyph="&#xE8B7;" FontSize="14" />
+                                                <TextBlock Text="{Binding Text.AddFolder}" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Command="{Binding LibraryFolders.RescanCommand}" AutomationProperties.Name="Rescan music folders">
+                                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                                <FontIcon Glyph="&#xE895;" FontSize="14" />
+                                                <TextBlock Text="{Binding Text.Rescan}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Text="{Binding LibraryFolders.StatusText}" Style="{StaticResource PrismCaptionTextStyle}" />
+                                <InfoBar
+                                    IsOpen="{Binding LibraryFolders.HasError}"
+                                    Severity="Error"
+                                    Title="{Binding Text.LocalLibrary}"
+                                    Message="{Binding LibraryFolders.Error}" />
+                                <ListView ItemsSource="{Binding LibraryFolders.FolderEntries}" MaxHeight="220">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnSpacing="10" Padding="2,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Path}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="1" Text="{Binding StatusText}" Style="{StaticResource PrismCaptionTextStyle}" VerticalAlignment="Center" />
+                                                <Button
+                                                    Grid.Column="2"
+                                                    Command="{Binding DataContext.LibraryFolders.RemoveFolderCommand, ElementName=SettingsRoot}"
+                                                    CommandParameter="{Binding Path}"
+                                                    AutomationProperties.Name="Remove music folder">
+                                                    <FontIcon Glyph="&#xE711;" FontSize="14" />
+                                                </Button>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource PrismPanelBorderStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="{Binding Text.LanguageAndTheme}" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                                <ComboBox Header="{Binding Text.Language}" ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding Language, Mode=TwoWay}" Width="240" />
+                                <ComboBox
+                                    Header="{Binding Text.AppearanceStyle}"
+                                    ItemsSource="{Binding AppearanceStyleOptions}"
+                                    DisplayMemberPath="DisplayName"
+                                    SelectedValuePath="Value"
+                                    SelectedValue="{Binding AppearanceStyle, Mode=TwoWay}"
+                                    Width="280"
+                                    HorizontalAlignment="Left" />
+                                <TextBlock Text="{Binding AppearanceStyleDescription}" Style="{StaticResource PrismCaptionTextStyle}" TextWrapping="Wrap" />
+                                <ToggleSwitch Header="{Binding Text.LowEffects}" IsOn="{Binding LowEffects, Mode=TwoWay}" OnContent="{Binding Text.On}" OffContent="{Binding Text.Off}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource PrismPanelBorderStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="{Binding Text.PreferenceMigration}" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                                <TextBlock Text="{Binding MigrationStatus}" Style="{StaticResource PrismCaptionTextStyle}" />
+                                <TextBlock Text="{Binding MigrationSource}" Style="{StaticResource PrismCaptionTextStyle}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    </ScrollViewer>
+                </PivotItem>
+                <PivotItem Header="{Binding Text.OnlineTab}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="14" Padding="0,16,12,16">
+                        <StackPanel x:Name="StreamingAccountsHeader" Spacing="3">
+                            <TextBlock Text="{Binding Text.StreamingAccounts}" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                            <TextBlock Text="{Binding Text.StreamingAccountsDescription}" Style="{StaticResource PrismCaptionTextStyle}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Border x:Name="NeteaseAccountCard" Style="{StaticResource PrismPanelBorderStyle}">
+                            <Grid ColumnSpacing="14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="56" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border Width="48" Height="48" CornerRadius="24" Background="{StaticResource PrismSurfaceStrongBrush}">
+                                    <Grid>
+                                        <FontIcon Glyph="&#xE77B;" FontSize="22" Foreground="{StaticResource PrismTextMutedBrush}" />
+                                        <Image Source="{Binding OnlineAccounts.Netease.AvatarUrl}" Stretch="UniformToFill" />
+                                    </Grid>
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                    <TextBlock Text="NetEase Cloud Music" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                                    <TextBlock Text="{Binding OnlineAccounts.Netease.DisplayName}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding OnlineAccounts.Netease.StatusText}" Style="{StaticResource PrismCaptionTextStyle}" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <Button Tag="netease" Content="{Binding Text.ScanLogin}" Click="ScanLogin_Click" />
+                                    <Button Tag="netease" Content="{Binding Text.SignOut}" Click="SignOut_Click" IsEnabled="{Binding OnlineAccounts.Netease.CanSignOut}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <Border x:Name="QqAccountCard" Style="{StaticResource PrismPanelBorderStyle}">
+                            <Grid ColumnSpacing="14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="56" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border Width="48" Height="48" CornerRadius="24" Background="{StaticResource PrismSurfaceStrongBrush}">
+                                    <Grid>
+                                        <FontIcon Glyph="&#xE77B;" FontSize="22" Foreground="{StaticResource PrismTextMutedBrush}" />
+                                        <Image Source="{Binding OnlineAccounts.Qq.AvatarUrl}" Stretch="UniformToFill" />
+                                    </Grid>
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                    <TextBlock Text="QQ Music" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                                    <TextBlock Text="{Binding OnlineAccounts.Qq.DisplayName}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding OnlineAccounts.Qq.StatusText}" Style="{StaticResource PrismCaptionTextStyle}" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <Button Tag="qq" Content="{Binding Text.ScanLogin}" Click="ScanLogin_Click" />
+                                    <Button Tag="qq" Content="{Binding Text.SignOut}" Click="SignOut_Click" IsEnabled="{Binding OnlineAccounts.Qq.CanSignOut}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource PrismPanelBorderStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="{Binding Text.BetaOnlineMode}" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                                <ToggleSwitch x:Name="ExperimentalFeaturesToggle" Header="{Binding Text.ExperimentalFeatures}" IsOn="{Binding ExperimentalFeaturesEnabled, Mode=OneWay}" OnContent="{Binding Text.On}" OffContent="{Binding Text.Off}" Toggled="ExperimentalFeatures_Toggled" />
+                                <ToggleSwitch Header="{Binding Text.OnlineMode}" IsOn="{Binding OnlineModeEnabled, Mode=TwoWay}" IsEnabled="{Binding ExperimentalFeaturesEnabled}" OnContent="{Binding Text.On}" OffContent="{Binding Text.Off}" />
+                                <ComboBox
+                                    Header="{Binding Text.PreferredStreamingQuality}"
+                                    ItemsSource="{Binding OnlineQualityOptions}"
+                                    DisplayMemberPath="DisplayName"
+                                    SelectedValuePath="Value"
+                                    SelectedValue="{Binding OnlineQualityPreference, Mode=TwoWay}"
+                                    IsEnabled="{Binding OnlineAccounts.IsLoginEnabled}"
+                                    Width="260"
+                                    HorizontalAlignment="Left" />
+                                <InfoBar IsOpen="True" Severity="Informational" Title="{Binding Text.ThirdPartyProviders}" Message="{Binding Text.ThirdPartyProvidersMessage}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    </ScrollViewer>
+                </PivotItem>
+                <PivotItem Header="{Binding Text.PlaybackTab}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="14" Padding="0,16,12,16">
+                        <Border Style="{StaticResource PrismPanelBorderStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="{Binding Text.AudioOutput}" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                                <ComboBox
+                                    Header="{Binding Text.OutputMode}"
+                                    ItemsSource="{Binding AudioOutputModeOptions}"
+                                    DisplayMemberPath="DisplayName"
+                                    SelectedValuePath="Id"
+                                    SelectedValue="{Binding AudioOutputMode, Mode=TwoWay}"
+                                    Width="280"
+                                    HorizontalAlignment="Left" />
+                                <TextBlock Text="{Binding AudioOutputModeDescription}" TextWrapping="Wrap" Style="{StaticResource PrismCaptionTextStyle}" />
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="{Binding Text.ActiveOutput}" Style="{StaticResource PrismCaptionTextStyle}" />
+                                    <TextBlock Text="{Binding ActiveAudioOutputMode}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding AudioOutputFallbackReason}" TextWrapping="Wrap" Foreground="#FFFFB4B4" FontSize="12" />
+                                </StackPanel>
+                                <TextBox Header="{Binding Text.OutputDeviceId}" Text="{Binding AudioOutputDevice, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <Grid ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox
+                                        Header="{Binding Text.WindowsDsdDevice}"
+                                        ItemsSource="{Binding WindowsDsdDevices}"
+                                        DisplayMemberPath="DisplayName"
+                                        SelectedValuePath="Id"
+                                        SelectedValue="{Binding WindowsDsdDevice, Mode=TwoWay}"
+                                        IsEnabled="{Binding ExperimentalFeaturesEnabled}"
+                                        HorizontalAlignment="Stretch" />
+                                    <Button Grid.Column="1" Command="{Binding RefreshWindowsDsdDevicesCommand}" VerticalAlignment="Bottom">
+                                        <FontIcon Glyph="&#xE895;" FontSize="14" />
+                                    </Button>
+                                </Grid>
+                                <TextBlock Text="{Binding WindowsDsdStatus}" Style="{StaticResource PrismCaptionTextStyle}" />
+                                <TextBlock Text="{Binding WindowsDsdOutputStatus}" Style="{StaticResource PrismCaptionTextStyle}" />
+                                <TextBlock Text="{Binding WindowsDsdActiveDevice}" Style="{StaticResource PrismCaptionTextStyle}" />
+                                <TextBlock Text="{Binding WindowsDsdFallbackReason}" TextWrapping="Wrap" Foreground="#FFFFB4B4" FontSize="12" />
+                                <ToggleSwitch Header="{Binding Text.FadeInOut}" IsOn="{Binding FadeEnabled, Mode=TwoWay}" OnContent="{Binding Text.On}" OffContent="{Binding Text.Off}" />
+                                <Slider Header="{Binding Text.FadeDuration}" Minimum="0" Maximum="2000" StepFrequency="10" Value="{Binding FadeDurationMs, Mode=TwoWay}" />
+                                <TextBlock Text="{Binding FadeDuration}" Style="{StaticResource PrismCaptionTextStyle}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    </ScrollViewer>
+                </PivotItem>
+                <PivotItem Header="{Binding Text.DeveloperTab}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Padding="0,16,12,16" Spacing="14">
+                        <Border Style="{StaticResource PrismPanelBorderStyle}">
+                            <Grid RowSpacing="10">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="300" />
+                                </Grid.RowDefinitions>
+                                <Grid>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Text.DeveloperLogs}" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                                        <TextBlock Text="{Binding DeveloperLogCount}" Style="{StaticResource PrismCaptionTextStyle}" />
+                                    </StackPanel>
+                                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+                                        <Button Command="{Binding OpenDeveloperLogCommand}">
+                                            <StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE8A7;" FontSize="14" /><TextBlock Text="{Binding Text.Open}" /></StackPanel>
+                                        </Button>
+                                        <Button Command="{Binding ClearDeveloperLogsCommand}">
+                                            <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Grid.Row="1" Text="{Binding DeveloperLogPath}" TextWrapping="Wrap" Style="{StaticResource PrismCaptionTextStyle}" />
+                                <TextBox
+                                    Grid.Row="2"
+                                    Text="{Binding DeveloperLogText, Mode=OneWay}"
+                                    IsReadOnly="True"
+                                    AcceptsReturn="True"
+                                    TextWrapping="NoWrap"
+                                    FontFamily="Cascadia Mono, Consolas"
+                                    FontSize="11"
+                                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                    ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                    </ScrollViewer>
+                </PivotItem>
+        </Pivot>
+    </Grid>
+</Page>

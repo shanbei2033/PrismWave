@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Style x:Key="PrismPageTitleTextStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource PrismTextPrimaryBrush}" />
+        <Setter Property="FontFamily" Value="Segoe UI Variable Display, Microsoft YaHei UI" />
+        <Setter Property="FontSize" Value="28" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style x:Key="PrismSectionTitleTextStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource PrismTextPrimaryBrush}" />
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style x:Key="PrismCaptionTextStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource PrismTextSecondaryBrush}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style x:Key="PrismCardBorderStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource PrismGlassSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource PrismCardBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="14" />
+    </Style>
+
+    <Style x:Key="PrismPanelBorderStyle" TargetType="Border" BasedOn="{StaticResource PrismCardBorderStyle}">
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="18" />
+        <Setter Property="Background" Value="{StaticResource PrismGlassBrush}" />
+    </Style>
+
+    <Style TargetType="Page">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FontFamily" Value="Segoe UI Variable Text, Microsoft YaHei UI" />
+        <Setter Property="Foreground" Value="{StaticResource PrismTextPrimaryBrush}" />
+    </Style>
+
+    <Style TargetType="NavigationView">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="PaneDisplayMode" Value="Left" />
+        <Setter Property="IsBackButtonVisible" Value="Collapsed" />
+        <Setter Property="IsSettingsVisible" Value="False" />
+    </Style>
+</ResourceDictionary>

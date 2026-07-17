@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="PrismWave_WinUI.Views.Library.AlbumsPage"
+    x:Name="AlbumsRoot"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:PrismWave_WinUI.Converters"
+    xmlns:media="using:PrismWave_WinUI.Controls.Media">
+    <Page.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <Style x:Key="AlbumGridItemStyle" TargetType="GridViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,14,18" />
+        </Style>
+    </Page.Resources>
+
+    <Grid Padding="{StaticResource PrismPagePadding}" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="专辑" Style="{StaticResource PrismPageTitleTextStyle}" />
+        <AutoSuggestBox
+            Grid.Row="1"
+            QueryIcon="Find"
+            PlaceholderText="搜索专辑 / 艺术家 / 歌名"
+            Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+        <Grid Grid.Row="2">
+            <GridView
+                x:Name="AlbumGrid"
+                ItemsSource="{Binding FilteredAlbums}"
+                SelectionMode="None"
+                IsItemClickEnabled="True"
+                ItemClick="Albums_ItemClick"
+                ItemContainerStyle="{StaticResource AlbumGridItemStyle}"
+                Loaded="AlbumGrid_Loaded"
+                SizeChanged="AlbumGrid_SizeChanged">
+                <GridView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ItemsWrapGrid Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </GridView.ItemsPanel>
+                <GridView.ItemContainerTransitions>
+                    <TransitionCollection>
+                        <EntranceThemeTransition FromVerticalOffset="12" IsStaggeringEnabled="False" />
+                        <RepositionThemeTransition />
+                    </TransitionCollection>
+                </GridView.ItemContainerTransitions>
+                <GridView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid
+                            Padding="5"
+                            RowSpacing="7"
+                            PointerEntered="AlbumCard_PointerEntered"
+                            PointerExited="AlbumCard_PointerExited">
+                            <Grid.ContextFlyout>
+                                <MenuFlyout>
+                                    <MenuFlyoutItem Text="播放全部" Tag="{Binding}" Click="PlayAlbum_Click" />
+                                    <MenuFlyoutItem Text="添加到播放队列" Tag="{Binding}" Click="AddAlbumToQueue_Click" />
+                                    <MenuFlyoutItem Text="收藏专辑歌曲" Tag="{Binding}" Click="FavoriteAlbum_Click" />
+                                    <MenuFlyoutSeparator />
+                                    <MenuFlyoutItem Text="查看艺术家" Tag="{Binding}" Click="ViewAlbumArtist_Click" />
+                                </MenuFlyout>
+                            </Grid.ContextFlyout>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid x:Name="AlbumCover" SizeChanged="AlbumCover_SizeChanged">
+                                <Border CornerRadius="9" Background="{StaticResource PrismSurfaceStrongBrush}">
+                                    <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" />
+                                </Border>
+                                <Border x:Name="AlbumHoverShade" Background="#66000000" CornerRadius="9" Opacity="0" />
+                                <Button
+                                    x:Name="AlbumPlayOverlay"
+                                    Tag="{Binding}"
+                                    Width="46"
+                                    Height="46"
+                                    Padding="0"
+                                    Opacity="0"
+                                    IsHitTestVisible="False"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Background="{StaticResource PrismAccentBrush}"
+                                    Click="PlayAlbum_Click"
+                                    >
+                                    <FontIcon Glyph="&#xE768;" FontSize="18" />
+                                </Button>
+                            </Grid>
+                            <TextBlock
+                                Grid.Row="1"
+                                Text="{Binding Title}"
+                                FontWeight="SemiBold"
+                                TextTrimming="CharacterEllipsis"
+                                MaxLines="1" />
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="5">
+                                <TextBlock Text="{Binding TrackCount}" Style="{StaticResource PrismCaptionTextStyle}" />
+                                <TextBlock Text="首 ·" Style="{StaticResource PrismCaptionTextStyle}" />
+                                <TextBlock Text="{Binding Artist}" TextTrimming="CharacterEllipsis" Style="{StaticResource PrismCaptionTextStyle}" />
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </GridView.ItemTemplate>
+            </GridView>
+
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="8"
+                Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}">
+                <FontIcon Glyph="&#xE93C;" FontSize="34" Foreground="{StaticResource PrismTextSecondaryBrush}" />
+                <TextBlock Text="没有匹配的专辑" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                <TextBlock Text="添加本地音乐或调整搜索关键词" Style="{StaticResource PrismCaptionTextStyle}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Page>

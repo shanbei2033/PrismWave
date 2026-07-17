@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="PrismWave_WinUI.Controls.Lyrics.LyricsStageControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:canvas="using:Microsoft.Graphics.Canvas.UI.Xaml"
+    IsTabStop="True">
+    <Grid Background="Transparent">
+        <canvas:CanvasControl
+            x:Name="StageCanvas"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            ClearColor="Transparent"
+            CreateResources="StageCanvas_CreateResources"
+            SizeChanged="StageCanvas_SizeChanged"
+            Draw="StageCanvas_Draw"
+            PointerWheelChanged="StageCanvas_PointerWheelChanged"
+            PointerPressed="StageCanvas_PointerPressed"
+            PointerMoved="StageCanvas_PointerMoved"
+            PointerReleased="StageCanvas_PointerReleased"
+            PointerCanceled="StageCanvas_PointerCanceled"
+            PointerExited="StageCanvas_PointerExited"
+            Tapped="StageCanvas_Tapped" />
+    </Grid>
+</UserControl>

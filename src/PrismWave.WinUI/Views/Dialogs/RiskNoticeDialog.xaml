@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="PrismWave_WinUI.Views.Dialogs.RiskNoticeDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="BETA feature risk notice"
+    PrimaryButtonText="I understand and agree"
+    CloseButtonText="Disagree"
+    DefaultButton="Close">
+    <Grid MinWidth="600" MaxWidth="680" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <InfoBar
+            IsOpen="True"
+            Severity="Warning"
+            Title="Read this notice before enabling experimental features"
+            Message="Online providers and DSD support are experimental and may stop working without notice." />
+        <ScrollViewer Grid.Row="1" MaxHeight="430" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="12" Padding="2,0,10,0">
+                <TextBlock Text="PrismWave is an independently developed local music player. BETA features may retrieve music metadata, lyrics, artwork, charts, search results or media addresses from third-party services." TextWrapping="Wrap" />
+                <TextBlock Text="PrismWave is not affiliated with, authorized by, endorsed by or commercially associated with those platforms, rights holders or service providers, and does not claim rights to their content, APIs, audio, lyrics, artwork or trademarks." TextWrapping="Wrap" />
+                <TextBlock Text="Some providers may use public pages, public or non-public endpoints, reverse-parsed responses and cached data. Availability can change because of platform policy, copyright, region, network, account, technical or legal restrictions." TextWrapping="Wrap" />
+                <TextBlock Text="Enabling BETA features grants no right to download, record, save, redistribute or commercially use unauthorized content, or to bypass membership, regional, access-control, encryption or anti-scraping protections." TextWrapping="Wrap" />
+                <TextBlock Text="PrismWave does not host or sell third-party music and cannot guarantee legality, accuracy, availability or continued access. You are responsible for complying with applicable laws and each provider's terms." TextWrapping="Wrap" />
+                <TextBlock Text="If you disagree with this notice or cannot confirm a lawful basis for your use, do not enable BETA features." TextWrapping="Wrap" FontWeight="SemiBold" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</ContentDialog>

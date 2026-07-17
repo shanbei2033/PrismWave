@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="PrismWave_WinUI.Views.Hits.HitsStatusPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:PrismWave_WinUI.Converters"
+    xmlns:media="using:PrismWave_WinUI.Controls.Media"
+    KeyboardAcceleratorPlacementMode="Hidden">
+    <Page.KeyboardAccelerators>
+        <KeyboardAccelerator Key="Escape" Invoked="BackKeyboardAccelerator_Invoked" />
+    </Page.KeyboardAccelerators>
+
+    <Page.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <Style x:Key="HitsIconButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="46" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="23" />
+            <Setter Property="Background" Value="#26000000" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="UseSystemFocusVisuals" Value="True" />
+        </Style>
+        <Style x:Key="HitsCoverButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="520" />
+            <Setter Property="Height" Value="520" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="UseSystemFocusVisuals" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Page.Resources>
+
+    <Grid Background="{StaticResource PrismBackgroundBrush}">
+        <Grid IsHitTestVisible="False" AutomationProperties.AutomationId="HitsBackdrop">
+            <media:StableCoverImage
+                SourcePath="{Binding CurrentCoverPath}"
+                Stretch="UniformToFill"
+                Opacity="0.28"
+                RenderTransformOrigin="0.5,0.5">
+                <media:StableCoverImage.RenderTransform>
+                    <ScaleTransform ScaleX="1.12" ScaleY="1.12" />
+                </media:StableCoverImage.RenderTransform>
+            </media:StableCoverImage>
+            <Grid x:Name="HitsBackdropHost" AutomationProperties.AutomationId="HitsBackdropBlur" />
+            <Rectangle Fill="#C70A0D13" />
+        </Grid>
+
+        <Grid RowSpacing="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="68" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Grid
+                x:Name="HitsTitleBar"
+                Margin="20,0,140,0"
+                Background="Transparent">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button
+                    x:Name="BackButton"
+                    Style="{StaticResource HitsIconButtonStyle}"
+                    Click="BackButton_Click"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="Back">
+                    <FontIcon Glyph="&#xE72B;" FontSize="20" />
+                </Button>
+                <TextBlock
+                    Grid.Column="1"
+                    Margin="16,0,0,0"
+                    Text="HITS"
+                    FontFamily="Segoe UI Variable Display"
+                    FontSize="22"
+                    FontWeight="SemiBold"
+                    VerticalAlignment="Center" />
+                <Grid
+                    x:Name="HitsDragRegion"
+                    Grid.Column="2"
+                    Margin="18,0,0,0"
+                    Background="Transparent" />
+            </Grid>
+
+            <Grid
+                x:Name="ContentLayout"
+                Grid.Row="1"
+                Padding="40,20,40,38">
+                <VisualStateManager.VisualStateGroups>
+                    <VisualStateGroup>
+                        <VisualState x:Name="CompactState" />
+                        <VisualState x:Name="WideState">
+                            <VisualState.StateTriggers>
+                                <AdaptiveTrigger MinWindowWidth="900" />
+                            </VisualState.StateTriggers>
+                            <VisualState.Setters>
+                                <Setter Target="ContentLayout.Padding" Value="72,30,72,52" />
+                                <Setter Target="CenteredContentStack.RowSpacing" Value="28" />
+                                <Setter Target="CoverColumn.MaxWidth" Value="380" />
+                                <Setter Target="CoverColumn.MaxHeight" Value="380" />
+                                <Setter Target="TrackTitle.FontSize" Value="54" />
+                                <Setter Target="PreviousTrackTitle.FontSize" Value="54" />
+                            </VisualState.Setters>
+                        </VisualState>
+                    </VisualStateGroup>
+                </VisualStateManager.VisualStateGroups>
+
+                <Grid
+                    x:Name="CenteredContentStack"
+                    MaxWidth="1000"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    RowSpacing="22">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Viewbox
+                        x:Name="CoverColumn"
+                        MaxWidth="300"
+                        MaxHeight="300"
+                        HorizontalAlignment="Center"
+                        Stretch="Uniform">
+                        <Button
+                            x:Name="CoverPlayPauseButton"
+                            Style="{StaticResource HitsCoverButtonStyle}"
+                            Command="{Binding ToggleLivePlaybackCommand}"
+                            AutomationProperties.Name="{Binding CoverAutomationName}"
+                            >
+                            <Grid x:Name="CoverVisualHost" Width="520" Height="520">
+                                <Border
+                                    Width="520"
+                                    Height="520"
+                                    CornerRadius="26"
+                                    Background="#331A1D24">
+                                    <Grid>
+                                        <FontIcon Glyph="&#xE8D6;" FontSize="96" Opacity="0.42" />
+                                        <media:StableCoverImage
+                                            SourcePath="{Binding CurrentCoverPath}"
+                                            Stretch="UniformToFill"
+                                            AutomationProperties.AutomationId="HitsCover" />
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Button>
+                    </Viewbox>
+
+                    <Grid
+                        x:Name="TrackColumn"
+                        Grid.Row="1"
+                        MaxWidth="920"
+                        HorizontalAlignment="Center">
+                        <StackPanel Spacing="18" HorizontalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                                <Ellipse
+                                    Width="8"
+                                    Height="8"
+                                    Fill="#FFFF4D4D"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding ShowLiveDot, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                <TextBlock
+                                    Text="{Binding BroadcastStateLabel}"
+                                    FontSize="13"
+                                    FontWeight="SemiBold"
+                                    CharacterSpacing="145"
+                                    Foreground="#FFD9DDE5" />
+                                <ProgressRing
+                                    Width="16"
+                                    Height="16"
+                                    IsActive="{Binding IsConnecting}"
+                                    Visibility="{Binding IsConnecting, Converter={StaticResource BoolToVisibilityConverter}}" />
+                            </StackPanel>
+
+                            <Grid x:Name="TrackInfoSwapHost" MinHeight="150">
+                                <StackPanel
+                                    x:Name="PreviousTrackPanel"
+                                    Opacity="0"
+                                    Spacing="8"
+                                    HorizontalAlignment="Center">
+                                    <TextBlock
+                                        x:Name="PreviousTrackTitle"
+                                        FontSize="40"
+                                        FontWeight="SemiBold"
+                                        TextAlignment="Center"
+                                        TextWrapping="WrapWholeWords"
+                                        MaxLines="2" />
+                                    <TextBlock
+                                        x:Name="PreviousTrackArtist"
+                                        FontSize="22"
+                                        Foreground="#FFCED2DA"
+                                        TextAlignment="Center"
+                                        TextTrimming="CharacterEllipsis" />
+                                    <TextBlock
+                                        x:Name="PreviousTrackAlbum"
+                                        FontSize="16"
+                                        Foreground="#FF9FA5B0"
+                                        TextAlignment="Center"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <StackPanel
+                                    x:Name="CurrentTrackPanel"
+                                    Spacing="8"
+                                    HorizontalAlignment="Center">
+                                    <TextBlock
+                                        x:Name="TrackTitle"
+                                        Text="{Binding DisplayTitle}"
+                                        FontFamily="Segoe UI Variable Display"
+                                        FontSize="40"
+                                        FontWeight="SemiBold"
+                                        TextAlignment="Center"
+                                        TextWrapping="WrapWholeWords"
+                                        MaxLines="2" />
+                                    <TextBlock
+                                        Text="{Binding DisplayArtist}"
+                                        FontSize="22"
+                                        Foreground="#FFCED2DA"
+                                        TextAlignment="Center"
+                                        TextTrimming="CharacterEllipsis"
+                                        MaxLines="1" />
+                                    <TextBlock
+                                        Text="{Binding DisplayAlbum}"
+                                        FontSize="16"
+                                        Foreground="#FF9FA5B0"
+                                        TextAlignment="Center"
+                                        TextTrimming="CharacterEllipsis"
+                                        MaxLines="1" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</Page>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="PrismWave_WinUI.Views.Dialogs.TrackDeleteDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Remove track"
+    PrimaryButtonText="Remove"
+    CloseButtonText="Cancel"
+    DefaultButton="Close">
+    <StackPanel MinWidth="440" Spacing="14">
+        <TextBlock Text="This track will no longer appear in the PrismWave library." TextWrapping="Wrap" />
+        <CheckBox x:Name="DeleteSourceCheckBox" Content="Also delete the source audio and sidecar lyric files" />
+        <InfoBar
+            IsOpen="{Binding IsChecked, ElementName=DeleteSourceCheckBox}"
+            Severity="Warning"
+            Title="This cannot be undone"
+            Message="The audio file and matching .lrc/.qrc files will be deleted from disk." />
+    </StackPanel>
+</ContentDialog>

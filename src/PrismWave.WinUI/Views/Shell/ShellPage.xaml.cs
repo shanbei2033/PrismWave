@@ -48,6 +48,7 @@ public sealed partial class ShellPage : Page
     private Exception? _navigationFailedException;
     private bool _isFullPlayVisible;
     private string? _immersiveRoute;
+    private long _fullPlayExitRevision;
     private bool _animationsEnabled = true;
     private long _queueAnimationRevision;
     private long _queueExitRevision;
@@ -377,6 +378,7 @@ public sealed partial class ShellPage : Page
             return;
         }
 
+        _fullPlayExitRevision++;
         DetachFullPlayExitBatch();
         _isFullPlayVisible = true;
         _immersiveRoute = route;
@@ -442,6 +444,7 @@ public sealed partial class ShellPage : Page
         }
 
         EndHitsSessionIfNeeded();
+        var exitRevision = ++_fullPlayExitRevision;
         _isFullPlayVisible = false;
         FullPlayOverlay.IsHitTestVisible = false;
         AppNavigationView.IsHitTestVisible = true;
@@ -488,6 +491,7 @@ public sealed partial class ShellPage : Page
         visual.StartAnimation("Translation.Y", slideAnimation);
         visual.StartAnimation("Opacity", fadeAnimation);
         _fullPlayExitBatch.End();
+        ScheduleFullPlayExitFallback(exitRevision, duration);
         StartupLog.Write(
             $"navigation.{route.ToLowerInvariant()}.closing durationMs={duration:0}");
     }
@@ -505,6 +509,7 @@ public sealed partial class ShellPage : Page
 
     private void ResetFullPlayOverlay()
     {
+        _fullPlayExitRevision++;
         EndHitsSessionIfNeeded();
         DetachFullPlayExitBatch();
         _isFullPlayVisible = false;
@@ -522,6 +527,29 @@ public sealed partial class ShellPage : Page
         FullPlayOverlay.Opacity = 0;
         AppNavigationView.IsHitTestVisible = true;
         ShellBottomPlayerBar.IsHitTestVisible = true;
+    }
+
+    private void ScheduleFullPlayExitFallback(long revision, double durationMilliseconds)
+    {
+        _ = CompleteFullPlayExitAfterDelayAsync(revision, durationMilliseconds);
+    }
+
+    private async Task CompleteFullPlayExitAfterDelayAsync(
+        long revision,
+        double durationMilliseconds)
+    {
+        await Task.Delay(TimeSpan.FromMilliseconds(durationMilliseconds + 120));
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (revision != _fullPlayExitRevision || _isFullPlayVisible)
+            {
+                return;
+            }
+
+            ResetFullPlayOverlay();
+            RestoreCurrentInputAndFocus();
+            StartupLog.Write("navigation.fullplay.closed reason=fallback");
+        });
     }
 
     private void EndHitsSessionIfNeeded()

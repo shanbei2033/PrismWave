@@ -117,6 +117,17 @@ public sealed class HitsImmersivePageStructureTests
             reset.IndexOf("_immersiveRoute = null", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void Shell_HasRevisionGuardedFallbackWhenCompositionCompletionIsLost()
+    {
+        var shell = Read("Views", "Shell", "ShellPage.xaml.cs");
+
+        Assert.Contains("ScheduleFullPlayExitFallback", shell, StringComparison.Ordinal);
+        Assert.Contains("_fullPlayExitRevision", shell, StringComparison.Ordinal);
+        Assert.Contains("revision != _fullPlayExitRevision", shell, StringComparison.Ordinal);
+        Assert.Contains("ResetFullPlayOverlay();", shell, StringComparison.Ordinal);
+    }
+
     private static string SliceMethod(string source, string startMarker, string endMarker)
     {
         var start = source.IndexOf(startMarker, StringComparison.Ordinal);

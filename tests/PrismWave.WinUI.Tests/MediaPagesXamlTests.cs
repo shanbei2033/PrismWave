@@ -101,6 +101,65 @@ public sealed class MediaPagesXamlTests
     }
 
     [Fact]
+    public void AlbumDetail_KeepsHeroTransitionAttachedToOpaqueTrackSurface()
+    {
+        var path = FindFile("src", "PrismWave.WinUI", "Views", "Library", "LocalAlbumDetailPage.xaml");
+        var document = XDocument.Load(path);
+        var code = File.ReadAllText(Path.ChangeExtension(path, ".xaml.cs"));
+
+        var transition = Assert.Single(document.Descendants(), element =>
+            element.Attribute(X + "Name")?.Value == "AlbumTransitionLayer");
+        Assert.Equal("False", transition.Attribute("IsHitTestVisible")?.Value);
+        Assert.InRange(int.Parse(transition.Attribute("Height")!.Value), 100, 180);
+
+        var backButton = Assert.Single(document.Descendants(), element =>
+            element.Name.LocalName == "Button"
+            && element.Attribute("Click")?.Value == "Back_Click");
+        Assert.Equal("3", backButton.Attribute("Canvas.ZIndex")?.Value);
+
+        var trackItemStyle = Assert.Single(document.Descendants(), element =>
+            element.Name.LocalName == "Style"
+            && element.Attribute(X + "Key")?.Value == "AlbumTrackItemStyle");
+        Assert.Contains(trackItemStyle.Elements(), element =>
+            element.Name.LocalName == "Setter"
+            && element.Attribute("Property")?.Value == "Background"
+            && element.Attribute("Value")?.Value == "{StaticResource PrismBackgroundBrush}");
+
+        Assert.Contains("CreateInsetClip", code, StringComparison.Ordinal);
+        Assert.Contains("AlbumHero", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AlbumDetail_FavoriteButtonProvidesUnclippedFluentIconBounds()
+    {
+        var path = FindFile("src", "PrismWave.WinUI", "Views", "Library", "LocalAlbumDetailPage.xaml");
+        var document = XDocument.Load(path);
+
+        var buttonStyle = Assert.Single(document.Descendants(), element =>
+            element.Name.LocalName == "Style"
+            && element.Attribute(X + "Key")?.Value == "AlbumTrackActionButtonStyle");
+        Assert.Contains(buttonStyle.Elements(), element =>
+            element.Name.LocalName == "Setter"
+            && element.Attribute("Property")?.Value == "Padding"
+            && element.Attribute("Value")?.Value == "0");
+        Assert.Contains(buttonStyle.Elements(), element =>
+            element.Name.LocalName == "Setter"
+            && element.Attribute("Property")?.Value == "Width"
+            && element.Attribute("Value")?.Value == "38");
+        Assert.Contains(buttonStyle.Elements(), element =>
+            element.Name.LocalName == "Setter"
+            && element.Attribute("Property")?.Value == "Height"
+            && element.Attribute("Value")?.Value == "38");
+
+        Assert.Contains(document.Descendants(), element =>
+            element.Name.LocalName == "FontIcon"
+            && element.Attribute("Glyph")?.Value == "{Binding FavoriteGlyph}"
+            && element.Attribute("FontSize")?.Value == "18");
+        Assert.DoesNotContain(document.Descendants().Attributes("Margin"), attribute =>
+            attribute.Value.Split(',').Any(value => value.TrimStart().StartsWith("-", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void Shell_DeclaresLocalAlbumDetailAsNestedRoute()
     {
         var shellViewModel = File.ReadAllText(FindFile(

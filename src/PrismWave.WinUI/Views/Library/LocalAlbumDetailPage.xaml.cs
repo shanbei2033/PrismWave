@@ -18,6 +18,7 @@ public sealed partial class LocalAlbumDetailPage : Page
     private CompositionMaskBrush? _blurMaskBrush;
     private CompositionLinearGradientBrush? _blurMaskGradient;
     private SpriteVisual? _blurVisual;
+    private InsetClip? _heroClip;
     private ScrollViewer? _scrollViewer;
 
     public LocalAlbumDetailPage()
@@ -30,6 +31,7 @@ public sealed partial class LocalAlbumDetailPage : Page
     {
         try
         {
+            EnsureHeroClip();
             EnsureHeroBlur();
             _ = DispatcherQueue.TryEnqueue(AttachScrollAnimations);
         }
@@ -45,6 +47,10 @@ public sealed partial class LocalAlbumDetailPage : Page
         var heroVisual = ElementCompositionPreview.GetElementVisual(HeroCoverImage);
         heroVisual.StopAnimation("Translation.Y");
         heroVisual.StopAnimation("Opacity");
+        var heroHostVisual = ElementCompositionPreview.GetElementVisual(AlbumHero);
+        heroHostVisual.Clip = null;
+        _heroClip?.Dispose();
+        _heroClip = null;
         ElementCompositionPreview.SetElementChildVisual(HeroBlurHost, null);
         _blurBrush?.Dispose();
         _blurBrush = null;
@@ -55,6 +61,13 @@ public sealed partial class LocalAlbumDetailPage : Page
         _blurVisual?.Dispose();
         _blurVisual = null;
         _scrollViewer = null;
+    }
+
+    private void EnsureHeroClip()
+    {
+        var heroVisual = ElementCompositionPreview.GetElementVisual(AlbumHero);
+        _heroClip ??= heroVisual.Compositor.CreateInsetClip();
+        heroVisual.Clip = _heroClip;
     }
 
     private void EnsureHeroBlur()

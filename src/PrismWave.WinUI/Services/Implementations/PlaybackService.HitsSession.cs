@@ -1,4 +1,5 @@
 using PrismWave_WinUI.Infrastructure.Audio;
+using PrismWave_WinUI.Infrastructure;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.Services.Contracts;
 
@@ -188,14 +189,19 @@ public sealed partial class PlaybackService
     {
         var revision = _hitsRevision;
         if (!_hitsSessionGuard.IsCurrent(revision)) return;
+        StartupLog.Write($"hits.session.end.start: revision={revision}");
         StopHitsPlayback(clearTrack: true);
+        StartupLog.Write($"hits.session.end.stopped: revision={revision}");
         if (!_hitsSessionGuard.TryEnd(revision, out var snapshot) || snapshot is null) return;
         var settings = _settingsService.Current;
+        StartupLog.Write($"hits.session.end.route-reset: revision={revision}, mode={settings.AudioOutputMode}");
         _mpvHost.ResetPreference(
             settings.AudioOutputMode,
             settings.AudioOutputDevice,
             forceRestart: true);
+        StartupLog.Write($"hits.session.end.route-ready: revision={revision}");
         RestorePrimaryPlaybackSession(snapshot);
+        StartupLog.Write($"hits.session.end.restored: revision={revision}, title=\"{snapshot.Track?.Title}\"");
     }
 
     private PlaybackSessionSnapshot CapturePrimaryPlaybackSession()

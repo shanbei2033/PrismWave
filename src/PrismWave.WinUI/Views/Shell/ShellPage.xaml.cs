@@ -333,6 +333,11 @@ public sealed partial class ShellPage : Page
             App.Services.Shell.CloseQueuePaneCommand.Execute(null);
             args.Handled = true;
         }
+        else if (_isFullPlayVisible)
+        {
+            App.Services.Shell.GoBackCommand.Execute(null);
+            args.Handled = true;
+        }
     }
 
     private void ProcessNavigationRequest(ShellNavigationRequest request)

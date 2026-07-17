@@ -128,6 +128,20 @@ public sealed class HitsImmersivePageStructureTests
         Assert.Contains("ResetFullPlayOverlay();", shell, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ShellEscape_ReturnsFromImmersiveOverlayWhenQueueIsClosed()
+    {
+        var shell = Read("Views", "Shell", "ShellPage.xaml.cs");
+        var handler = SliceMethod(
+            shell,
+            "private void QueueEscapeKeyboardAccelerator_Invoked",
+            "private void ProcessNavigationRequest");
+
+        Assert.Contains("else if (_isFullPlayVisible)", handler, StringComparison.Ordinal);
+        Assert.Contains("GoBackCommand.Execute(null)", handler, StringComparison.Ordinal);
+        Assert.Contains("args.Handled = true", handler, StringComparison.Ordinal);
+    }
+
     private static string SliceMethod(string source, string startMarker, string endMarker)
     {
         var start = source.IndexOf(startMarker, StringComparison.Ordinal);

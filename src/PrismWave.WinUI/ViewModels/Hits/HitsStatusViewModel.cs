@@ -9,8 +9,7 @@ namespace PrismWave_WinUI.ViewModels.Hits;
 public sealed partial class HitsStatusViewModel : ObservableObject
 {
     private readonly IHitsService _hitsService;
-    private readonly IPlaybackService _playbackService;
-    private readonly ISettingsService _settingsService;
+    private readonly IHitsPlaybackSession _playbackSession;
     private HitsStatusKind _status;
     private string _statusLabel = "Idle";
     private string _description = "HITS has not been loaded.";
@@ -32,14 +31,12 @@ public sealed partial class HitsStatusViewModel : ObservableObject
 
     public HitsStatusViewModel(
         IHitsService hitsService,
-        IPlaybackService playbackService,
-        ISettingsService settingsService)
+        IHitsPlaybackSession playbackSession)
     {
         _hitsService = hitsService;
-        _playbackService = playbackService;
-        _settingsService = settingsService;
+        _playbackSession = playbackSession;
         _hitsService.StateChanged += (_, _) => RefreshState();
-        _playbackService.StateChanged += (_, _) => HandlePlaybackStateChanged();
+        _playbackSession.StateChanged += (_, _) => HandlePlaybackStateChanged();
         RefreshState();
     }
 
@@ -215,22 +212,29 @@ public sealed partial class HitsStatusViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task PrepareHitsSessionAsync()
+    private Task PrepareHitsSessionAsync()
     {
         if (!IsAvailable || CurrentTrack is null)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        var settings = _settingsService.Current;
-        if (!string.Equals(settings.AudioOutputMode, "wasapi_shared", StringComparison.Ordinal))
-        {
-            await _settingsService.SaveAsync(settings with { AudioOutputMode = "wasapi_shared" });
-        }
-
+        _playbackSession.Begin();
         IsSessionActive = true;
         IsPaused = false;
         SyncPlayback(forceReload: true);
+        return Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    private void EndHitsSession()
+    {
+        ClearPendingSeek();
+        _playbackSession.End();
+        IsSessionActive = false;
+        IsPaused = false;
+        _isResynchronizing = false;
+        NotifyPresentationStateChanged();
     }
 
     [RelayCommand(CanExecute = nameof(CanToggleLivePlayback))]
@@ -240,7 +244,7 @@ public sealed partial class HitsStatusViewModel : ObservableObject
         {
             _isResynchronizing = true;
             IsPaused = false;
-            _playbackService.TogglePlayPause();
+            _playbackSession.Resume();
             _hitsService.UpdatePosition(DateTimeOffset.UtcNow);
             _isResynchronizing = false;
             NotifyPresentationStateChanged();
@@ -250,25 +254,22 @@ public sealed partial class HitsStatusViewModel : ObservableObject
 
         IsPaused = true;
         ClearPendingSeek();
-        _playbackService.TogglePlayPause();
+        _playbackSession.Pause();
     }
 
     [RelayCommand]
-    private async Task PlayTrackAsync(HitsScheduleItemModel item)
+    private Task PlayTrackAsync(HitsScheduleItemModel item)
     {
-        var settings = _settingsService.Current;
-        if (!string.Equals(settings.AudioOutputMode, "wasapi_shared", StringComparison.Ordinal))
-        {
-            await _settingsService.SaveAsync(settings with { AudioOutputMode = "wasapi_shared" });
-        }
-
+        _playbackSession.Begin();
         IsSessionActive = true;
+        IsPaused = false;
         SetPendingSeek(
             item.Track.Id,
             item.Contains(DateTimeOffset.UtcNow)
                 ? Math.Max(0, (DateTimeOffset.UtcNow - item.StartAt).TotalSeconds)
                 : 0);
-        _playbackService.Play(item.Track, Tracks.Select(track => track.Track).ToList());
+        _playbackSession.Play(item.Track);
+        return Task.CompletedTask;
     }
 
     private void RefreshState()
@@ -308,22 +309,22 @@ public sealed partial class HitsStatusViewModel : ObservableObject
         if (Status != HitsStatusKind.Ready || CurrentTrack is null)
         {
             ClearPendingSeek();
-            _playbackService.Stop();
+            _playbackSession.Stop();
             return;
         }
 
-        var playbackTrack = _playbackService.CurrentTrack;
+        var playbackTrack = _playbackSession.CurrentTrack;
         if (forceReload || playbackTrack?.Id != CurrentTrack.Track.Id)
         {
             SetPendingSeek(CurrentTrack.Track.Id, PlaybackOffsetSeconds);
-            _playbackService.Play(CurrentTrack.Track);
+            _playbackSession.Play(CurrentTrack.Track);
             return;
         }
 
-        if (!_playbackService.IsLoading
-            && Math.Abs(_playbackService.PositionSeconds - PlaybackOffsetSeconds) >= 1.4)
+        if (!_playbackSession.IsLoading
+            && Math.Abs(_playbackSession.PositionSeconds - PlaybackOffsetSeconds) >= 1.4)
         {
-            _playbackService.Seek(PlaybackOffsetSeconds);
+            _playbackSession.Seek(PlaybackOffsetSeconds);
         }
     }
 
@@ -342,8 +343,8 @@ public sealed partial class HitsStatusViewModel : ObservableObject
         }
 
         if (_pendingSeekSeconds is not double target
-            || _playbackService.IsLoading
-            || _playbackService.CurrentTrack is not { } playbackTrack
+            || _playbackSession.IsLoading
+            || _playbackSession.CurrentTrack is not { } playbackTrack
             || !string.Equals(playbackTrack.Id, _pendingSeekTrackId, StringComparison.Ordinal))
         {
             return;
@@ -357,7 +358,7 @@ public sealed partial class HitsStatusViewModel : ObservableObject
         }
 
         if (_pendingSeekAttempts > 0
-            && Math.Abs(_playbackService.PositionSeconds - target) < 1.4)
+            && Math.Abs(_playbackSession.PositionSeconds - target) < 1.4)
         {
             ClearPendingSeek();
             return;
@@ -374,7 +375,7 @@ public sealed partial class HitsStatusViewModel : ObservableObject
         _isApplyingPendingSeek = true;
         try
         {
-            _playbackService.Seek(target);
+            _playbackSession.Seek(target);
         }
         finally
         {

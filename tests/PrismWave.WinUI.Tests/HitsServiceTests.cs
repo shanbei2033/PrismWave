@@ -90,7 +90,7 @@ public sealed class HitsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task PrepareSession_UsesWasapiSharedAndStopsWhenOffAir()
+    public async Task PrepareSession_BeginsTransientPlaybackAndStopsWhenOffAir()
     {
         var item = new HitsScheduleItemModel(
             1,
@@ -122,12 +122,11 @@ public sealed class HitsServiceTests : IDisposable
             false,
             false));
         var playback = new FakeHitsPlaybackService();
-        var settings = new FakeHitsSettingsService();
-        var viewModel = new HitsStatusViewModel(hits, playback, settings);
+        var viewModel = new HitsStatusViewModel(hits, playback);
 
         await viewModel.PrepareHitsSessionCommand.ExecuteAsync(null);
 
-        Assert.Equal("wasapi_shared", settings.Current.AudioOutputMode);
+        Assert.Equal(1, playback.BeginCount);
         Assert.Equal(item.Track, playback.PlayedTrack);
         Assert.Equal(60, playback.SeekSeconds);
 
@@ -174,7 +173,7 @@ public sealed class HitsServiceTests : IDisposable
             false,
             false));
         var playback = new FakeHitsPlaybackService { IgnoreSeekAttempts = 1 };
-        var viewModel = new HitsStatusViewModel(hits, playback, new FakeHitsSettingsService());
+        var viewModel = new HitsStatusViewModel(hits, playback);
 
         await viewModel.PrepareHitsSessionCommand.ExecuteAsync(null);
         await Task.Delay(350);
@@ -191,7 +190,7 @@ public sealed class HitsServiceTests : IDisposable
         var second = CreateScheduleItem("second", "Second song", 75);
         var hits = new FakeHitsService(CreateReadySnapshot(first, 40));
         var playback = new FakeHitsPlaybackService();
-        var viewModel = new HitsStatusViewModel(hits, playback, new FakeHitsSettingsService());
+        var viewModel = new HitsStatusViewModel(hits, playback);
 
         await viewModel.PrepareHitsSessionCommand.ExecuteAsync(null);
         viewModel.ToggleLivePlaybackCommand.Execute(null);
@@ -199,7 +198,8 @@ public sealed class HitsServiceTests : IDisposable
         viewModel.ToggleLivePlaybackCommand.Execute(null);
 
         Assert.False(viewModel.IsPaused);
-        Assert.Equal(2, playback.TogglePlayPauseCallCount);
+        Assert.Equal(1, playback.PauseCallCount);
+        Assert.Equal(1, playback.ResumeCallCount);
         Assert.Equal(second.Track, playback.PlayedTrack);
         Assert.Equal(75, playback.SeekSeconds);
         Assert.True(hits.UpdatePositionCallCount >= 1);
@@ -212,7 +212,7 @@ public sealed class HitsServiceTests : IDisposable
         var second = CreateScheduleItem("second", "Second song", 75);
         var hits = new FakeHitsService(CreateReadySnapshot(first, 40));
         var playback = new FakeHitsPlaybackService();
-        var viewModel = new HitsStatusViewModel(hits, playback, new FakeHitsSettingsService());
+        var viewModel = new HitsStatusViewModel(hits, playback);
 
         await viewModel.PrepareHitsSessionCommand.ExecuteAsync(null);
         viewModel.ToggleLivePlaybackCommand.Execute(null);
@@ -398,41 +398,34 @@ public sealed class HitsServiceTests : IDisposable
         }
     }
 
-    private sealed class FakeHitsPlaybackService : IPlaybackService
+    private sealed class FakeHitsPlaybackService : IHitsPlaybackSession
     {
         private double _positionSeconds;
         private bool _isPaused;
         public TrackModel? PlayedTrack { get; private set; }
         public int PlayCallCount { get; private set; }
-        public int TogglePlayPauseCallCount { get; private set; }
+        public int BeginCount { get; private set; }
+        public int PauseCallCount { get; private set; }
+        public int ResumeCallCount { get; private set; }
+        public int EndCount { get; private set; }
         public double SeekSeconds { get; private set; }
         public int SeekCallCount { get; private set; }
         public int IgnoreSeekAttempts { get; set; }
         public bool StopCalled { get; private set; }
         public TrackModel? CurrentTrack => PlayedTrack;
-        public IReadOnlyList<TrackModel> Queue => PlayedTrack is null ? Array.Empty<TrackModel>() : new[] { PlayedTrack };
-        public PlaybackMode Mode => PlaybackMode.Loop;
-        public PlaybackStatus Status => PlaybackStatus.Paused;
-        public double Volume => 0.8;
+        public bool IsActive { get; private set; }
         public double PositionSeconds => _positionSeconds;
         public double DurationSeconds => PlayedTrack?.DurationSeconds ?? 0;
         public bool IsLoading => false;
         public bool IsPlaying => PlayedTrack is not null && !StopCalled && !_isPaused;
         public string? Error => null;
-        public IReadOnlyList<WindowsDsdDeviceModel> WindowsDsdDevices => Array.Empty<WindowsDsdDeviceModel>();
-        public bool WindowsDsdAvailable => false;
-        public string? WindowsDsdOutputModeLabel => null;
-        public string? WindowsDsdActiveDeviceName => null;
-        public string? WindowsDsdFallbackReason => null;
         public event EventHandler? StateChanged;
         public void RaiseStateChanged() => StateChanged?.Invoke(this, EventArgs.Empty);
-        public void Play(TrackModel track, IReadOnlyList<TrackModel>? queue = null) { PlayedTrack = track; PlayCallCount++; StopCalled = false; _isPaused = false; StateChanged?.Invoke(this, EventArgs.Empty); }
+        public long Begin() { BeginCount++; IsActive = true; return BeginCount; }
+        public void Play(TrackModel track) { PlayedTrack = track; PlayCallCount++; StopCalled = false; _isPaused = false; StateChanged?.Invoke(this, EventArgs.Empty); }
         public void Stop() { StopCalled = true; }
-        public void TogglePlayPause() { TogglePlayPauseCallCount++; _isPaused = !_isPaused; StateChanged?.Invoke(this, EventArgs.Empty); }
-        public void Next() { }
-        public void Previous() { }
-        public void CycleMode() { }
-        public void SetVolume(double volume) { }
+        public void Pause() { PauseCallCount++; _isPaused = true; StateChanged?.Invoke(this, EventArgs.Empty); }
+        public void Resume() { ResumeCallCount++; _isPaused = false; StateChanged?.Invoke(this, EventArgs.Empty); }
         public void Seek(double seconds)
         {
             SeekSeconds = seconds;
@@ -442,44 +435,6 @@ public sealed class HitsServiceTests : IDisposable
                 _positionSeconds = seconds;
             }
         }
-        public void PlayFromQueue(TrackModel track) { }
-        public void ReorderQueue(IReadOnlyList<TrackModel> tracks) { }
-        public void RemoveFromQueue(TrackModel track) { }
-        public void ClearQueue() { }
-        public Task RefreshWindowsDsdDevicesAsync() => Task.CompletedTask;
-    }
-
-    private sealed class FakeHitsSettingsService : ISettingsService
-    {
-        public SettingsSnapshot Current { get; private set; } = new(
-            "zh-CN",
-            true,
-            true,
-            false,
-            "wasapi_exclusive",
-            "auto",
-            "auto",
-            true,
-            220,
-            Array.Empty<string>(),
-            Array.Empty<string>(),
-            Array.Empty<string>(),
-            Array.Empty<string>(),
-            Array.Empty<string>(),
-            Array.Empty<string>(),
-            new FlutterPreferencesMigrationResult(
-                string.Empty,
-                false,
-                0,
-                DateTimeOffset.MinValue,
-                new Dictionary<string, object?>()));
-        public event EventHandler? SettingsChanged;
-
-        public Task SaveAsync(SettingsSnapshot snapshot)
-        {
-            Current = snapshot;
-            SettingsChanged?.Invoke(this, EventArgs.Empty);
-            return Task.CompletedTask;
-        }
+        public void End() { EndCount++; IsActive = false; PlayedTrack = null; _isPaused = false; StateChanged?.Invoke(this, EventArgs.Empty); }
     }
 }

@@ -59,6 +59,7 @@ public sealed class AppServices
             qualityPreference: () => settingsService.Current.OnlineQualityPreference);
         var onlinePlaybackResolver = new OnlinePlaybackResolver(onlineProviderService);
         var playbackService = new PlaybackService(settingsService, onlinePlaybackResolver);
+        IHitsPlaybackSession hitsPlaybackSession = playbackService;
         var onlineHomeService = new OnlineHomeService();
         var onlineSearchService = new OnlineSearchService(libraryService, onlineProviderService);
         var hitsService = new HitsService();
@@ -84,7 +85,7 @@ public sealed class AppServices
         var artists = new ArtistsViewModel(libraryService, playbackService);
         var favorites = new FavoritesViewModel(libraryService, playbackService);
         var settings = new SettingsViewModel(settingsService, libraryFolders, playbackService, themeService, developerLogService, onlineAccountService);
-        var hits = new HitsStatusViewModel(hitsService, playbackService, settingsService);
+        var hits = new HitsStatusViewModel(hitsService, hitsPlaybackSession);
 
         return new AppServices
         {

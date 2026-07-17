@@ -35,13 +35,17 @@ public sealed class MpvPlaybackEngineHost : IDisposable
     public event EventHandler? PlaybackEnded;
     public event EventHandler? StateChanged;
 
-    public bool ResetPreference(string modeId, string outputDevice)
+    public bool ResetPreference(
+        string modeId,
+        string outputDevice,
+        bool forceRestart = false)
     {
         ThrowIfDisposed();
         var normalizedMode = AudioOutputPolicy.NormalizeModeId(modeId);
         var normalizedDevice = NormalizeDevice(outputDevice);
         var preferredRoute = AudioOutputPolicy.BuildFallbackChain(normalizedMode)[0];
-        if (string.Equals(normalizedMode, PreferredModeId, StringComparison.Ordinal)
+        if (!forceRestart
+            && string.Equals(normalizedMode, PreferredModeId, StringComparison.Ordinal)
             && string.Equals(normalizedDevice, OutputDevice, StringComparison.OrdinalIgnoreCase)
             && ActiveRoute == preferredRoute)
         {
@@ -50,7 +54,7 @@ public sealed class MpvPlaybackEngineHost : IDisposable
 
         _failover.Reset(normalizedMode);
         OutputDevice = normalizedDevice;
-        ReplaceEngine("preference changed");
+        ReplaceEngine(forceRestart ? "session boundary" : "preference changed");
         return true;
     }
 

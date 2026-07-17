@@ -441,6 +441,7 @@ public sealed partial class ShellPage : Page
             return;
         }
 
+        EndHitsSessionIfNeeded();
         _isFullPlayVisible = false;
         FullPlayOverlay.IsHitTestVisible = false;
         AppNavigationView.IsHitTestVisible = true;
@@ -504,6 +505,7 @@ public sealed partial class ShellPage : Page
 
     private void ResetFullPlayOverlay()
     {
+        EndHitsSessionIfNeeded();
         DetachFullPlayExitBatch();
         _isFullPlayVisible = false;
         SetFullPlayImmersiveTitleBar(false);
@@ -520,6 +522,14 @@ public sealed partial class ShellPage : Page
         FullPlayOverlay.Opacity = 0;
         AppNavigationView.IsHitTestVisible = true;
         ShellBottomPlayerBar.IsHitTestVisible = true;
+    }
+
+    private void EndHitsSessionIfNeeded()
+    {
+        if (string.Equals(_immersiveRoute, "Hits", StringComparison.Ordinal))
+        {
+            App.Services.Hits.EndHitsSessionCommand.Execute(null);
+        }
     }
 
     private static void SetFullPlayImmersiveTitleBar(bool isImmersive)

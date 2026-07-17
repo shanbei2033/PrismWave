@@ -81,6 +81,7 @@ public sealed partial class HitsStatusPage : Page
         _loadCancellation?.Dispose();
         _loadCancellation = null;
         _scheduleTimer.Stop();
+        ViewModel.EndHitsSessionCommand.Execute(null);
         ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
         ReleaseBackdropResources();
     }

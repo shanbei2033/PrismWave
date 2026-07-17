@@ -65,9 +65,7 @@
             <Grid
                 x:Name="HitsTitleBar"
                 Margin="20,0,140,0"
-                Background="Transparent"
-                BorderBrush="#20FFFFFF"
-                BorderThickness="0,0,0,1">
+                Background="Transparent">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />

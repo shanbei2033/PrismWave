@@ -5,7 +5,7 @@ using PrismWave_WinUI.Services.Contracts;
 
 namespace PrismWave_WinUI.Services.Implementations;
 
-public sealed class PlaybackService : IPlaybackService, IDisposable
+public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSession, IDisposable
 {
     private readonly List<TrackModel> _queue = new();
     private readonly ISettingsService _settingsService;
@@ -38,11 +38,21 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
     public string? Error { get; private set; }
     public IReadOnlyList<WindowsDsdDeviceModel> WindowsDsdDevices => _windowsDsdDevices;
     public bool WindowsDsdAvailable => _dsdEngine.IsAvailable;
-    public string? WindowsDsdOutputModeLabel => _usingDsdBackend ? _dsdEngine.OutputModeLabel : null;
-    public string? WindowsDsdActiveDeviceName => _usingDsdBackend ? _dsdEngine.ActiveDeviceName : null;
-    public string? WindowsDsdFallbackReason => _windowsDsdFallbackReason ?? _dsdEngine.FallbackReason;
-    public string ActiveAudioOutputModeLabel => _mpvHost.ActiveRouteLabel;
-    public string? AudioOutputFallbackReason => _mpvHost.FallbackReason;
+    public string? WindowsDsdOutputModeLabel => IsHitsSessionActive
+        ? _primaryWindowsDsdOutputModeLabelDuringHits
+        : _usingDsdBackend ? _dsdEngine.OutputModeLabel : null;
+    public string? WindowsDsdActiveDeviceName => IsHitsSessionActive
+        ? _primaryWindowsDsdActiveDeviceNameDuringHits
+        : _usingDsdBackend ? _dsdEngine.ActiveDeviceName : null;
+    public string? WindowsDsdFallbackReason => IsHitsSessionActive
+        ? _primaryWindowsDsdFallbackReasonDuringHits
+        : _windowsDsdFallbackReason ?? _dsdEngine.FallbackReason;
+    public string ActiveAudioOutputModeLabel => IsHitsSessionActive
+        ? _primaryAudioOutputModeLabelDuringHits
+        : _mpvHost.ActiveRouteLabel;
+    public string? AudioOutputFallbackReason => IsHitsSessionActive
+        ? _primaryAudioOutputFallbackReasonDuringHits
+        : _mpvHost.FallbackReason;
     public event EventHandler? StateChanged;
 
     public PlaybackService(
@@ -58,15 +68,36 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
             playbackEngineFactory ?? new MpvPlaybackEngineFactory(),
             settings.AudioOutputMode,
             settings.AudioOutputDevice);
-        _mpvHost.PlaybackEnded += (_, _) => Dispatch(HandleMediaEnded);
-        _mpvHost.PlaybackStarted += (_, args) => Dispatch(() => HandlePlaybackStarted(args));
-        _mpvHost.PlaybackFailed += (_, args) => Dispatch(() => HandleMediaFailed(
-            args.Message,
-            args.LoadSequence,
-            args.SourceKey));
-        _mpvHost.StateChanged += (_, _) => Dispatch(RefreshHostStateWhenReady);
+        _mpvHost.PlaybackEnded += (_, _) =>
+        {
+            var hitsRevision = CaptureHitsCallbackRevision();
+            Dispatch(() => HandleMediaEnded(hitsRevision));
+        };
+        _mpvHost.PlaybackStarted += (_, args) =>
+        {
+            var hitsRevision = CaptureHitsCallbackRevision();
+            Dispatch(() => HandlePlaybackStarted(args, hitsRevision));
+        };
+        _mpvHost.PlaybackFailed += (_, args) =>
+        {
+            var hitsRevision = CaptureHitsCallbackRevision();
+            Dispatch(() => HandleMediaFailed(
+                args.Message,
+                args.LoadSequence,
+                args.SourceKey,
+                hitsRevision));
+        };
+        _mpvHost.StateChanged += (_, _) =>
+        {
+            var hitsRevision = CaptureHitsCallbackRevision();
+            Dispatch(() => RefreshHostStateWhenReady(hitsRevision));
+        };
         _settingsService.SettingsChanged += (_, _) => Dispatch(ApplyAudioSettings);
-        _dsdEngine.PlaybackEnded += (_, _) => Dispatch(HandleMediaEnded);
+        _dsdEngine.PlaybackEnded += (_, _) =>
+        {
+            var hitsRevision = CaptureHitsCallbackRevision();
+            Dispatch(() => HandleMediaEnded(hitsRevision));
+        };
 
         _positionTimer = _dispatcherQueue.CreateTimer();
         _positionTimer.Interval = TimeSpan.FromMilliseconds(500);
@@ -76,6 +107,11 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     public void Play(TrackModel track, IReadOnlyList<TrackModel>? queue = null)
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         if (CurrentTrack?.Id == track.Id
             && Status is PlaybackStatus.Resolving or PlaybackStatus.Buffering)
         {
@@ -100,6 +136,11 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     public void Stop()
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         CancelPendingLoad();
         _mpvHost.Engine.Stop();
         _dsdEngine.Stop();
@@ -122,6 +163,11 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     public void TogglePlayPause()
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         if (CurrentTrack is null)
         {
             return;
@@ -162,16 +208,31 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     public void Next()
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         Move(1);
     }
 
     public void Previous()
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         Move(-1);
     }
 
     public void CycleMode()
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         Mode = Mode switch
         {
             PlaybackMode.Loop => PlaybackMode.Single,
@@ -184,6 +245,11 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     public void SetVolume(double volume)
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         Volume = Math.Clamp(volume, 0, 1);
         _mpvHost.Engine.SetVolume(Volume);
         _dsdEngine.SetVolume(Volume);
@@ -192,6 +258,11 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     public void Seek(double seconds)
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         if (CurrentTrack is null)
         {
             return;
@@ -214,6 +285,11 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     public void PlayFromQueue(TrackModel track)
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         var queuedTrack = _queue.FirstOrDefault(item => item.Id == track.Id);
         if (queuedTrack is null)
         {
@@ -230,6 +306,11 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     public void AddToQueue(TrackModel track)
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         if (_queue.Any(item => string.Equals(item.Id, track.Id, StringComparison.Ordinal)))
         {
             return;
@@ -243,6 +324,11 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     public void PlayNext(TrackModel track)
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         _queue.RemoveAll(item => string.Equals(item.Id, track.Id, StringComparison.Ordinal));
         var currentIndex = CurrentTrack is null
             ? -1
@@ -255,6 +341,11 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     public void ReorderQueue(IReadOnlyList<TrackModel> tracks)
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         if (tracks.Count != _queue.Count)
         {
             return;
@@ -286,6 +377,11 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     public void RemoveFromQueue(TrackModel track)
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         StartupLog.Write($"queue.remove: title=\"{track.Title}\", current={CurrentTrack?.Id == track.Id}");
         var removeIndex = _queue.FindIndex(item => item.Id == track.Id);
         if (removeIndex < 0)
@@ -322,6 +418,11 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     public void ClearQueue()
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         var hadQueue = _queue.Count > 0;
         _queue.Clear();
         if (hadQueue)
@@ -345,6 +446,11 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     private void Move(int delta)
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         if (_queue.Count == 0 || CurrentTrack is null)
         {
             return;
@@ -367,14 +473,19 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
         Notify();
     }
 
-    private void LoadCurrentTrack(bool autoplay)
+    private void LoadCurrentTrack(bool autoplay, bool preserveRecoverySeek = false)
     {
         if (CurrentTrack is null)
         {
             return;
         }
 
+        var recoverySeek = preserveRecoverySeek ? _pendingRecoverySeekSeconds : null;
         CancelPendingLoad();
+        if (preserveRecoverySeek)
+        {
+            _pendingRecoverySeekSeconds = recoverySeek;
+        }
         if (!CurrentTrack.IsDsd)
         {
             ResetPreferredAudioRouteForNewTrack();
@@ -393,6 +504,12 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
             {
                 _usingDsdBackend = true;
                 _windowsDsdFallbackReason = _dsdEngine.FallbackReason;
+                if (_pendingRecoverySeekSeconds is double resumePosition)
+                {
+                    _pendingRecoverySeekSeconds = null;
+                    _dsdEngine.Seek(resumePosition);
+                    PositionSeconds = resumePosition;
+                }
                 if (!autoplay)
                 {
                     _dsdEngine.Pause();
@@ -585,8 +702,18 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
             && uri.Scheme != Uri.UriSchemeFile;
     }
 
-    private void HandleMediaEnded()
+    private void HandleMediaEnded(long hitsRevision = 0)
     {
+        if (TryHandleHitsPlaybackEnded(hitsRevision))
+        {
+            return;
+        }
+
+        if (hitsRevision != 0 || IsHitsSessionActive)
+        {
+            return;
+        }
+
         StartupLog.Write($"playback.ended: title=\"{CurrentTrack?.Title}\", mode={Mode}");
         if (Mode == PlaybackMode.Single)
         {
@@ -605,8 +732,18 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
         Next();
     }
 
-    private void HandlePlaybackStarted(PlaybackLoadEventArgs args)
+    private void HandlePlaybackStarted(PlaybackLoadEventArgs args, long hitsRevision = 0)
     {
+        if (TryHandleHitsPlaybackStarted(args, hitsRevision))
+        {
+            return;
+        }
+
+        if (hitsRevision != 0 || IsHitsSessionActive)
+        {
+            return;
+        }
+
         if (CurrentTrack is null || _usingDsdBackend)
         {
             return;
@@ -647,8 +784,23 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
     private void HandleMediaFailed(
         string message,
         long loadSequence,
-        string sourceKey)
+        string sourceKey,
+        long hitsRevision = 0)
     {
+        if (TryHandleHitsPlaybackFailed(
+            message,
+            loadSequence,
+            sourceKey,
+            hitsRevision))
+        {
+            return;
+        }
+
+        if (hitsRevision != 0 || IsHitsSessionActive)
+        {
+            return;
+        }
+
         if (CurrentTrack is null || _usingDsdBackend)
         {
             return;
@@ -942,6 +1094,11 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     private void ApplyAudioSettings()
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         var settings = _settingsService.Current;
         var snapshot = CaptureMpvPlaybackSnapshot();
         if (snapshot is not null)
@@ -1015,8 +1172,18 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
         RefreshPosition();
     }
 
-    private void RefreshHostStateWhenReady()
+    private void RefreshHostStateWhenReady(long hitsRevision = 0)
     {
+        if (TryRefreshHitsPosition(hitsRevision))
+        {
+            return;
+        }
+
+        if (hitsRevision != 0 || IsHitsSessionActive)
+        {
+            return;
+        }
+
         if (CurrentTrack is not null
             && !_usingDsdBackend
             && Status is not PlaybackStatus.Resolving and not PlaybackStatus.Buffering)
@@ -1027,6 +1194,12 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     private void RefreshPosition()
     {
+        var hitsRevision = CaptureHitsCallbackRevision();
+        if (TryRefreshHitsPosition(hitsRevision) || hitsRevision != 0)
+        {
+            return;
+        }
+
         if (CurrentTrack is null)
         {
             return;
@@ -1056,13 +1229,28 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     public async Task RefreshWindowsDsdDevicesAsync()
     {
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
         try
         {
             var devices = await Task.Run(_dsdEngine.ListAvailableDevices);
+            if (IsHitsSessionActive)
+            {
+                return;
+            }
+
             _windowsDsdDevices = devices;
         }
         catch (Exception exception)
         {
+            if (IsHitsSessionActive)
+            {
+                return;
+            }
+
             _windowsDsdDevices = new[] { WindowsDsdDeviceModel.Automatic };
             StartupLog.Write("windows.dsd.deviceEnumerationFailed", exception);
         }
@@ -1130,7 +1318,18 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
 
     private void Notify()
     {
-        Dispatch(() => StateChanged?.Invoke(this, EventArgs.Empty));
+        if (IsHitsSessionActive)
+        {
+            return;
+        }
+
+        Dispatch(() =>
+        {
+            if (!IsHitsSessionActive)
+            {
+                StateChanged?.Invoke(this, EventArgs.Empty);
+            }
+        });
     }
 
     private void AdvanceQueueRevision()

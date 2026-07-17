@@ -7,7 +7,6 @@ namespace PrismWave_WinUI.Services.Implementations;
 public sealed partial class PlaybackService
 {
     private readonly TransientPlaybackSessionGuard _hitsSessionGuard = new();
-    private readonly PlaybackLoadEventGuard _hitsLoadEventGuard = new();
     private EventHandler? _hitsStateChanged;
     private TrackModel? _hitsTrack;
     private long _hitsRevision;
@@ -57,7 +56,7 @@ public sealed partial class PlaybackService
         var snapshot = CapturePrimaryPlaybackSession();
         var revision = _hitsSessionGuard.Begin(snapshot);
         _hitsRevision = revision;
-        _hitsLoadEventGuard.Invalidate();
+        _mpvLoadEventGuard.Invalidate();
         ResetHitsPlaybackState();
 
         CancelPendingLoad();
@@ -78,7 +77,7 @@ public sealed partial class PlaybackService
             return;
         }
 
-        _hitsLoadEventGuard.Invalidate();
+        _mpvLoadEventGuard.Invalidate();
         _hitsTrack = null;
         _hitsIsLoading = false;
         _hitsIsPlaying = false;
@@ -92,7 +91,7 @@ public sealed partial class PlaybackService
         _hitsError = null;
 
         var sourceKey = OnlinePlaybackCandidateKey.Create(track);
-        var loadContext = _hitsLoadEventGuard.BeginLoad(
+        var loadContext = _mpvLoadEventGuard.BeginLoad(
             checked((int)revision),
             sourceKey,
             autoplay: true);
@@ -167,7 +166,7 @@ public sealed partial class PlaybackService
             return;
         }
 
-        _hitsLoadEventGuard.Invalidate();
+        _mpvLoadEventGuard.Invalidate();
         if (clearTrack)
         {
             _hitsTrack = null;
@@ -280,7 +279,7 @@ public sealed partial class PlaybackService
         }
 
         var sourceKey = OnlinePlaybackCandidateKey.Create(_hitsTrack);
-        if (!_hitsLoadEventGuard.TryAccept(
+        if (!_mpvLoadEventGuard.TryAccept(
             args.LoadSequence,
             args.SourceKey,
             checked((int)revision),
@@ -315,7 +314,7 @@ public sealed partial class PlaybackService
         }
 
         var currentSourceKey = OnlinePlaybackCandidateKey.Create(_hitsTrack);
-        if (!_hitsLoadEventGuard.TryAccept(
+        if (!_mpvLoadEventGuard.TryAccept(
             loadSequence,
             sourceKey,
             checked((int)revision),
@@ -340,7 +339,7 @@ public sealed partial class PlaybackService
             return false;
         }
 
-        _hitsLoadEventGuard.Invalidate();
+        _mpvLoadEventGuard.Invalidate();
         _hitsIsLoading = false;
         _hitsIsPlaying = false;
         _hitsPositionSeconds = _hitsDurationSeconds > 0

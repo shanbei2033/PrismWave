@@ -65,6 +65,31 @@ public sealed class PlaybackServiceAudioOutputStructureTests
         Assert.Contains("TryRefreshHitsPosition", main);
     }
 
+    [Fact]
+    public void PrimaryAndHitsLoads_ShareOneSequenceGuard()
+    {
+        var main = Read("Services", "Implementations", "PlaybackService.cs");
+        var hits = Read("Services", "Implementations", "PlaybackService.HitsSession.cs");
+
+        Assert.Contains("_mpvLoadEventGuard.BeginLoad", main);
+        Assert.Contains("_mpvLoadEventGuard.BeginLoad", hits);
+        Assert.DoesNotContain("_hitsLoadEventGuard", hits);
+    }
+
+    [Fact]
+    public void DsdCompletion_CapturesTransientRevisionBeforeDispatch()
+    {
+        var main = Read("Services", "Implementations", "PlaybackService.cs");
+        var subscription = main.IndexOf("_dsdEngine.PlaybackEnded", StringComparison.Ordinal);
+        var nextSection = main.IndexOf("_positionTimer =", subscription, StringComparison.Ordinal);
+
+        Assert.InRange(subscription, 0, main.Length - 1);
+        Assert.InRange(nextSection, subscription + 1, main.Length - 1);
+        var handler = main[subscription..nextSection];
+        Assert.Contains("CaptureHitsCallbackRevision()", handler);
+        Assert.Contains("HandleMediaEnded(hitsRevision)", handler);
+    }
+
     private static string SourcePath() => Path.GetFullPath(Path.Combine(
         AppContext.BaseDirectory,
         "..", "..", "..", "..", "..",

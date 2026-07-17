@@ -93,7 +93,11 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
             Dispatch(() => RefreshHostStateWhenReady(hitsRevision));
         };
         _settingsService.SettingsChanged += (_, _) => Dispatch(ApplyAudioSettings);
-        _dsdEngine.PlaybackEnded += (_, _) => Dispatch(() => HandleMediaEnded());
+        _dsdEngine.PlaybackEnded += (_, _) =>
+        {
+            var hitsRevision = CaptureHitsCallbackRevision();
+            Dispatch(() => HandleMediaEnded(hitsRevision));
+        };
 
         _positionTimer = _dispatcherQueue.CreateTimer();
         _positionTimer.Interval = TimeSpan.FromMilliseconds(500);

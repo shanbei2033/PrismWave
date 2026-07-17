@@ -19,6 +19,8 @@ public sealed partial class HitsStatusViewModel : ObservableObject
     private bool _isRefreshing;
     private bool _usingCache;
     private bool _isSessionActive;
+    private bool _isPaused;
+    private bool _isResynchronizing;
     private HitsScheduleItemModel? _currentTrack;
     private HitsScheduleItemModel? _nextTrack;
     private double _playbackOffsetSeconds;
@@ -46,7 +48,13 @@ public sealed partial class HitsStatusViewModel : ObservableObject
     public HitsStatusKind Status
     {
         get => _status;
-        private set => SetProperty(ref _status, value);
+        private set
+        {
+            if (SetProperty(ref _status, value))
+            {
+                NotifyPresentationStateChanged();
+            }
+        }
     }
 
     public string StatusLabel
@@ -70,13 +78,25 @@ public sealed partial class HitsStatusViewModel : ObservableObject
     public bool IsAvailable
     {
         get => _isAvailable;
-        private set => SetProperty(ref _isAvailable, value);
+        private set
+        {
+            if (SetProperty(ref _isAvailable, value))
+            {
+                NotifyPresentationStateChanged();
+            }
+        }
     }
 
     public bool IsRefreshing
     {
         get => _isRefreshing;
-        private set => SetProperty(ref _isRefreshing, value);
+        private set
+        {
+            if (SetProperty(ref _isRefreshing, value))
+            {
+                NotifyPresentationStateChanged();
+            }
+        }
     }
 
     public bool UsingCache
@@ -94,7 +114,25 @@ public sealed partial class HitsStatusViewModel : ObservableObject
     public bool IsSessionActive
     {
         get => _isSessionActive;
-        private set => SetProperty(ref _isSessionActive, value);
+        private set
+        {
+            if (SetProperty(ref _isSessionActive, value))
+            {
+                NotifyPresentationStateChanged();
+            }
+        }
+    }
+
+    public bool IsPaused
+    {
+        get => _isPaused;
+        private set
+        {
+            if (SetProperty(ref _isPaused, value))
+            {
+                NotifyPresentationStateChanged();
+            }
+        }
     }
 
     public HitsScheduleItemModel? CurrentTrack
@@ -106,6 +144,11 @@ public sealed partial class HitsStatusViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(HasCurrentTrack));
                 OnPropertyChanged(nameof(CurrentTrackTitle));
+                OnPropertyChanged(nameof(DisplayTitle));
+                OnPropertyChanged(nameof(DisplayArtist));
+                OnPropertyChanged(nameof(DisplayAlbum));
+                OnPropertyChanged(nameof(CurrentCoverPath));
+                NotifyPresentationStateChanged();
             }
         }
     }
@@ -141,6 +184,19 @@ public sealed partial class HitsStatusViewModel : ObservableObject
         : $"Next · {NextTrack.Track.Title} · {NextTrack.StartAt:HH:mm} UTC";
     public string PlaybackOffsetLabel => $"Live +{TimeSpan.FromSeconds(Math.Max(0, PlaybackOffsetSeconds)):mm\\:ss}";
     public string CacheLabel => UsingCache ? "Cached schedule" : "Live schedule";
+    public bool IsLive => IsSessionActive && IsAvailable && !IsPaused && CurrentTrack is not null;
+    public bool ShowLiveDot => IsLive;
+    public bool IsConnecting => IsRefreshing || _isResynchronizing;
+    public bool CanToggleLivePlayback => IsSessionActive && IsAvailable && CurrentTrack is not null && !IsConnecting;
+    public string BroadcastStateLabel => IsPaused
+        ? "PAUSED"
+        : IsLive ? "LIVE" : IsConnecting ? "CONNECTING" : StatusLabel.ToUpperInvariant();
+    public string CoverHintGlyph => IsPaused ? "\uE768" : "\uE769";
+    public string CoverAutomationName => IsPaused ? "Resume HITS live radio" : "Pause HITS live radio";
+    public string DisplayTitle => CurrentTrack?.Track.Title ?? "HITS is off air";
+    public string DisplayArtist => CurrentTrack?.Track.Artist ?? Description;
+    public string DisplayAlbum => CurrentTrack?.Track.Album ?? string.Empty;
+    public string? CurrentCoverPath => CurrentTrack?.Track.CoverPath;
 
     public Task InitializeAsync(CancellationToken cancellationToken = default)
     {
@@ -173,7 +229,28 @@ public sealed partial class HitsStatusViewModel : ObservableObject
         }
 
         IsSessionActive = true;
+        IsPaused = false;
         SyncPlayback(forceReload: true);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanToggleLivePlayback))]
+    private void ToggleLivePlayback()
+    {
+        if (IsPaused)
+        {
+            _isResynchronizing = true;
+            IsPaused = false;
+            _playbackService.TogglePlayPause();
+            _hitsService.UpdatePosition(DateTimeOffset.UtcNow);
+            _isResynchronizing = false;
+            NotifyPresentationStateChanged();
+            SyncPlayback(forceReload: true);
+            return;
+        }
+
+        IsPaused = true;
+        ClearPendingSeek();
+        _playbackService.TogglePlayPause();
     }
 
     [RelayCommand]
@@ -223,7 +300,7 @@ public sealed partial class HitsStatusViewModel : ObservableObject
 
     private void SyncPlayback(bool forceReload)
     {
-        if (!IsSessionActive)
+        if (!IsSessionActive || IsPaused || _isResynchronizing)
         {
             return;
         }
@@ -254,6 +331,7 @@ public sealed partial class HitsStatusViewModel : ObservableObject
     {
         ApplyPendingSeek();
         OnPropertyChanged(nameof(IsSessionActive));
+        NotifyPresentationStateChanged();
     }
 
     private void ApplyPendingSeek()
@@ -318,5 +396,17 @@ public sealed partial class HitsStatusViewModel : ObservableObject
         _pendingSeekSeconds = null;
         _pendingSeekAttempts = 0;
         _lastPendingSeekAttemptAt = DateTimeOffset.MinValue;
+    }
+
+    private void NotifyPresentationStateChanged()
+    {
+        OnPropertyChanged(nameof(IsLive));
+        OnPropertyChanged(nameof(ShowLiveDot));
+        OnPropertyChanged(nameof(IsConnecting));
+        OnPropertyChanged(nameof(CanToggleLivePlayback));
+        OnPropertyChanged(nameof(BroadcastStateLabel));
+        OnPropertyChanged(nameof(CoverHintGlyph));
+        OnPropertyChanged(nameof(CoverAutomationName));
+        ToggleLivePlaybackCommand.NotifyCanExecuteChanged();
     }
 }

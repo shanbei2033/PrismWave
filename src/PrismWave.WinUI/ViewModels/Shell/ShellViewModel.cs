@@ -11,6 +11,7 @@ public sealed partial class ShellViewModel : ObservableObject
     private static readonly HashSet<string> NestedRoutes = new(StringComparer.Ordinal)
     {
         "FullPlay",
+        "Hits",
         "AlbumDetail",
         "LocalAlbumDetail",
         "ArtistDetail",

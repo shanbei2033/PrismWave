@@ -24,6 +24,7 @@ namespace PrismWave_WinUI.Views.Shell;
 public sealed partial class ShellPage : Page
 {
     private const double FullPlayTransitionDurationMilliseconds = 280;
+    private const double HitsTransitionDurationMilliseconds = 240;
     private const double CoverTransitionDurationMilliseconds = 240;
     private const float NestedTransitionOffset = 72;
     private const double QueueOpenTransitionDurationMilliseconds = 240;
@@ -46,6 +47,7 @@ public sealed partial class ShellPage : Page
     private long _navigatingRevision;
     private Exception? _navigationFailedException;
     private bool _isFullPlayVisible;
+    private string? _immersiveRoute;
     private bool _animationsEnabled = true;
     private long _queueAnimationRevision;
     private long _queueExitRevision;
@@ -339,9 +341,9 @@ public sealed partial class ShellPage : Page
             return;
         }
 
-        if (request.Route == "FullPlay")
+        if (IsImmersiveRoute(request.Route))
         {
-            ShowFullPlayOverlay();
+            ShowFullPlayOverlay(request.Route);
             return;
         }
 
@@ -366,7 +368,9 @@ public sealed partial class ShellPage : Page
         ExecuteIntent(_navigationCoordinator.RequestNavigation(request));
     }
 
-    private void ShowFullPlayOverlay()
+    private static bool IsImmersiveRoute(string? route) => route is "FullPlay" or "Hits";
+
+    private void ShowFullPlayOverlay(string route)
     {
         if (_isFullPlayVisible)
         {
@@ -375,8 +379,11 @@ public sealed partial class ShellPage : Page
 
         DetachFullPlayExitBatch();
         _isFullPlayVisible = true;
+        _immersiveRoute = route;
         SetFullPlayImmersiveTitleBar(true);
-        FullPlayFrame.Content = new FullPlayPage();
+        FullPlayFrame.Content = route == "Hits"
+            ? new HitsStatusPage()
+            : new FullPlayPage();
         FullPlayOverlay.Visibility = Visibility.Visible;
         FullPlayOverlay.IsHitTestVisible = true;
         FullPlayOverlay.Opacity = 1;
@@ -398,7 +405,13 @@ public sealed partial class ShellPage : Page
         }
 
         FullPlayOverlay.UpdateLayout();
-        var startOffset = (float)Math.Max(1, FullPlayOverlay.ActualHeight);
+        var isHits = string.Equals(route, "Hits", StringComparison.Ordinal);
+        var duration = isHits
+            ? HitsTransitionDurationMilliseconds
+            : FullPlayTransitionDurationMilliseconds;
+        var startOffset = isHits
+            ? 24f
+            : (float)Math.Max(1, FullPlayOverlay.ActualHeight);
         visual.Opacity = 1;
         visual.Properties.InsertVector3("Translation", Vector3.Zero);
         var compositor = visual.Compositor;
@@ -409,16 +422,16 @@ public sealed partial class ShellPage : Page
         slideAnimation.InsertKeyFrame(0f, startOffset);
         slideAnimation.InsertKeyFrame(1f, 0f, easing);
         slideAnimation.Duration = TimeSpan.FromMilliseconds(
-            FullPlayTransitionDurationMilliseconds);
+            duration);
         var fadeAnimation = compositor.CreateScalarKeyFrameAnimation();
-        fadeAnimation.InsertKeyFrame(0f, 0.12f);
+        fadeAnimation.InsertKeyFrame(0f, isHits ? 0.82f : 0.12f);
         fadeAnimation.InsertKeyFrame(1f, 1f, easing);
         fadeAnimation.Duration = slideAnimation.Duration;
         visual.StartAnimation("Translation.Y", slideAnimation);
         visual.StartAnimation("Opacity", fadeAnimation);
         FullPlayFrame.Focus(FocusState.Programmatic);
         StartupLog.Write(
-            $"navigation.fullplay.opened durationMs={FullPlayTransitionDurationMilliseconds:0}");
+            $"navigation.{route.ToLowerInvariant()}.opened durationMs={duration:0}");
     }
 
     private void HideFullPlayOverlay()
@@ -442,11 +455,18 @@ public sealed partial class ShellPage : Page
             return;
         }
 
+        var route = _immersiveRoute ?? "FullPlay";
+        var isHits = string.Equals(route, "Hits", StringComparison.Ordinal);
+        var duration = isHits
+            ? HitsTransitionDurationMilliseconds
+            : FullPlayTransitionDurationMilliseconds;
         var visual = ElementCompositionPreview.GetElementVisual(FullPlayOverlay);
         visual.StopAnimation("Opacity");
         visual.StopAnimation("Translation.Y");
         FullPlayOverlay.UpdateLayout();
-        var endOffset = (float)Math.Max(1, FullPlayOverlay.ActualHeight);
+        var endOffset = isHits
+            ? 20f
+            : (float)Math.Max(1, FullPlayOverlay.ActualHeight);
         visual.Opacity = 0;
         visual.Properties.InsertVector3("Translation", new Vector3(0, endOffset, 0));
         var compositor = visual.Compositor;
@@ -457,10 +477,10 @@ public sealed partial class ShellPage : Page
         slideAnimation.InsertKeyFrame(0f, 0f);
         slideAnimation.InsertKeyFrame(1f, endOffset, easing);
         slideAnimation.Duration = TimeSpan.FromMilliseconds(
-            FullPlayTransitionDurationMilliseconds);
+            duration);
         var fadeAnimation = compositor.CreateScalarKeyFrameAnimation();
         fadeAnimation.InsertKeyFrame(0f, 1f);
-        fadeAnimation.InsertKeyFrame(1f, 0.12f, easing);
+        fadeAnimation.InsertKeyFrame(1f, isHits ? 0.82f : 0.12f, easing);
         fadeAnimation.Duration = slideAnimation.Duration;
         _fullPlayExitBatch = compositor.CreateScopedBatch(CompositionBatchTypes.Animation);
         _fullPlayExitBatch.Completed += FullPlayExitBatch_Completed;
@@ -468,7 +488,7 @@ public sealed partial class ShellPage : Page
         visual.StartAnimation("Opacity", fadeAnimation);
         _fullPlayExitBatch.End();
         StartupLog.Write(
-            $"navigation.fullplay.closing durationMs={FullPlayTransitionDurationMilliseconds:0}");
+            $"navigation.{route.ToLowerInvariant()}.closing durationMs={duration:0}");
     }
 
     private void FullPlayExitBatch_Completed(object sender, CompositionBatchCompletedEventArgs args)
@@ -494,6 +514,7 @@ public sealed partial class ShellPage : Page
         visual.Opacity = 1;
         visual.Properties.InsertVector3("Translation", Vector3.Zero);
         FullPlayFrame.Content = null;
+        _immersiveRoute = null;
         FullPlayOverlay.Visibility = Visibility.Collapsed;
         FullPlayOverlay.IsHitTestVisible = false;
         FullPlayOverlay.Opacity = 0;

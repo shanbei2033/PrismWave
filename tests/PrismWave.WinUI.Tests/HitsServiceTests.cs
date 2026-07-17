@@ -184,6 +184,46 @@ public sealed class HitsServiceTests : IDisposable
         Assert.Equal(120, playback.PositionSeconds);
     }
 
+    [Fact]
+    public async Task PauseAndResume_ResynchronizesUsingLatestScheduleTrackAndOffset()
+    {
+        var first = CreateScheduleItem("first", "First song", 40);
+        var second = CreateScheduleItem("second", "Second song", 75);
+        var hits = new FakeHitsService(CreateReadySnapshot(first, 40));
+        var playback = new FakeHitsPlaybackService();
+        var viewModel = new HitsStatusViewModel(hits, playback, new FakeHitsSettingsService());
+
+        await viewModel.PrepareHitsSessionCommand.ExecuteAsync(null);
+        viewModel.ToggleLivePlaybackCommand.Execute(null);
+        hits.ResumeSnapshot = CreateReadySnapshot(second, 75);
+        viewModel.ToggleLivePlaybackCommand.Execute(null);
+
+        Assert.False(viewModel.IsPaused);
+        Assert.Equal(2, playback.TogglePlayPauseCallCount);
+        Assert.Equal(second.Track, playback.PlayedTrack);
+        Assert.Equal(75, playback.SeekSeconds);
+        Assert.True(hits.UpdatePositionCallCount >= 1);
+    }
+
+    [Fact]
+    public async Task PausedScheduleAdvance_UpdatesCurrentTrackWithoutRestartingPlayback()
+    {
+        var first = CreateScheduleItem("first", "First song", 40);
+        var second = CreateScheduleItem("second", "Second song", 75);
+        var hits = new FakeHitsService(CreateReadySnapshot(first, 40));
+        var playback = new FakeHitsPlaybackService();
+        var viewModel = new HitsStatusViewModel(hits, playback, new FakeHitsSettingsService());
+
+        await viewModel.PrepareHitsSessionCommand.ExecuteAsync(null);
+        viewModel.ToggleLivePlaybackCommand.Execute(null);
+        var playCountBeforeScheduleAdvance = playback.PlayCallCount;
+        hits.SetState(CreateReadySnapshot(second, 75));
+
+        Assert.True(viewModel.IsPaused);
+        Assert.Equal(second, viewModel.CurrentTrack);
+        Assert.Equal(playCountBeforeScheduleAdvance, playback.PlayCallCount);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_cacheDirectory))
@@ -191,6 +231,41 @@ public sealed class HitsServiceTests : IDisposable
             Directory.Delete(_cacheDirectory, recursive: true);
         }
     }
+
+    private static HitsScheduleItemModel CreateScheduleItem(string id, string title, double offset)
+    {
+        var start = DateTimeOffset.UtcNow.AddSeconds(-offset);
+        return new HitsScheduleItemModel(
+            1,
+            id,
+            "HITS",
+            start,
+            start.AddMinutes(4),
+            new TrackModel(
+                id,
+                $"hits://direct/{id}",
+                title,
+                "Artist",
+                "Album",
+                "04:00",
+                null,
+                true,
+                "direct",
+                $"https://audio.test/{id}.flac",
+                DurationSeconds: 240));
+    }
+
+    private static HitsStateSnapshot CreateReadySnapshot(HitsScheduleItemModel item, double offset) => new(
+        HitsStatusKind.Ready,
+        "On air",
+        "2026-07-10",
+        DateTimeOffset.UtcNow,
+        new[] { item },
+        item,
+        null,
+        offset,
+        false,
+        false);
 
     private static string CreateManifest()
     {
@@ -302,9 +377,19 @@ public sealed class HitsServiceTests : IDisposable
     private sealed class FakeHitsService(HitsStateSnapshot current) : IHitsService
     {
         public HitsStateSnapshot Current { get; private set; } = current;
+        public HitsStateSnapshot? ResumeSnapshot { get; set; }
+        public int UpdatePositionCallCount { get; private set; }
         public event EventHandler? StateChanged;
         public Task RefreshAsync(DateTimeOffset? nowUtc = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public void UpdatePosition(DateTimeOffset nowUtc) { }
+        public void UpdatePosition(DateTimeOffset nowUtc)
+        {
+            UpdatePositionCallCount++;
+            if (ResumeSnapshot is not null)
+            {
+                SetState(ResumeSnapshot);
+                ResumeSnapshot = null;
+            }
+        }
 
         public void SetState(HitsStateSnapshot snapshot)
         {
@@ -316,7 +401,10 @@ public sealed class HitsServiceTests : IDisposable
     private sealed class FakeHitsPlaybackService : IPlaybackService
     {
         private double _positionSeconds;
+        private bool _isPaused;
         public TrackModel? PlayedTrack { get; private set; }
+        public int PlayCallCount { get; private set; }
+        public int TogglePlayPauseCallCount { get; private set; }
         public double SeekSeconds { get; private set; }
         public int SeekCallCount { get; private set; }
         public int IgnoreSeekAttempts { get; set; }
@@ -329,7 +417,7 @@ public sealed class HitsServiceTests : IDisposable
         public double PositionSeconds => _positionSeconds;
         public double DurationSeconds => PlayedTrack?.DurationSeconds ?? 0;
         public bool IsLoading => false;
-        public bool IsPlaying => PlayedTrack is not null && !StopCalled;
+        public bool IsPlaying => PlayedTrack is not null && !StopCalled && !_isPaused;
         public string? Error => null;
         public IReadOnlyList<WindowsDsdDeviceModel> WindowsDsdDevices => Array.Empty<WindowsDsdDeviceModel>();
         public bool WindowsDsdAvailable => false;
@@ -338,9 +426,9 @@ public sealed class HitsServiceTests : IDisposable
         public string? WindowsDsdFallbackReason => null;
         public event EventHandler? StateChanged;
         public void RaiseStateChanged() => StateChanged?.Invoke(this, EventArgs.Empty);
-        public void Play(TrackModel track, IReadOnlyList<TrackModel>? queue = null) { PlayedTrack = track; StopCalled = false; StateChanged?.Invoke(this, EventArgs.Empty); }
+        public void Play(TrackModel track, IReadOnlyList<TrackModel>? queue = null) { PlayedTrack = track; PlayCallCount++; StopCalled = false; _isPaused = false; StateChanged?.Invoke(this, EventArgs.Empty); }
         public void Stop() { StopCalled = true; }
-        public void TogglePlayPause() { }
+        public void TogglePlayPause() { TogglePlayPauseCallCount++; _isPaused = !_isPaused; StateChanged?.Invoke(this, EventArgs.Empty); }
         public void Next() { }
         public void Previous() { }
         public void CycleMode() { }

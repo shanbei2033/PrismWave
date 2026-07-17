@@ -28,16 +28,12 @@ public sealed partial class MainWindow : Window
         StartupLog.Write("ShellPage navigation requested");
     }
 
-    internal void SetImmersiveTitleBar(bool isImmersive)
+    internal void SetImmersiveTitleBar(bool isImmersive, UIElement? dragRegion = null)
     {
-        if (_isImmersiveTitleBar == isImmersive)
-        {
-            return;
-        }
-
         _isImmersiveTitleBar = isImmersive;
         TitleBarBackground.Visibility = isImmersive
             ? Visibility.Collapsed
             : Visibility.Visible;
+        SetTitleBar(dragRegion ?? AppTitleBar);
     }
 }

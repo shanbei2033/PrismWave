@@ -166,10 +166,12 @@ public sealed class ShellNavigationXamlTests
         var codeBehind = File.ReadAllText(FindRepositoryFile(
             "src", "PrismWave.WinUI", "Views", "Shell", "ShellPage.xaml.cs"));
 
-        Assert.Contains("request.Route == \"FullPlay\"", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("IsImmersiveRoute(request.Route)", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("route is \"FullPlay\" or \"Hits\"", codeBehind, StringComparison.Ordinal);
         Assert.Contains("ShowFullPlayOverlay", codeBehind, StringComparison.Ordinal);
         Assert.Contains("HideFullPlayOverlay", codeBehind, StringComparison.Ordinal);
-        Assert.Contains("FullPlayFrame.Content = new FullPlayPage()", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("? new HitsStatusPage()", codeBehind, StringComparison.Ordinal);
+        Assert.Contains(": new FullPlayPage()", codeBehind, StringComparison.Ordinal);
         Assert.Contains("FullPlayTransitionDurationMilliseconds = 280", codeBehind, StringComparison.Ordinal);
         Assert.Contains("ElementCompositionPreview.SetIsTranslationEnabled(FullPlayOverlay, true)", codeBehind, StringComparison.Ordinal);
         Assert.Contains("visual.StartAnimation(\"Translation.Y\"", codeBehind, StringComparison.Ordinal);
@@ -200,8 +202,9 @@ public sealed class ShellNavigationXamlTests
             titleBarBackground.Attribute("Background")?.Value);
         Assert.Equal("False", titleBarBackground.Attribute("IsHitTestVisible")?.Value);
         Assert.Equal("Transparent", titleBar.Attribute("Background")?.Value);
-        Assert.Contains("internal void SetImmersiveTitleBar(bool isImmersive)", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("internal void SetImmersiveTitleBar(bool isImmersive, UIElement? dragRegion = null)", codeBehind, StringComparison.Ordinal);
         Assert.Contains("TitleBarBackground.Visibility = isImmersive", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("SetTitleBar(dragRegion ?? AppTitleBar)", codeBehind, StringComparison.Ordinal);
         Assert.Contains("Visibility.Collapsed", codeBehind, StringComparison.Ordinal);
         Assert.Contains("Visibility.Visible", codeBehind, StringComparison.Ordinal);
         Assert.Contains("ButtonForegroundColor = Microsoft.UI.Colors.White", codeBehind, StringComparison.Ordinal);

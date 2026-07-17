@@ -26,7 +26,7 @@
             <Button
                 Grid.Column="1"
                 Command="{Binding SearchCommand}"
-                ToolTipService.ToolTip="Search lyrics">
+                >
                 <StackPanel Orientation="Horizontal" Spacing="7">
                     <FontIcon Glyph="&#xE721;" FontSize="15" />
                     <TextBlock Text="Search" />

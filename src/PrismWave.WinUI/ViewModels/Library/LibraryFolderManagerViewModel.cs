@@ -11,6 +11,7 @@ public sealed partial class LibraryFolderManagerViewModel : ObservableObject
 {
     private readonly ILibraryService _libraryService;
     private readonly IMusicFolderPicker _folderPicker;
+    private readonly ISettingsService? _settingsService;
     private bool _isScanning;
     private LibraryScanProgress _scanProgress = LibraryScanProgress.Idle;
     private string? _error;
@@ -18,11 +19,18 @@ public sealed partial class LibraryFolderManagerViewModel : ObservableObject
 
     public LibraryFolderManagerViewModel(
         ILibraryService libraryService,
-        IMusicFolderPicker folderPicker)
+        IMusicFolderPicker folderPicker,
+        ISettingsService? settingsService = null)
     {
         _libraryService = libraryService;
         _folderPicker = folderPicker;
+        _settingsService = settingsService;
         _libraryService.LibraryChanged += LibraryService_LibraryChanged;
+        if (_settingsService is not null)
+        {
+            _settingsService.SettingsChanged += SettingsService_SettingsChanged;
+        }
+
         Refresh();
     }
 
@@ -63,11 +71,16 @@ public sealed partial class LibraryFolderManagerViewModel : ObservableObject
 
     public string StatusText => ScanProgress.Phase switch
     {
-        LibraryScanPhase.Enumerating => $"Discovering music · {ScanProgress.DiscoveredFiles}",
-        LibraryScanPhase.ReadingMetadata => $"Scanning {ScanProgress.ProcessedFiles} / {ScanProgress.DiscoveredFiles}",
-        LibraryScanPhase.Completed when ScanProgress.ProcessedFiles > 0 => $"{ScanProgress.ProcessedFiles} tracks ready",
-        LibraryScanPhase.Failed => "Scan failed",
-        _ => Folders.Count == 0 ? "No music folders added" : "Ready"
+        LibraryScanPhase.Enumerating => $"{Localize("Discovering music", "正在查找音乐", "正在尋找音樂")} · {ScanProgress.DiscoveredFiles}",
+        LibraryScanPhase.ReadingMetadata => $"{Localize("Scanning", "正在扫描", "正在掃描")} {ScanProgress.ProcessedFiles} / {ScanProgress.DiscoveredFiles}",
+        LibraryScanPhase.Completed when ScanProgress.ProcessedFiles > 0 => Localize(
+            $"{ScanProgress.ProcessedFiles} tracks ready",
+            $"{ScanProgress.ProcessedFiles} 首歌曲已就绪",
+            $"{ScanProgress.ProcessedFiles} 首歌曲已就緒"),
+        LibraryScanPhase.Failed => Localize("Scan failed", "扫描失败", "掃描失敗"),
+        _ => Folders.Count == 0
+            ? Localize("No music folders added", "尚未添加音乐文件夹", "尚未新增音樂資料夾")
+            : Localize("Ready", "就绪", "就緒")
     };
 
     [RelayCommand(AllowConcurrentExecutions = false)]
@@ -81,7 +94,10 @@ public sealed partial class LibraryFolderManagerViewModel : ObservableObject
                 await _libraryService.AddFolderAsync(result.Path);
                 break;
             case MusicFolderPickStatus.Failed:
-                _interactionError = result.Error ?? "The music folder picker could not be opened.";
+                _interactionError = result.Error ?? Localize(
+                    "The music folder picker could not be opened.",
+                    "无法打开音乐文件夹选择器。",
+                    "無法開啟音樂資料夾選擇器。");
                 break;
         }
 
@@ -106,6 +122,8 @@ public sealed partial class LibraryFolderManagerViewModel : ObservableObject
 
     private void LibraryService_LibraryChanged(object? sender, EventArgs e) => Refresh();
 
+    private void SettingsService_SettingsChanged(object? sender, EventArgs e) => Refresh();
+
     private void Refresh()
     {
         Folders.Clear();
@@ -117,7 +135,9 @@ public sealed partial class LibraryFolderManagerViewModel : ObservableObject
                 folder.Path,
                 _libraryService.Tracks.Count(track => IsTrackWithinFolder(track, folder.Path)),
                 folder.IsAvailable,
-                folder.StatusText,
+                folder.IsAvailable
+                    ? Localize("Ready", "就绪", "就緒")
+                    : Localize("Unavailable", "不可用", "無法使用"),
                 folder.Error));
         }
 
@@ -126,6 +146,14 @@ public sealed partial class LibraryFolderManagerViewModel : ObservableObject
         Error = _interactionError ?? _libraryService.Error;
         OnPropertyChanged(nameof(StatusText));
     }
+
+    private string Localize(string english, string simplified, string traditional) =>
+        _settingsService?.Current.Language switch
+        {
+            "zh-CN" => simplified,
+            "zh-TW" => traditional,
+            _ => english
+        };
 
     private static bool IsTrackWithinFolder(TrackModel track, string folder)
     {

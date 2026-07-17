@@ -18,7 +18,7 @@ public sealed class LocalLibraryStructureTests
         Assert.Contains(document.Descendants(), element =>
             element.Attribute("Command")?.Value == "{Binding DataContext.LibraryFolders.RemoveFolderCommand, ElementName=SettingsRoot}");
         Assert.Contains(document.Descendants(), element =>
-            element.Attribute("ItemsSource")?.Value == "{Binding LibraryFolders.Folders}");
+            element.Attribute("ItemsSource")?.Value == "{Binding LibraryFolders.FolderEntries}");
         Assert.Contains(document.Descendants(), element =>
             element.Name.LocalName == "ProgressRing" &&
             element.Attribute("IsActive")?.Value == "{Binding LibraryFolders.IsScanning}");

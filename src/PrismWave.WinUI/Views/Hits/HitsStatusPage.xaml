@@ -77,7 +77,6 @@
                     Style="{StaticResource HitsIconButtonStyle}"
                     Click="BackButton_Click"
                     VerticalAlignment="Center"
-                    ToolTipService.ToolTip="Back"
                     AutomationProperties.Name="Back">
                     <FontIcon Glyph="&#xE72B;" FontSize="20" />
                 </Button>
@@ -141,7 +140,7 @@
                             Style="{StaticResource HitsCoverButtonStyle}"
                             Command="{Binding ToggleLivePlaybackCommand}"
                             AutomationProperties.Name="{Binding CoverAutomationName}"
-                            ToolTipService.ToolTip="{Binding CoverAutomationName}">
+                            >
                             <Grid x:Name="CoverVisualHost" Width="520" Height="520">
                                 <Border
                                     Width="520"

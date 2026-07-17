@@ -85,9 +85,8 @@ public sealed partial class ShellPage : Page
 
         if (AppNavigationView.SettingsItem is NavigationViewItem settingsItem)
         {
-            settingsItem.Content = "设置";
-            AutomationProperties.SetName(settingsItem, "设置");
-            ToolTipService.SetToolTip(settingsItem, "设置");
+            settingsItem.Content = App.Services.Shell.SettingsLabel;
+            AutomationProperties.SetName(settingsItem, App.Services.Shell.SettingsLabel);
         }
 
         ProcessNavigationRequest(new ShellNavigationRequest(
@@ -131,6 +130,12 @@ public sealed partial class ShellPage : Page
         if (args.PropertyName == nameof(App.Services.Shell.IsQueuePaneOpen))
         {
             SynchronizeQueueOverlayState();
+        }
+        else if (args.PropertyName == nameof(App.Services.Shell.SettingsLabel)
+                 && AppNavigationView.SettingsItem is NavigationViewItem settingsItem)
+        {
+            settingsItem.Content = App.Services.Shell.SettingsLabel;
+            AutomationProperties.SetName(settingsItem, App.Services.Shell.SettingsLabel);
         }
     }
 

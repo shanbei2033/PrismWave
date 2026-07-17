@@ -139,7 +139,6 @@ public sealed partial class Sidebar : UserControl
             ? HorizontalAlignment.Right
             : HorizontalAlignment.Center;
         CollapseGlyph.Glyph = IsExpanded ? "\uE76B" : "\uE76C";
-        ToolTipService.SetToolTip(CollapseButton, IsExpanded ? "折叠侧栏" : "展开侧栏");
     }
 
     private void ApplySelection()

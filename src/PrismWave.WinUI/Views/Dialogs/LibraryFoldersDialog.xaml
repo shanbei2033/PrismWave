@@ -77,7 +77,7 @@
                             Grid.Column="3"
                             Command="{Binding DataContext.RemoveFolderCommand, ElementName=FolderDialogRoot}"
                             CommandParameter="{Binding Path}"
-                            ToolTipService.ToolTip="Remove folder">
+                            >
                             <FontIcon Glyph="&#xE711;" FontSize="14" />
                         </Button>
                     </Grid>

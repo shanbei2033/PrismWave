@@ -48,6 +48,13 @@ public sealed partial class ShellViewModel : ObservableObject
     public int FolderCount => _libraryService.Folders.Count;
     public int TrackCount => _libraryService.Tracks.Count;
     public int FavoriteCount => _libraryService.Favorites.Count;
+    public string HomeLabel => Localize("首页", "首頁", "Home");
+    public string SearchLabel => Localize("搜索", "搜尋", "Search");
+    public string LibraryLabel => Localize("库", "音樂庫", "Library");
+    public string AlbumsLabel => Localize("专辑", "專輯", "Albums");
+    public string ArtistsLabel => Localize("艺术家", "藝人", "Artists");
+    public string FavoritesLabel => Localize("我最爱的", "我的最愛", "Favorites");
+    public string SettingsLabel => Localize("设置", "設定", "Settings");
 
     public string SelectedRoute
     {
@@ -180,10 +187,30 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         var settings = _settingsService.Current;
         IsOnlineNavigationVisible = settings.ExperimentalFeaturesEnabled && settings.OnlineModeEnabled;
-        if (!IsOnlineNavigationVisible && (SelectedRoute is "Home" or "Search"))
+        NotifyLocalizedLabels();
+        if (!IsOnlineNavigationVisible && SelectedRoute is "Home" or "Search" or "Hits")
         {
             Navigate("Library");
         }
+    }
+
+    private string Localize(string simplified, string traditional, string english) =>
+        _settingsService.Current.Language switch
+        {
+            "zh-TW" => traditional,
+            "en-US" => english,
+            _ => simplified
+        };
+
+    private void NotifyLocalizedLabels()
+    {
+        OnPropertyChanged(nameof(HomeLabel));
+        OnPropertyChanged(nameof(SearchLabel));
+        OnPropertyChanged(nameof(LibraryLabel));
+        OnPropertyChanged(nameof(AlbumsLabel));
+        OnPropertyChanged(nameof(ArtistsLabel));
+        OnPropertyChanged(nameof(FavoritesLabel));
+        OnPropertyChanged(nameof(SettingsLabel));
     }
 
     private void RefreshLibraryStats()

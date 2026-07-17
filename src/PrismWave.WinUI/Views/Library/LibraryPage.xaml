@@ -37,25 +37,25 @@
             </StackPanel>
             <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
                 <ProgressRing Width="18" Height="18" IsActive="{Binding LibraryFolders.IsScanning}" />
-                <Button Click="OpenFolderManager_Click" ToolTipService.ToolTip="Manage music folders">
+                <Button Click="OpenFolderManager_Click">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <FontIcon Glyph="&#xE8B7;" FontSize="14" />
                         <TextBlock Text="Folders" />
                     </StackPanel>
                 </Button>
-                <Button Command="{Binding LibraryFolders.AddFolderCommand}" ToolTipService.ToolTip="Add music folder">
+                <Button Command="{Binding LibraryFolders.AddFolderCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <FontIcon Glyph="&#xE710;" FontSize="14" />
                         <TextBlock Text="Add folder" />
                     </StackPanel>
                 </Button>
-                <Button Command="{Binding LibraryFolders.RescanCommand}" ToolTipService.ToolTip="Rescan all music folders">
+                <Button Command="{Binding LibraryFolders.RescanCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <FontIcon Glyph="&#xE895;" FontSize="14" />
                         <TextBlock Text="Rescan" />
                     </StackPanel>
                 </Button>
-                <Button Command="{Binding PlayAllCommand}" ToolTipService.ToolTip="Play all visible tracks">
+                <Button Command="{Binding PlayAllCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <FontIcon Glyph="&#xE768;" FontSize="14" />
                         <TextBlock Text="Play all" />
@@ -84,7 +84,7 @@
                 <ColumnDefinition Width="1.25*" />
                 <ColumnDefinition x:Name="HeaderAlbumColumn" Width="1.15*" />
                 <ColumnDefinition Width="64" />
-                <ColumnDefinition Width="36" />
+                <ColumnDefinition Width="44" />
                 <ColumnDefinition Width="36" />
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="1" Text="Title" Style="{StaticResource PrismCaptionTextStyle}" />
@@ -124,7 +124,7 @@
                                 <ColumnDefinition Width="1.25*" />
                                 <ColumnDefinition x:Name="AlbumColumn" Width="1.15*" />
                                 <ColumnDefinition Width="64" />
-                                <ColumnDefinition Width="36" />
+                                <ColumnDefinition Width="44" />
                                 <ColumnDefinition Width="36" />
                             </Grid.ColumnDefinitions>
                             <Border Width="44" Height="44" CornerRadius="6" Background="{StaticResource PrismSurfaceStrongBrush}">
@@ -134,10 +134,18 @@
                             <TextBlock Grid.Column="2" Text="{Binding Artist}" TextTrimming="CharacterEllipsis" Style="{StaticResource PrismCaptionTextStyle}" VerticalAlignment="Center" />
                             <TextBlock x:Name="AlbumCell" Grid.Column="3" Text="{Binding Album}" TextTrimming="CharacterEllipsis" Style="{StaticResource PrismCaptionTextStyle}" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="4" Text="{Binding Duration}" HorizontalAlignment="Right" Style="{StaticResource PrismCaptionTextStyle}" VerticalAlignment="Center" />
-                            <Button Grid.Column="5" Tag="{Binding}" Click="Favorite_Click" ToolTipService.ToolTip="Toggle favorite">
-                                <FontIcon Glyph="{Binding FavoriteGlyph}" FontSize="15" />
+                            <Button
+                                Grid.Column="5"
+                                Width="40"
+                                Height="40"
+                                Padding="0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Tag="{Binding}"
+                                Click="Favorite_Click">
+                                <FontIcon Glyph="{Binding FavoriteGlyph}" FontSize="18" />
                             </Button>
-                            <Button Grid.Column="6" ToolTipService.ToolTip="More track actions">
+                            <Button Grid.Column="6">
                                 <FontIcon Glyph="&#xE712;" FontSize="15" />
                                 <Button.Flyout>
                                     <MenuFlyout>

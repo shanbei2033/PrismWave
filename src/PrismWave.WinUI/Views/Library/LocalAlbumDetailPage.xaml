@@ -79,7 +79,7 @@
                     HorizontalAlignment="Left"
                     VerticalAlignment="Top"
                     Click="Back_Click"
-                    ToolTipService.ToolTip="返回专辑">
+                    >
                     <FontIcon Glyph="&#xE72B;" FontSize="18" />
                 </Button>
 
@@ -110,7 +110,7 @@
                         Command="{Binding PlaySelectedCommand}"
                         Background="{StaticResource PrismAccentBrush}"
                         VerticalAlignment="Bottom"
-                        ToolTipService.ToolTip="播放全部">
+                        >
                         <StackPanel Orientation="Horizontal" Spacing="7">
                             <FontIcon Glyph="&#xE768;" FontSize="15" />
                             <TextBlock Text="播放全部" />
@@ -159,7 +159,6 @@
                         Style="{StaticResource AlbumTrackActionButtonStyle}"
                         Tag="{Binding}"
                         Click="FavoriteTrack_Click"
-                        ToolTipService.ToolTip="切换收藏"
                         AutomationProperties.AutomationId="AlbumTrackFavoriteButton">
                         <FontIcon
                             Glyph="{Binding FavoriteGlyph}"
@@ -169,7 +168,7 @@
                     <Button
                         Grid.Column="5"
                         Style="{StaticResource AlbumTrackActionButtonStyle}"
-                        ToolTipService.ToolTip="更多歌曲操作">
+                        >
                         <FontIcon Glyph="&#xE712;" FontSize="16" />
                         <Button.Flyout>
                             <MenuFlyout>

@@ -24,10 +24,10 @@ public sealed class SettingsOnlineAccountUiTests
         Assert.Contains("QqAccount", xaml, StringComparison.Ordinal);
         Assert.Contains("ScanLogin_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("SignOut_Click", xaml, StringComparison.Ordinal);
-        Assert.Contains("Streaming accounts", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text.StreamingAccounts", xaml, StringComparison.Ordinal);
         Assert.True(
-            xaml.IndexOf("Streaming accounts", StringComparison.Ordinal)
-                < xaml.IndexOf("BETA / Online mode", StringComparison.Ordinal),
+            xaml.IndexOf("Text.StreamingAccounts", StringComparison.Ordinal)
+                < xaml.IndexOf("Text.BetaOnlineMode", StringComparison.Ordinal),
             "Account login must be the first section in the Online tab.");
         Assert.DoesNotContain(
             "Content=\"Scan login\" Click=\"ScanLogin_Click\" IsEnabled=\"{Binding OnlineAccounts.IsLoginEnabled}\"",

@@ -315,7 +315,7 @@ public sealed class FullPlayPageXamlTests
             "src", "PrismWave.WinUI", "Views", "Dialogs", "LyricsSearchDialog.xaml"));
 
         Assert.Equal("{Binding ToggleLyricsSourceCommand}", sourceButton.Attribute("Command")?.Value);
-        Assert.Equal("{Binding LyricsSourceLabel}", sourceButton.Attribute("ToolTipService.ToolTip")?.Value);
+        Assert.Equal("{Binding LyricsSourceLabel}", sourceButton.Attribute("AutomationProperties.Name")?.Value);
         Assert.Equal("SearchLyricsButton_Click", searchButton.Attribute("Click")?.Value);
         Assert.Single(dialog.Descendants(), element =>
             element.Attribute("Text")?.Value == "{Binding LyricsKindLabel}");

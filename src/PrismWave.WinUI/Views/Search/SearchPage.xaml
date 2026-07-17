@@ -177,7 +177,7 @@
                                         Style="{StaticResource PrismCaptionTextStyle}"
                                         HorizontalAlignment="Right"
                                         VerticalAlignment="Center" />
-                                    <Button Grid.Column="6" ToolTipService.ToolTip="更多歌曲操作">
+                                    <Button Grid.Column="6">
                                         <FontIcon Glyph="&#xE712;" FontSize="14" />
                                         <Button.Flyout>
                                             <MenuFlyout>

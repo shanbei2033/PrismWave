@@ -5,7 +5,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:converters="using:PrismWave_WinUI.Converters"
     xmlns:lyrics="using:PrismWave_WinUI.Controls.Lyrics"
-    xmlns:media="using:PrismWave_WinUI.Controls.Media">
+    xmlns:media="using:PrismWave_WinUI.Controls.Media"
+    KeyboardAcceleratorPlacementMode="Hidden">
     <Page.KeyboardAccelerators>
         <KeyboardAccelerator Key="Escape" Invoked="BackKeyboardAccelerator_Invoked" />
     </Page.KeyboardAccelerators>
@@ -131,7 +132,6 @@
                         Command="{Binding ToggleCurrentFavoriteCommand}"
                         IsEnabled="{Binding CanFavoriteCurrentTrack}"
                         Style="{StaticResource FullPlaySecondaryButtonStyle}"
-                        ToolTipService.ToolTip="收藏"
                         AutomationProperties.AutomationId="FullPlayFavoriteButton">
                         <FontIcon Glyph="{Binding CurrentFavoriteGlyph}" FontSize="17" />
                     </Button>
@@ -139,15 +139,13 @@
                         Grid.Column="1"
                         Command="{Binding CycleModeCommand}"
                         Style="{StaticResource FullPlaySecondaryButtonStyle}"
-                        ToolTipService.ToolTip="{Binding ModeLabel}"
                         AutomationProperties.AutomationId="FullPlayModeButton">
-                        <FontIcon Glyph="&#xE8EE;" FontSize="17" />
+                        <FontIcon Glyph="{Binding ModeGlyph}" FontSize="17" />
                     </Button>
                     <Button
                         Grid.Column="2"
                         Command="{Binding PreviousCommand}"
                         Style="{StaticResource FullPlaySecondaryButtonStyle}"
-                        ToolTipService.ToolTip="上一首"
                         AutomationProperties.AutomationId="FullPlayPreviousButton">
                         <FontIcon Glyph="&#xE892;" FontSize="18" />
                     </Button>
@@ -160,7 +158,6 @@
                         Background="{StaticResource PrismAccentBrush}"
                         BorderThickness="0"
                         CornerRadius="28"
-                        ToolTipService.ToolTip="播放或暂停"
                         AutomationProperties.AutomationId="FullPlayPlayPauseButton">
                         <Grid>
                             <FontIcon Glyph="{Binding ToggleGlyph}" FontSize="22" />
@@ -175,14 +172,12 @@
                         Grid.Column="4"
                         Command="{Binding NextCommand}"
                         Style="{StaticResource FullPlaySecondaryButtonStyle}"
-                        ToolTipService.ToolTip="下一首"
                         AutomationProperties.AutomationId="FullPlayNextButton">
                         <FontIcon Glyph="&#xE893;" FontSize="18" />
                     </Button>
                     <Button
                         Grid.Column="5"
                         Style="{StaticResource FullPlaySecondaryButtonStyle}"
-                        ToolTipService.ToolTip="播放队列"
                         AutomationProperties.AutomationId="FullPlayQueueButton">
                         <FontIcon Glyph="&#xE8FD;" FontSize="17" />
                         <Button.Flyout>
@@ -319,8 +314,7 @@
                         Background="#52000000"
                         BorderThickness="0"
                         CornerRadius="22"
-                        ToolTipService.ToolTip="{Binding LyricsSourceLabel}"
-                        AutomationProperties.Name="切换歌词来源"
+                        AutomationProperties.Name="{Binding LyricsSourceLabel}"
                         AutomationProperties.AutomationId="LyricsSourceButton">
                         <Button.RenderTransform>
                             <TranslateTransform Y="18" />
@@ -337,7 +331,6 @@
                         Background="#52000000"
                         BorderThickness="0"
                         CornerRadius="22"
-                        ToolTipService.ToolTip="搜索在线歌词"
                         AutomationProperties.Name="搜索在线歌词"
                         AutomationProperties.AutomationId="LyricsSearchButton">
                         <Button.RenderTransform>
@@ -354,7 +347,6 @@
                         Background="#52000000"
                         BorderThickness="0"
                         CornerRadius="22"
-                        ToolTipService.ToolTip="调整歌词偏移"
                         AutomationProperties.Name="调整歌词偏移"
                         AutomationProperties.AutomationId="LyricsOffsetButton">
                         <Button.RenderTransform>
@@ -420,7 +412,6 @@
                     Background="#78000000"
                     BorderThickness="0"
                     CornerRadius="22"
-                    ToolTipService.ToolTip="歌词工具"
                     AutomationProperties.Name="歌词工具"
                     AutomationProperties.AutomationId="LyricsToolsToggleButton">
                     <FontIcon
@@ -441,7 +432,6 @@
             Background="#26000000"
             BorderThickness="0"
             CornerRadius="8"
-            ToolTipService.ToolTip="返回"
             AutomationProperties.AutomationId="FullPlayBackButton">
             <FontIcon Glyph="&#xE72B;" FontSize="16" />
         </Button>

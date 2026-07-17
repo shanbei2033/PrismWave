@@ -104,7 +104,6 @@
                     Background="Transparent"
                     BorderThickness="0"
                     Click="MoreButton_Click"
-                    ToolTipService.ToolTip="更多操作"
                     AutomationProperties.AutomationId="GlobalTrendingMoreButton"
                     AutomationProperties.Name="更多操作">
                     <FontIcon Glyph="&#xE712;" FontSize="14" />

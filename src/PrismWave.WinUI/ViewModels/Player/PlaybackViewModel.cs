@@ -27,6 +27,7 @@ public sealed partial class PlaybackViewModel : ObservableObject
     private bool _isLoading;
     private bool _isLyricsLoading;
     private string _modeLabel = "列表循环";
+    private string _modeGlyph = "\uE8EE";
     private double _volume = 0.78;
     private double _positionSeconds;
     private double _durationSeconds;
@@ -116,6 +117,12 @@ public sealed partial class PlaybackViewModel : ObservableObject
     {
         get => _modeLabel;
         private set => SetProperty(ref _modeLabel, value);
+    }
+
+    public string ModeGlyph
+    {
+        get => _modeGlyph;
+        private set => SetProperty(ref _modeGlyph, value);
     }
 
     public double Volume
@@ -608,6 +615,12 @@ public sealed partial class PlaybackViewModel : ObservableObject
             PlaybackMode.Single => "单曲循环",
             PlaybackMode.Shuffle => "随机播放",
             _ => "列表循环"
+        };
+        ModeGlyph = _playbackService.Mode switch
+        {
+            PlaybackMode.Single => "\uE8ED",
+            PlaybackMode.Shuffle => "\uE8B1",
+            _ => "\uE8EE"
         };
 
         var queueRevision = _playbackService.QueueRevision;

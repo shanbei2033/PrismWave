@@ -595,6 +595,46 @@ public sealed class PlaybackViewModelLyricsTests
     }
 
     [Fact]
+    public void PlaybackModeGlyph_TracksLoopSingleAndShuffleModes()
+    {
+        var service = new FakePlaybackService(CreateTrack());
+        var viewModel = new PlaybackViewModel(
+            service,
+            new FakeLyricsService(LyricsDocumentModel.Empty()));
+
+        Assert.Equal("\uE8EE", viewModel.ModeGlyph);
+
+        service.Mode = PlaybackMode.Single;
+        service.RaiseStateChanged();
+        Assert.Equal("\uE8ED", viewModel.ModeGlyph);
+
+        service.Mode = PlaybackMode.Shuffle;
+        service.RaiseStateChanged();
+        Assert.Equal("\uE8B1", viewModel.ModeGlyph);
+    }
+
+    [Fact]
+    public async Task DisablingBeta_HidesOnlineNavigationAndReturnsToLibrary()
+    {
+        var settings = new FakeShellSettingsService();
+        var playback = new PlaybackViewModel(
+            new FakePlaybackService(CreateTrack()),
+            new FakeLyricsService(LyricsDocumentModel.Empty()));
+        var shell = new ShellViewModel(settings, new FakeShellLibraryService(), playback);
+
+        Assert.Equal("Home", shell.SelectedRoute);
+        Assert.True(shell.IsOnlineNavigationVisible);
+
+        await settings.SaveAsync(settings.Current with { ExperimentalFeaturesEnabled = false });
+
+        Assert.False(shell.IsOnlineNavigationVisible);
+        Assert.Equal("Library", shell.SelectedRoute);
+
+        var restarted = new ShellViewModel(settings, new FakeShellLibraryService(), playback);
+        Assert.Equal("Library", restarted.SelectedRoute);
+    }
+
+    [Fact]
     public void ShellGoBack_RestoresRouteBeforeNestedPages()
     {
         var playback = new PlaybackViewModel(
@@ -752,7 +792,7 @@ public sealed class PlaybackViewModelLyricsTests
     {
         public TrackModel? CurrentTrack { get; set; } = track;
         public IReadOnlyList<TrackModel> Queue { get; } = new[] { track };
-        public PlaybackMode Mode => PlaybackMode.Loop;
+        public PlaybackMode Mode { get; set; } = PlaybackMode.Loop;
         public PlaybackStatus Status => PlaybackStatus.Playing;
         public double Volume => 0.8;
         public double PositionSeconds { get; set; }

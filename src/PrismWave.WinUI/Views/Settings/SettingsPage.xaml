@@ -9,27 +9,27 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <TextBlock Text="Settings" Style="{StaticResource PrismPageTitleTextStyle}" />
+        <TextBlock Text="{Binding Text.SettingsTitle}" Style="{StaticResource PrismPageTitleTextStyle}" />
         <Pivot Grid.Row="1">
-                <PivotItem Header="Basic">
+                <PivotItem Header="{Binding Text.BasicTab}">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Spacing="14" Padding="0,16,12,16">
                         <Border Style="{StaticResource PrismPanelBorderStyle}">
                             <StackPanel Spacing="10">
                                 <Grid ColumnSpacing="10">
-                                    <TextBlock Text="Music folders" Style="{StaticResource PrismSectionTitleTextStyle}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Text.MusicFolders}" Style="{StaticResource PrismSectionTitleTextStyle}" VerticalAlignment="Center" />
                                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
                                         <ProgressRing Width="20" Height="20" IsActive="{Binding LibraryFolders.IsScanning}" />
                                         <Button Command="{Binding LibraryFolders.AddFolderCommand}" AutomationProperties.Name="Add music folder">
                                             <StackPanel Orientation="Horizontal" Spacing="7">
                                                 <FontIcon Glyph="&#xE8B7;" FontSize="14" />
-                                                <TextBlock Text="Add folder" />
+                                                <TextBlock Text="{Binding Text.AddFolder}" />
                                             </StackPanel>
                                         </Button>
                                         <Button Command="{Binding LibraryFolders.RescanCommand}" AutomationProperties.Name="Rescan music folders">
                                             <StackPanel Orientation="Horizontal" Spacing="7">
                                                 <FontIcon Glyph="&#xE895;" FontSize="14" />
-                                                <TextBlock Text="Rescan" />
+                                                <TextBlock Text="{Binding Text.Rescan}" />
                                             </StackPanel>
                                         </Button>
                                     </StackPanel>
@@ -38,9 +38,9 @@
                                 <InfoBar
                                     IsOpen="{Binding LibraryFolders.HasError}"
                                     Severity="Error"
-                                    Title="Local library"
+                                    Title="{Binding Text.LocalLibrary}"
                                     Message="{Binding LibraryFolders.Error}" />
-                                <ListView ItemsSource="{Binding LibraryFolders.Folders}" MaxHeight="220">
+                                <ListView ItemsSource="{Binding LibraryFolders.FolderEntries}" MaxHeight="220">
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
                                             <Grid ColumnSpacing="10" Padding="2,6">
@@ -66,15 +66,15 @@
                         </Border>
                         <Border Style="{StaticResource PrismPanelBorderStyle}">
                             <StackPanel Spacing="8">
-                                <TextBlock Text="Language and theme" Style="{StaticResource PrismSectionTitleTextStyle}" />
-                                <ComboBox Header="Language" ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding Language, Mode=TwoWay}" Width="240" />
+                                <TextBlock Text="{Binding Text.LanguageAndTheme}" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                                <ComboBox Header="{Binding Text.Language}" ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding Language, Mode=TwoWay}" Width="240" />
                                 <TextBlock Text="{Binding ThemeName}" Style="{StaticResource PrismCaptionTextStyle}" />
-                                <ToggleSwitch Header="Low effects" IsOn="{Binding LowEffects, Mode=TwoWay}" />
+                                <ToggleSwitch Header="{Binding Text.LowEffects}" IsOn="{Binding LowEffects, Mode=TwoWay}" OnContent="{Binding Text.On}" OffContent="{Binding Text.Off}" />
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource PrismPanelBorderStyle}">
                             <StackPanel Spacing="8">
-                                <TextBlock Text="Flutter preference migration" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                                <TextBlock Text="{Binding Text.PreferenceMigration}" Style="{StaticResource PrismSectionTitleTextStyle}" />
                                 <TextBlock Text="{Binding MigrationStatus}" Style="{StaticResource PrismCaptionTextStyle}" />
                                 <TextBlock Text="{Binding MigrationSource}" Style="{StaticResource PrismCaptionTextStyle}" TextWrapping="Wrap" />
                             </StackPanel>
@@ -82,12 +82,12 @@
                     </StackPanel>
                     </ScrollViewer>
                 </PivotItem>
-                <PivotItem Header="Online">
+                <PivotItem Header="{Binding Text.OnlineTab}">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Spacing="14" Padding="0,16,12,16">
                         <StackPanel x:Name="StreamingAccountsHeader" Spacing="3">
-                            <TextBlock Text="Streaming accounts" Style="{StaticResource PrismSectionTitleTextStyle}" />
-                            <TextBlock Text="Scan with NetEase Cloud Music or QQ Music to use the playback rights available to your account." Style="{StaticResource PrismCaptionTextStyle}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Text.StreamingAccounts}" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                            <TextBlock Text="{Binding Text.StreamingAccountsDescription}" Style="{StaticResource PrismCaptionTextStyle}" TextWrapping="Wrap" />
                         </StackPanel>
                         <Border x:Name="NeteaseAccountCard" Style="{StaticResource PrismPanelBorderStyle}">
                             <Grid ColumnSpacing="14">
@@ -108,8 +108,8 @@
                                     <TextBlock Text="{Binding OnlineAccounts.Netease.StatusText}" Style="{StaticResource PrismCaptionTextStyle}" TextWrapping="Wrap" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                    <Button Tag="netease" Content="Scan login" Click="ScanLogin_Click" />
-                                    <Button Tag="netease" Content="Sign out" Click="SignOut_Click" IsEnabled="{Binding OnlineAccounts.Netease.CanSignOut}" />
+                                    <Button Tag="netease" Content="{Binding Text.ScanLogin}" Click="ScanLogin_Click" />
+                                    <Button Tag="netease" Content="{Binding Text.SignOut}" Click="SignOut_Click" IsEnabled="{Binding OnlineAccounts.Netease.CanSignOut}" />
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -132,37 +132,39 @@
                                     <TextBlock Text="{Binding OnlineAccounts.Qq.StatusText}" Style="{StaticResource PrismCaptionTextStyle}" TextWrapping="Wrap" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                    <Button Tag="qq" Content="Scan login" Click="ScanLogin_Click" />
-                                    <Button Tag="qq" Content="Sign out" Click="SignOut_Click" IsEnabled="{Binding OnlineAccounts.Qq.CanSignOut}" />
+                                    <Button Tag="qq" Content="{Binding Text.ScanLogin}" Click="ScanLogin_Click" />
+                                    <Button Tag="qq" Content="{Binding Text.SignOut}" Click="SignOut_Click" IsEnabled="{Binding OnlineAccounts.Qq.CanSignOut}" />
                                 </StackPanel>
                             </Grid>
                         </Border>
                         <Border Style="{StaticResource PrismPanelBorderStyle}">
                             <StackPanel Spacing="8">
-                                <TextBlock Text="BETA / Online mode" Style="{StaticResource PrismSectionTitleTextStyle}" />
-                                <ToggleSwitch x:Name="ExperimentalFeaturesToggle" Header="Experimental features" IsOn="{Binding ExperimentalFeaturesEnabled, Mode=OneWay}" Toggled="ExperimentalFeatures_Toggled" />
-                                <ToggleSwitch Header="Online mode" IsOn="{Binding OnlineModeEnabled, Mode=TwoWay}" IsEnabled="{Binding ExperimentalFeaturesEnabled}" />
+                                <TextBlock Text="{Binding Text.BetaOnlineMode}" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                                <ToggleSwitch x:Name="ExperimentalFeaturesToggle" Header="{Binding Text.ExperimentalFeatures}" IsOn="{Binding ExperimentalFeaturesEnabled, Mode=OneWay}" OnContent="{Binding Text.On}" OffContent="{Binding Text.Off}" Toggled="ExperimentalFeatures_Toggled" />
+                                <ToggleSwitch Header="{Binding Text.OnlineMode}" IsOn="{Binding OnlineModeEnabled, Mode=TwoWay}" IsEnabled="{Binding ExperimentalFeaturesEnabled}" OnContent="{Binding Text.On}" OffContent="{Binding Text.Off}" />
                                 <ComboBox
-                                    Header="Preferred streaming quality"
+                                    Header="{Binding Text.PreferredStreamingQuality}"
                                     ItemsSource="{Binding OnlineQualityOptions}"
-                                    SelectedItem="{Binding OnlineQualityPreference, Mode=TwoWay}"
+                                    DisplayMemberPath="DisplayName"
+                                    SelectedValuePath="Value"
+                                    SelectedValue="{Binding OnlineQualityPreference, Mode=TwoWay}"
                                     IsEnabled="{Binding OnlineAccounts.IsLoginEnabled}"
                                     Width="260"
                                     HorizontalAlignment="Left" />
-                                <InfoBar IsOpen="True" Severity="Informational" Title="Third-party providers" Message="Online sources are experimental and can become unavailable when provider policies or endpoints change." />
+                                <InfoBar IsOpen="True" Severity="Informational" Title="{Binding Text.ThirdPartyProviders}" Message="{Binding Text.ThirdPartyProvidersMessage}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
                     </ScrollViewer>
                 </PivotItem>
-                <PivotItem Header="Playback">
+                <PivotItem Header="{Binding Text.PlaybackTab}">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Spacing="14" Padding="0,16,12,16">
                         <Border Style="{StaticResource PrismPanelBorderStyle}">
                             <StackPanel Spacing="8">
-                                <TextBlock Text="Audio output" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                                <TextBlock Text="{Binding Text.AudioOutput}" Style="{StaticResource PrismSectionTitleTextStyle}" />
                                 <ComboBox
-                                    Header="Output mode"
+                                    Header="{Binding Text.OutputMode}"
                                     ItemsSource="{Binding AudioOutputModeOptions}"
                                     DisplayMemberPath="DisplayName"
                                     SelectedValuePath="Id"
@@ -171,25 +173,25 @@
                                     HorizontalAlignment="Left" />
                                 <TextBlock Text="{Binding AudioOutputModeDescription}" TextWrapping="Wrap" Style="{StaticResource PrismCaptionTextStyle}" />
                                 <StackPanel Spacing="3">
-                                    <TextBlock Text="Active output" Style="{StaticResource PrismCaptionTextStyle}" />
+                                    <TextBlock Text="{Binding Text.ActiveOutput}" Style="{StaticResource PrismCaptionTextStyle}" />
                                     <TextBlock Text="{Binding ActiveAudioOutputMode}" FontWeight="SemiBold" />
                                     <TextBlock Text="{Binding AudioOutputFallbackReason}" TextWrapping="Wrap" Foreground="#FFFFB4B4" FontSize="12" />
                                 </StackPanel>
-                                <TextBox Header="Output device id" Text="{Binding AudioOutputDevice, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBox Header="{Binding Text.OutputDeviceId}" Text="{Binding AudioOutputDevice, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <Grid ColumnSpacing="10">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <ComboBox
-                                        Header="Windows DSD / ASIO device"
+                                        Header="{Binding Text.WindowsDsdDevice}"
                                         ItemsSource="{Binding WindowsDsdDevices}"
                                         DisplayMemberPath="DisplayName"
                                         SelectedValuePath="Id"
                                         SelectedValue="{Binding WindowsDsdDevice, Mode=TwoWay}"
                                         IsEnabled="{Binding ExperimentalFeaturesEnabled}"
                                         HorizontalAlignment="Stretch" />
-                                    <Button Grid.Column="1" Command="{Binding RefreshWindowsDsdDevicesCommand}" VerticalAlignment="Bottom" ToolTipService.ToolTip="Refresh ASIO devices">
+                                    <Button Grid.Column="1" Command="{Binding RefreshWindowsDsdDevicesCommand}" VerticalAlignment="Bottom">
                                         <FontIcon Glyph="&#xE895;" FontSize="14" />
                                     </Button>
                                 </Grid>
@@ -197,15 +199,15 @@
                                 <TextBlock Text="{Binding WindowsDsdOutputStatus}" Style="{StaticResource PrismCaptionTextStyle}" />
                                 <TextBlock Text="{Binding WindowsDsdActiveDevice}" Style="{StaticResource PrismCaptionTextStyle}" />
                                 <TextBlock Text="{Binding WindowsDsdFallbackReason}" TextWrapping="Wrap" Foreground="#FFFFB4B4" FontSize="12" />
-                                <ToggleSwitch Header="Fade in / out" IsOn="{Binding FadeEnabled, Mode=TwoWay}" />
-                                <Slider Header="Fade duration" Minimum="0" Maximum="2000" StepFrequency="10" Value="{Binding FadeDurationMs, Mode=TwoWay}" />
+                                <ToggleSwitch Header="{Binding Text.FadeInOut}" IsOn="{Binding FadeEnabled, Mode=TwoWay}" OnContent="{Binding Text.On}" OffContent="{Binding Text.Off}" />
+                                <Slider Header="{Binding Text.FadeDuration}" Minimum="0" Maximum="2000" StepFrequency="10" Value="{Binding FadeDurationMs, Mode=TwoWay}" />
                                 <TextBlock Text="{Binding FadeDuration}" Style="{StaticResource PrismCaptionTextStyle}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
                     </ScrollViewer>
                 </PivotItem>
-                <PivotItem Header="Developer">
+                <PivotItem Header="{Binding Text.DeveloperTab}">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Padding="0,16,12,16" Spacing="14">
                         <Border Style="{StaticResource PrismPanelBorderStyle}">
@@ -217,14 +219,14 @@
                                 </Grid.RowDefinitions>
                                 <Grid>
                                     <StackPanel>
-                                        <TextBlock Text="Developer logs" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                                        <TextBlock Text="{Binding Text.DeveloperLogs}" Style="{StaticResource PrismSectionTitleTextStyle}" />
                                         <TextBlock Text="{Binding DeveloperLogCount}" Style="{StaticResource PrismCaptionTextStyle}" />
                                     </StackPanel>
                                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
-                                        <Button Command="{Binding OpenDeveloperLogCommand}" ToolTipService.ToolTip="Open log file">
-                                            <StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE8A7;" FontSize="14" /><TextBlock Text="Open" /></StackPanel>
+                                        <Button Command="{Binding OpenDeveloperLogCommand}">
+                                            <StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE8A7;" FontSize="14" /><TextBlock Text="{Binding Text.Open}" /></StackPanel>
                                         </Button>
-                                        <Button Command="{Binding ClearDeveloperLogsCommand}" ToolTipService.ToolTip="Clear logs">
+                                        <Button Command="{Binding ClearDeveloperLogsCommand}">
                                             <FontIcon Glyph="&#xE74D;" FontSize="14" />
                                         </Button>
                                     </StackPanel>

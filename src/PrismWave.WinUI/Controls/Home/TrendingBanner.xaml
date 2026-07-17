@@ -114,7 +114,7 @@
                             Height="38"
                             Padding="0"
                             Click="OpenButton_Click"
-                            ToolTipService.ToolTip="打开今日趋势">
+                            >
                             <FontIcon Glyph="&#xE8A7;" FontSize="15" />
                         </Button>
                     </StackPanel>

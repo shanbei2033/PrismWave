@@ -79,7 +79,7 @@ public sealed class AppServices
             settingsService,
             onlineAccountService,
             libraryService);
-        var libraryFolders = new LibraryFolderManagerViewModel(libraryService, musicFolderPicker);
+        var libraryFolders = new LibraryFolderManagerViewModel(libraryService, musicFolderPicker, settingsService);
         var library = new LibraryViewModel(libraryService, playbackService, libraryFolders);
         var albums = new AlbumsViewModel(libraryService, playbackService);
         var artists = new ArtistsViewModel(libraryService, playbackService);

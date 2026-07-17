@@ -165,7 +165,7 @@
                 BorderThickness="1"
                 CornerRadius="8"
                 Click="CollapseButton_Click"
-                ToolTipService.ToolTip="折叠侧栏">
+                >
                 <FontIcon x:Name="CollapseGlyph" Glyph="&#xE76B;" FontSize="14" />
             </Button>
 

@@ -89,7 +89,7 @@
                                     VerticalAlignment="Center"
                                     Background="{StaticResource PrismAccentBrush}"
                                     Click="PlayAlbum_Click"
-                                    ToolTipService.ToolTip="播放专辑">
+                                    >
                                     <FontIcon Glyph="&#xE768;" FontSize="18" />
                                 </Button>
                             </Grid>

@@ -36,4 +36,5 @@ public sealed partial class MainWindow : Window
             : Visibility.Visible;
         SetTitleBar(dragRegion ?? AppTitleBar);
     }
+
 }

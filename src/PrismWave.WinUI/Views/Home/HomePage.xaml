@@ -34,7 +34,7 @@
                     Padding="0"
                     AutomationProperties.AutomationId="HomeRefreshButton"
                     Command="{Binding RefreshHomeCommand}"
-                    ToolTipService.ToolTip="刷新首页">
+                    >
                     <FontIcon Glyph="&#xE895;" FontSize="16" />
                 </Button>
             </StackPanel>

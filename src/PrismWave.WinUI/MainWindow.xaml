@@ -11,7 +11,10 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <Grid Background="{StaticResource PrismBackgroundBrush}">
+    <Grid
+        x:Name="WindowRoot"
+        Background="{StaticResource PrismBackgroundBrush}"
+        KeyboardAcceleratorPlacementMode="Hidden">
         <Frame x:Name="RootFrame" />
         <Grid
             x:Name="TitleBarBackground"

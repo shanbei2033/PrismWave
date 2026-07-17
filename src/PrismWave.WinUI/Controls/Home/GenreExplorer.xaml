@@ -17,7 +17,6 @@
                 CornerRadius="8"
                 Tag="{Binding Section}"
                 Click="ExplorerEntry_Click"
-                ToolTipService.ToolTip="{Binding Subtitle}"
                 AutomationProperties.AutomationId="ExplorerEntryButton"
                 AutomationProperties.Name="{Binding Title}">
                 <Grid ColumnSpacing="10">

@@ -33,8 +33,8 @@ public sealed class ShellNavigationXamlTests
         var codeBehind = File.ReadAllText(FindRepositoryFile(
             "src", "PrismWave.WinUI", "Views", "Shell", "ShellPage.xaml.cs"));
 
-        Assert.Contains("settingsItem.Content = \"设置\"", codeBehind, StringComparison.Ordinal);
-        Assert.Contains("AutomationProperties.SetName(settingsItem, \"设置\")", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("settingsItem.Content = App.Services.Shell.SettingsLabel", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.SetName(settingsItem, App.Services.Shell.SettingsLabel)", codeBehind, StringComparison.Ordinal);
     }
 
     [Fact]

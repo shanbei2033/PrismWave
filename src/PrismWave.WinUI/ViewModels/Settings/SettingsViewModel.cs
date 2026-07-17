@@ -50,7 +50,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         // even before experimental playback is enabled.
         OnlineAccounts.IsLoginEnabled = true;
         _lowEffects = settings.LowEffects;
-        ThemeName = themeService.ThemeName;
+        _ = themeService;
         _audioOutputMode = settings.AudioOutputMode;
         _audioOutputDevice = settings.AudioOutputDevice;
         _windowsDsdDevice = settings.WindowsDsdDevice;
@@ -66,12 +66,21 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     public IReadOnlyList<string> LanguageOptions { get; } = new[] { "zh-CN", "zh-TW", "en-US" };
-    public IReadOnlyList<AudioOutputModeOptionModel> AudioOutputModeOptions { get; } =
-        AudioOutputPolicy.Options;
-    public IReadOnlyList<OnlineQualityPreference> OnlineQualityOptions { get; } =
-        [OnlineQualityPreference.Lossless, OnlineQualityPreference.High, OnlineQualityPreference.Standard];
+    public IReadOnlyList<AudioOutputModeOptionModel> AudioOutputModeOptions =>
+    [
+        new(AudioOutputPolicy.CompatibilityId, Text.MpvName, Text.MpvDescription),
+        new(AudioOutputPolicy.WasapiSharedId, Text.WasapiSharedName, Text.WasapiSharedDescription),
+        new(AudioOutputPolicy.WasapiExclusiveId, Text.WasapiExclusiveName, Text.WasapiExclusiveDescription)
+    ];
+    public IReadOnlyList<LocalizedOnlineQualityOption> OnlineQualityOptions =>
+    [
+        new(OnlineQualityPreference.Lossless, Text.Lossless),
+        new(OnlineQualityPreference.High, Text.HighQuality),
+        new(OnlineQualityPreference.Standard, Text.StandardQuality)
+    ];
     public OnlineAccountSettingsViewModel OnlineAccounts { get; }
     public LibraryFolderManagerViewModel LibraryFolders { get; }
+    public SettingsText Text => SettingsText.For(Language);
 
     public string Language
     {
@@ -80,6 +89,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _language, value))
             {
+                OnPropertyChanged(nameof(Text));
+                OnPropertyChanged(nameof(AudioOutputModeOptions));
+                OnPropertyChanged(nameof(OnlineQualityOptions));
+                OnPropertyChanged(nameof(AudioOutputModeDescription));
+                OnPropertyChanged(nameof(ThemeName));
+                RefreshLogs();
                 Save();
             }
         }
@@ -146,7 +161,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
-    public string ThemeName { get; }
+    public string ThemeName => Text.ThemeName;
 
     public string AudioOutputMode
     {
@@ -323,7 +338,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         var lines = _developerLogService.Lines;
         DeveloperLogText = string.Join(Environment.NewLine, lines.TakeLast(500));
-        DeveloperLogCount = $"{lines.Count} entries";
+        DeveloperLogCount = $"{lines.Count} {Text.Entries}";
     }
 
     private void RefreshPlaybackStatus()

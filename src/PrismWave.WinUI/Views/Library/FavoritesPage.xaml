@@ -93,10 +93,10 @@
                             <TextBlock Grid.Column="2" Text="{Binding Artist}" Style="{StaticResource PrismCaptionTextStyle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="3" Text="{Binding Album}" Style="{StaticResource PrismCaptionTextStyle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="4" Text="{Binding Duration}" Style="{StaticResource PrismCaptionTextStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                            <Button Grid.Column="5" Tag="{Binding}" Click="Favorite_Click" ToolTipService.ToolTip="取消收藏">
+                            <Button Grid.Column="5" Tag="{Binding}" Click="Favorite_Click">
                                 <FontIcon Glyph="&#xEB52;" FontSize="15" />
                             </Button>
-                            <Button Grid.Column="6" ToolTipService.ToolTip="更多歌曲操作">
+                            <Button Grid.Column="6">
                                 <FontIcon Glyph="&#xE712;" FontSize="14" />
                                 <Button.Flyout>
                                     <MenuFlyout>

@@ -21,6 +21,35 @@ public sealed class HitsImmersivePageStructureTests
     }
 
     [Fact]
+    public void Page_CentersCoverAndPlacesAllTrackMetadataBelowIt()
+    {
+        var xaml = Read("Views", "Hits", "HitsStatusPage.xaml");
+
+        Assert.Contains("x:Name=\"CenteredContentStack\"", xaml, StringComparison.Ordinal);
+        Assert.True(
+            xaml.IndexOf("x:Name=\"CoverColumn\"", StringComparison.Ordinal) <
+            xaml.IndexOf("x:Name=\"TrackColumn\"", StringComparison.Ordinal));
+        Assert.DoesNotContain("Target=\"CoverColumn.(Grid.Column)\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Target=\"TrackColumn.(Grid.Column)\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("TextAlignment=\"Center\"", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CoverButton_HasNoPointerHoverOrSelectionChrome()
+    {
+        var xaml = Read("Views", "Hits", "HitsStatusPage.xaml");
+        var source = Read("Views", "Hits", "HitsStatusPage.xaml.cs");
+
+        Assert.Contains("x:Key=\"HitsCoverButtonStyle\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<ControlTemplate TargetType=\"Button\">", xaml, StringComparison.Ordinal);
+        Assert.Contains("UseSystemFocusVisuals\" Value=\"False\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("PointerEntered=", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("PointerExited=", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("CoverHoverOverlay", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("AnimateHoverOverlay", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Page_UsesCompositionForBackdropTrackAndCoverStateTransitions()
     {
         var source = Read("Views", "Hits", "HitsStatusPage.xaml.cs");

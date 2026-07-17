@@ -20,6 +20,25 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="UseSystemFocusVisuals" Value="True" />
         </Style>
+        <Style x:Key="HitsCoverButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="520" />
+            <Setter Property="Height" Value="520" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="UseSystemFocusVisuals" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Page.Resources>
 
     <Grid Background="{StaticResource PrismBackgroundBrush}">
@@ -81,9 +100,7 @@
             <Grid
                 x:Name="ContentLayout"
                 Grid.Row="1"
-                Padding="40,24,40,44"
-                RowSpacing="30"
-                ColumnSpacing="72">
+                Padding="40,20,40,38">
                 <VisualStateManager.VisualStateGroups>
                     <VisualStateGroup>
                         <VisualState x:Name="CompactState" />
@@ -92,138 +109,141 @@
                                 <AdaptiveTrigger MinWindowWidth="900" />
                             </VisualState.StateTriggers>
                             <VisualState.Setters>
-                                <Setter Target="ContentLayout.Padding" Value="96,40,96,64" />
-                                <Setter Target="ContentLayout.ColumnSpacing" Value="96" />
-                                <Setter Target="CoverColumn.(Grid.Row)" Value="0" />
-                                <Setter Target="CoverColumn.(Grid.Column)" Value="0" />
-                                <Setter Target="CoverColumn.(Grid.ColumnSpan)" Value="1" />
-                                <Setter Target="CoverColumn.MaxWidth" Value="520" />
-                                <Setter Target="CoverColumn.MaxHeight" Value="520" />
-                                <Setter Target="TrackColumn.(Grid.Row)" Value="0" />
-                                <Setter Target="TrackColumn.(Grid.Column)" Value="1" />
-                                <Setter Target="TrackColumn.(Grid.ColumnSpan)" Value="1" />
-                                <Setter Target="TrackColumn.HorizontalAlignment" Value="Stretch" />
-                                <Setter Target="TrackTitle.FontSize" Value="64" />
+                                <Setter Target="ContentLayout.Padding" Value="72,30,72,52" />
+                                <Setter Target="CenteredContentStack.RowSpacing" Value="28" />
+                                <Setter Target="CoverColumn.MaxWidth" Value="380" />
+                                <Setter Target="CoverColumn.MaxHeight" Value="380" />
+                                <Setter Target="TrackTitle.FontSize" Value="54" />
+                                <Setter Target="PreviousTrackTitle.FontSize" Value="54" />
                             </VisualState.Setters>
                         </VisualState>
                     </VisualStateGroup>
                 </VisualStateManager.VisualStateGroups>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="48*" />
-                    <ColumnDefinition Width="52*" />
-                </Grid.ColumnDefinitions>
-
-                <Viewbox
-                    x:Name="CoverColumn"
-                    Grid.Row="0"
-                    Grid.ColumnSpan="2"
-                    MaxWidth="340"
-                    MaxHeight="340"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Stretch="Uniform">
-                    <Button
-                        x:Name="CoverPlayPauseButton"
-                        Width="520"
-                        Height="520"
-                        Padding="0"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Command="{Binding ToggleLivePlaybackCommand}"
-                        AutomationProperties.Name="{Binding CoverAutomationName}"
-                        ToolTipService.ToolTip="{Binding CoverAutomationName}"
-                        PointerEntered="CoverPlayPauseButton_PointerEntered"
-                        PointerExited="CoverPlayPauseButton_PointerExited">
-                        <Grid x:Name="CoverVisualHost" Width="520" Height="520">
-                            <Border
-                                Width="520"
-                                Height="520"
-                                CornerRadius="26"
-                                Background="#331A1D24">
-                                <Grid>
-                                    <FontIcon Glyph="&#xE8D6;" FontSize="96" Opacity="0.42" />
-                                    <media:StableCoverImage
-                                        SourcePath="{Binding CurrentCoverPath}"
-                                        Stretch="UniformToFill"
-                                        AutomationProperties.AutomationId="HitsCover" />
-                                </Grid>
-                            </Border>
-                            <Border
-                                x:Name="CoverHoverOverlay"
-                                CornerRadius="26"
-                                Background="#75000000"
-                                Opacity="0">
-                                <FontIcon
-                                    Glyph="{Binding CoverHintGlyph}"
-                                    FontSize="72"
-                                    Foreground="White" />
-                            </Border>
-                        </Grid>
-                    </Button>
-                </Viewbox>
 
                 <Grid
-                    x:Name="TrackColumn"
-                    Grid.Row="1"
-                    Grid.ColumnSpan="2"
-                    MaxWidth="760"
+                    x:Name="CenteredContentStack"
+                    MaxWidth="1000"
                     HorizontalAlignment="Center"
-                    VerticalAlignment="Center">
-                    <StackPanel Spacing="24">
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <Ellipse
-                                Width="8"
-                                Height="8"
-                                Fill="#FFFF4D4D"
-                                VerticalAlignment="Center"
-                                Visibility="{Binding ShowLiveDot, Converter={StaticResource BoolToVisibilityConverter}}" />
-                            <TextBlock
-                                Text="{Binding BroadcastStateLabel}"
-                                FontSize="13"
-                                FontWeight="SemiBold"
-                                CharacterSpacing="145"
-                                Foreground="#FFD9DDE5" />
-                            <ProgressRing
-                                Width="16"
-                                Height="16"
-                                IsActive="{Binding IsConnecting}"
-                                Visibility="{Binding IsConnecting, Converter={StaticResource BoolToVisibilityConverter}}" />
-                        </StackPanel>
+                    VerticalAlignment="Center"
+                    RowSpacing="22">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                        <Grid x:Name="TrackInfoSwapHost" MinHeight="176">
-                            <StackPanel x:Name="PreviousTrackPanel" Opacity="0" Spacing="8">
-                                <TextBlock x:Name="PreviousTrackTitle" FontSize="64" FontWeight="SemiBold" TextWrapping="WrapWholeWords" />
-                                <TextBlock x:Name="PreviousTrackArtist" FontSize="24" Foreground="#FFCED2DA" TextWrapping="Wrap" />
-                                <TextBlock x:Name="PreviousTrackAlbum" FontSize="16" Foreground="#FF9FA5B0" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <StackPanel x:Name="CurrentTrackPanel" Spacing="8">
+                    <Viewbox
+                        x:Name="CoverColumn"
+                        MaxWidth="300"
+                        MaxHeight="300"
+                        HorizontalAlignment="Center"
+                        Stretch="Uniform">
+                        <Button
+                            x:Name="CoverPlayPauseButton"
+                            Style="{StaticResource HitsCoverButtonStyle}"
+                            Command="{Binding ToggleLivePlaybackCommand}"
+                            AutomationProperties.Name="{Binding CoverAutomationName}"
+                            ToolTipService.ToolTip="{Binding CoverAutomationName}">
+                            <Grid x:Name="CoverVisualHost" Width="520" Height="520">
+                                <Border
+                                    Width="520"
+                                    Height="520"
+                                    CornerRadius="26"
+                                    Background="#331A1D24">
+                                    <Grid>
+                                        <FontIcon Glyph="&#xE8D6;" FontSize="96" Opacity="0.42" />
+                                        <media:StableCoverImage
+                                            SourcePath="{Binding CurrentCoverPath}"
+                                            Stretch="UniformToFill"
+                                            AutomationProperties.AutomationId="HitsCover" />
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Button>
+                    </Viewbox>
+
+                    <Grid
+                        x:Name="TrackColumn"
+                        Grid.Row="1"
+                        MaxWidth="920"
+                        HorizontalAlignment="Center">
+                        <StackPanel Spacing="18" HorizontalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                                <Ellipse
+                                    Width="8"
+                                    Height="8"
+                                    Fill="#FFFF4D4D"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding ShowLiveDot, Converter={StaticResource BoolToVisibilityConverter}}" />
                                 <TextBlock
-                                    x:Name="TrackTitle"
-                                    Text="{Binding DisplayTitle}"
-                                    FontFamily="Segoe UI Variable Display"
-                                    FontSize="46"
+                                    Text="{Binding BroadcastStateLabel}"
+                                    FontSize="13"
                                     FontWeight="SemiBold"
-                                    TextWrapping="WrapWholeWords"
-                                    MaxLines="3" />
-                                <TextBlock
-                                    Text="{Binding DisplayArtist}"
-                                    FontSize="24"
-                                    Foreground="#FFCED2DA"
-                                    TextWrapping="Wrap"
-                                    MaxLines="2" />
-                                <TextBlock
-                                    Text="{Binding DisplayAlbum}"
-                                    FontSize="16"
-                                    Foreground="#FF9FA5B0"
-                                    TextWrapping="Wrap"
-                                    MaxLines="2" />
+                                    CharacterSpacing="145"
+                                    Foreground="#FFD9DDE5" />
+                                <ProgressRing
+                                    Width="16"
+                                    Height="16"
+                                    IsActive="{Binding IsConnecting}"
+                                    Visibility="{Binding IsConnecting, Converter={StaticResource BoolToVisibilityConverter}}" />
                             </StackPanel>
-                        </Grid>
-                    </StackPanel>
+
+                            <Grid x:Name="TrackInfoSwapHost" MinHeight="150">
+                                <StackPanel
+                                    x:Name="PreviousTrackPanel"
+                                    Opacity="0"
+                                    Spacing="8"
+                                    HorizontalAlignment="Center">
+                                    <TextBlock
+                                        x:Name="PreviousTrackTitle"
+                                        FontSize="40"
+                                        FontWeight="SemiBold"
+                                        TextAlignment="Center"
+                                        TextWrapping="WrapWholeWords"
+                                        MaxLines="2" />
+                                    <TextBlock
+                                        x:Name="PreviousTrackArtist"
+                                        FontSize="22"
+                                        Foreground="#FFCED2DA"
+                                        TextAlignment="Center"
+                                        TextTrimming="CharacterEllipsis" />
+                                    <TextBlock
+                                        x:Name="PreviousTrackAlbum"
+                                        FontSize="16"
+                                        Foreground="#FF9FA5B0"
+                                        TextAlignment="Center"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <StackPanel
+                                    x:Name="CurrentTrackPanel"
+                                    Spacing="8"
+                                    HorizontalAlignment="Center">
+                                    <TextBlock
+                                        x:Name="TrackTitle"
+                                        Text="{Binding DisplayTitle}"
+                                        FontFamily="Segoe UI Variable Display"
+                                        FontSize="40"
+                                        FontWeight="SemiBold"
+                                        TextAlignment="Center"
+                                        TextWrapping="WrapWholeWords"
+                                        MaxLines="2" />
+                                    <TextBlock
+                                        Text="{Binding DisplayArtist}"
+                                        FontSize="22"
+                                        Foreground="#FFCED2DA"
+                                        TextAlignment="Center"
+                                        TextTrimming="CharacterEllipsis"
+                                        MaxLines="1" />
+                                    <TextBlock
+                                        Text="{Binding DisplayAlbum}"
+                                        FontSize="16"
+                                        Foreground="#FF9FA5B0"
+                                        TextAlignment="Center"
+                                        TextTrimming="CharacterEllipsis"
+                                        MaxLines="1" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
                 </Grid>
             </Grid>
         </Grid>

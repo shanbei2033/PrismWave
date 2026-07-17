@@ -68,7 +68,15 @@
                             <StackPanel Spacing="8">
                                 <TextBlock Text="{Binding Text.LanguageAndTheme}" Style="{StaticResource PrismSectionTitleTextStyle}" />
                                 <ComboBox Header="{Binding Text.Language}" ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding Language, Mode=TwoWay}" Width="240" />
-                                <TextBlock Text="{Binding ThemeName}" Style="{StaticResource PrismCaptionTextStyle}" />
+                                <ComboBox
+                                    Header="{Binding Text.AppearanceStyle}"
+                                    ItemsSource="{Binding AppearanceStyleOptions}"
+                                    DisplayMemberPath="DisplayName"
+                                    SelectedValuePath="Value"
+                                    SelectedValue="{Binding AppearanceStyle, Mode=TwoWay}"
+                                    Width="280"
+                                    HorizontalAlignment="Left" />
+                                <TextBlock Text="{Binding AppearanceStyleDescription}" Style="{StaticResource PrismCaptionTextStyle}" TextWrapping="Wrap" />
                                 <ToggleSwitch Header="{Binding Text.LowEffects}" IsOn="{Binding LowEffects, Mode=TwoWay}" OnContent="{Binding Text.On}" OffContent="{Binding Text.Off}" />
                             </StackPanel>
                         </Border>

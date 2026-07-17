@@ -45,7 +45,7 @@ public sealed partial class QueuePane : UserControl
 
     private void Remove_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: PlaybackQueueItemViewModel item } &&
+        if (sender is FrameworkElement { Tag: PlaybackQueueItemViewModel item } &&
             DataContext is PlaybackViewModel viewModel)
         {
             viewModel.RemoveFromQueueCommand.Execute(item.Track);

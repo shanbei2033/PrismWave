@@ -17,6 +17,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private bool _onlineModeEnabled = true;
     private OnlineQualityPreference _onlineQualityPreference = OnlineQualityPreference.Lossless;
     private bool _lowEffects;
+    private string _appearanceStyle = AppearanceStyleIds.Mica;
     private string _audioOutputMode = AudioOutputPolicy.WasapiSharedId;
     private string _audioOutputDevice = "auto";
     private string _windowsDsdDevice = "auto";
@@ -50,6 +51,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         // even before experimental playback is enabled.
         OnlineAccounts.IsLoginEnabled = true;
         _lowEffects = settings.LowEffects;
+        _appearanceStyle = AppearanceStyleIds.Normalize(settings.AppearanceStyle);
         _ = themeService;
         _audioOutputMode = settings.AudioOutputMode;
         _audioOutputDevice = settings.AudioOutputDevice;
@@ -78,6 +80,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         new(OnlineQualityPreference.High, Text.HighQuality),
         new(OnlineQualityPreference.Standard, Text.StandardQuality)
     ];
+    public IReadOnlyList<LocalizedAppearanceStyleOption> AppearanceStyleOptions =>
+    [
+        new(AppearanceStyleIds.Solid, Text.SolidAppearance, Text.SolidAppearanceDescription),
+        new(AppearanceStyleIds.Mica, Text.MicaAppearance, Text.MicaAppearanceDescription),
+        new(AppearanceStyleIds.Acrylic, Text.AcrylicAppearance, Text.AcrylicAppearanceDescription)
+    ];
     public OnlineAccountSettingsViewModel OnlineAccounts { get; }
     public LibraryFolderManagerViewModel LibraryFolders { get; }
     public SettingsText Text => SettingsText.For(Language);
@@ -92,6 +100,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 OnPropertyChanged(nameof(Text));
                 OnPropertyChanged(nameof(AudioOutputModeOptions));
                 OnPropertyChanged(nameof(OnlineQualityOptions));
+                OnPropertyChanged(nameof(AppearanceStyleOptions));
+                OnPropertyChanged(nameof(AppearanceStyleDescription));
                 OnPropertyChanged(nameof(AudioOutputModeDescription));
                 OnPropertyChanged(nameof(ThemeName));
                 RefreshLogs();
@@ -160,6 +170,24 @@ public sealed partial class SettingsViewModel : ObservableObject
             }
         }
     }
+
+    public string AppearanceStyle
+    {
+        get => _appearanceStyle;
+        set
+        {
+            var normalized = AppearanceStyleIds.Normalize(value);
+            if (SetProperty(ref _appearanceStyle, normalized))
+            {
+                OnPropertyChanged(nameof(AppearanceStyleDescription));
+                Save();
+            }
+        }
+    }
+
+    public string AppearanceStyleDescription => AppearanceStyleOptions
+        .First(option => option.Value == AppearanceStyle)
+        .Description;
 
     public string ThemeName => Text.ThemeName;
 
@@ -326,6 +354,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             OnlineModeEnabled = OnlineModeEnabled,
             OnlineQualityPreference = OnlineQualityPreference,
             LowEffects = LowEffects,
+            AppearanceStyle = AppearanceStyle,
             AudioOutputMode = AudioOutputMode,
             AudioOutputDevice = AudioOutputDevice,
             WindowsDsdDevice = WindowsDsdDevice,

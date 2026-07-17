@@ -1,14 +1,18 @@
+using PrismWave_WinUI.Models;
 using PrismWave_WinUI.Services.Contracts;
 
 namespace PrismWave_WinUI.Services.Implementations;
 
 public sealed class ThemeService : IThemeService
 {
+    private readonly ISettingsService _settingsService;
+
     public ThemeService(ISettingsService settingsService)
     {
+        _settingsService = settingsService;
         LowEffects = settingsService.Current.LowEffects;
     }
 
     public bool LowEffects { get; }
-    public string ThemeName => "Fluent Dark";
+    public string ThemeName => AppearanceStyleIds.Normalize(_settingsService.Current.AppearanceStyle);
 }

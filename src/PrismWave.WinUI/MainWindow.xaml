@@ -7,10 +7,6 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="PrismWave"
     mc:Ignorable="d">
-    <Window.SystemBackdrop>
-        <MicaBackdrop />
-    </Window.SystemBackdrop>
-
     <Grid
         x:Name="WindowRoot"
         Background="{StaticResource PrismBackgroundBrush}"

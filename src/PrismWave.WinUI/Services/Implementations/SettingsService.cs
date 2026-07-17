@@ -20,7 +20,8 @@ public sealed class SettingsService : ISettingsService
         var loaded = LoadExisting() ?? CreateFromMigration(migrationService.Load());
         Current = loaded with
         {
-            AudioOutputMode = AudioOutputPolicy.NormalizeModeId(loaded.AudioOutputMode)
+            AudioOutputMode = AudioOutputPolicy.NormalizeModeId(loaded.AudioOutputMode),
+            AppearanceStyle = AppearanceStyleIds.Normalize(loaded.AppearanceStyle)
         };
         Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
         File.WriteAllText(_settingsPath, JsonSerializer.Serialize(Current, JsonOptions));

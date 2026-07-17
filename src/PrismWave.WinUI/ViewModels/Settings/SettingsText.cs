@@ -6,6 +6,11 @@ public sealed record LocalizedOnlineQualityOption(
     OnlineQualityPreference Value,
     string DisplayName);
 
+public sealed record LocalizedAppearanceStyleOption(
+    string Value,
+    string DisplayName,
+    string Description);
+
 public sealed class SettingsText
 {
     private readonly string _language;
@@ -28,6 +33,13 @@ public sealed class SettingsText
     public string LocalLibrary => T("本地曲库", "本機音樂庫", "Local library");
     public string LanguageAndTheme => T("语言与主题", "語言與主題", "Language and theme");
     public string Language => T("语言", "語言", "Language");
+    public string AppearanceStyle => T("外观样式", "外觀樣式", "Appearance style");
+    public string SolidAppearance => T("经典纯色", "經典純色", "Classic solid");
+    public string SolidAppearanceDescription => T("使用稳定的不透明深色背景。", "使用穩定的不透明深色背景。", "Use the stable opaque dark background.");
+    public string MicaAppearance => T("Windows 11 云母", "Windows 11 雲母", "Windows 11 Mica");
+    public string MicaAppearanceDescription => T("使用 Windows 11 原生云母材质。", "使用 Windows 11 原生雲母材質。", "Use the native Windows 11 Mica material.");
+    public string AcrylicAppearance => T("亚克力", "壓克力", "Acrylic");
+    public string AcrylicAppearanceDescription => T("使用更通透的桌面亚克力材质。", "使用更通透的桌面壓克力材質。", "Use the more translucent desktop Acrylic material.");
     public string LowEffects => T("低特效模式", "低特效模式", "Low effects");
     public string On => T("开", "開", "On");
     public string Off => T("关", "關", "Off");

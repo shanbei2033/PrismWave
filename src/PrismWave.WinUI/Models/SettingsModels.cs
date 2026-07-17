@@ -1,5 +1,19 @@
 namespace PrismWave_WinUI.Models;
 
+public static class AppearanceStyleIds
+{
+    public const string Solid = "solid";
+    public const string Mica = "mica";
+    public const string Acrylic = "acrylic";
+
+    public static string Normalize(string? value) => value?.Trim().ToLowerInvariant() switch
+    {
+        Solid => Solid,
+        Acrylic => Acrylic,
+        _ => Mica
+    };
+}
+
 public sealed record SettingsSnapshot(
     string Language,
     bool ExperimentalFeaturesEnabled,
@@ -20,7 +34,8 @@ public sealed record SettingsSnapshot(
     IReadOnlyDictionary<string, string>? PreferredLyricsSources = null,
     IReadOnlyDictionary<string, double>? LyricsOffsets = null,
     IReadOnlyDictionary<string, string>? CustomCoverPaths = null,
-    OnlineQualityPreference OnlineQualityPreference = OnlineQualityPreference.Lossless);
+    OnlineQualityPreference OnlineQualityPreference = OnlineQualityPreference.Lossless,
+    string AppearanceStyle = AppearanceStyleIds.Mica);
 
 public sealed record FlutterPreferencesMigrationResult(
     string SourceFile,

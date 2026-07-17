@@ -76,7 +76,19 @@
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate>
-                            <Grid MinHeight="64">
+                            <Grid MinHeight="64" Tag="{Binding}">
+                                <Grid.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem
+                                            Text="从播放队列移除"
+                                            Tag="{Binding}"
+                                            Click="Remove_Click">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon Glyph="&#xE74D;" />
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                    </MenuFlyout>
+                                </Grid.ContextFlyout>
                                 <Border
                                     x:Name="CurrentItemIndicator"
                                     Margin="2"
@@ -89,7 +101,6 @@
                                         <ColumnDefinition Width="24" />
                                         <ColumnDefinition Width="48" />
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="44" />
                                     </Grid.ColumnDefinitions>
 
                                     <Grid VerticalAlignment="Center">
@@ -138,16 +149,6 @@
                                             Style="{StaticResource PrismCaptionTextStyle}" />
                                     </StackPanel>
 
-                                    <Button
-                                        Grid.Column="3"
-                                        Width="44"
-                                        Height="44"
-                                        Padding="0"
-                                        Tag="{Binding}"
-                                        Click="Remove_Click"
-                                        AutomationProperties.Name="从播放队列移除">
-                                        <FontIcon Glyph="&#xE711;" FontSize="13" />
-                                    </Button>
                                 </Grid>
                             </Grid>
                         </DataTemplate>

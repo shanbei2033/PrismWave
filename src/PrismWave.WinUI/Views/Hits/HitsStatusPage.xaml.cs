@@ -27,7 +27,6 @@ public sealed partial class HitsStatusPage : Page
     private LoadedImageSurface? _previousBackdropSurface;
     private int _backdropRevision;
     private bool _animationsEnabled = true;
-    private bool _isCoverHovered;
     private string? _displayedTrackId;
     private string _displayedTitle = string.Empty;
     private string _displayedArtist = string.Empty;
@@ -185,36 +184,6 @@ public sealed partial class HitsStatusPage : Page
             cover.StartAnimation("Scale", scale);
         }
 
-        AnimateHoverOverlay();
-    }
-
-    private void AnimateHoverOverlay()
-    {
-        var overlay = ElementCompositionPreview.GetElementVisual(CoverHoverOverlay);
-        var target = _isCoverHovered ? 1f : ViewModel.IsPaused ? 0.34f : 0f;
-        overlay.StopAnimation("Opacity");
-        if (!_animationsEnabled)
-        {
-            overlay.Opacity = target;
-            return;
-        }
-
-        var fade = overlay.Compositor.CreateScalarKeyFrameAnimation();
-        fade.InsertKeyFrame(1, target);
-        fade.Duration = TimeSpan.FromMilliseconds(160);
-        overlay.StartAnimation("Opacity", fade);
-    }
-
-    private void CoverPlayPauseButton_PointerEntered(object sender, PointerRoutedEventArgs e)
-    {
-        _isCoverHovered = true;
-        AnimateHoverOverlay();
-    }
-
-    private void CoverPlayPauseButton_PointerExited(object sender, PointerRoutedEventArgs e)
-    {
-        _isCoverHovered = false;
-        AnimateHoverOverlay();
     }
 
     private void EnsureBackdropResources()

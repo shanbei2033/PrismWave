@@ -72,7 +72,12 @@ public sealed class AppServices
             libraryService);
         var shell = new ShellViewModel(settingsService, libraryService, playback);
         var home = new HomeViewModel(onlineHomeService, playbackService, coverService);
-        var search = new SearchViewModel(onlineSearchService, playbackService, settingsService);
+        var search = new SearchViewModel(
+            onlineSearchService,
+            playbackService,
+            settingsService,
+            onlineAccountService,
+            libraryService);
         var libraryFolders = new LibraryFolderManagerViewModel(libraryService, musicFolderPicker);
         var library = new LibraryViewModel(libraryService, playbackService, libraryFolders);
         var albums = new AlbumsViewModel(libraryService, playbackService);

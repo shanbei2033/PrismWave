@@ -13,17 +13,12 @@ public sealed partial class ArtistsPage : Page
 
     private void Artists_ItemClick(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is ArtistModel artist)
+        if (e.ClickedItem is not ArtistModel artist)
         {
-            App.Services.Artists.SelectArtistCommand.Execute(artist);
+            return;
         }
-    }
 
-    private void Tracks_ItemClick(object sender, ItemClickEventArgs e)
-    {
-        if (e.ClickedItem is TrackModel track)
-        {
-            App.Services.Artists.PlayTrackCommand.Execute(track);
-        }
+        App.Services.Artists.SelectArtistCommand.Execute(artist);
+        App.Services.Shell.NavigateCommand.Execute("ArtistDetail");
     }
 }

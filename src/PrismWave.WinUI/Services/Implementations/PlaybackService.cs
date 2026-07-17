@@ -228,6 +228,31 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
         Notify();
     }
 
+    public void AddToQueue(TrackModel track)
+    {
+        if (_queue.Any(item => string.Equals(item.Id, track.Id, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        _queue.Add(track);
+        AdvanceQueueRevision();
+        StartupLog.Write($"queue.add: title=\"{track.Title}\", index={_queue.Count - 1}");
+        Notify();
+    }
+
+    public void PlayNext(TrackModel track)
+    {
+        _queue.RemoveAll(item => string.Equals(item.Id, track.Id, StringComparison.Ordinal));
+        var currentIndex = CurrentTrack is null
+            ? -1
+            : _queue.FindIndex(item => string.Equals(item.Id, CurrentTrack.Id, StringComparison.Ordinal));
+        _queue.Insert(Math.Clamp(currentIndex + 1, 0, _queue.Count), track);
+        AdvanceQueueRevision();
+        StartupLog.Write($"queue.play-next: title=\"{track.Title}\", after={currentIndex}");
+        Notify();
+    }
+
     public void ReorderQueue(IReadOnlyList<TrackModel> tracks)
     {
         if (tracks.Count != _queue.Count)

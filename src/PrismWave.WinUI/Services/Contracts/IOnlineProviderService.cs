@@ -10,6 +10,23 @@ public interface IOnlineProviderService
         string query,
         CancellationToken cancellationToken = default);
 
+    async Task<IReadOnlyList<OnlineProviderTrackModel>> SearchAsync(
+        string query,
+        IReadOnlyCollection<string> providers,
+        CancellationToken cancellationToken = default)
+    {
+        var requested = providers.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return (await SearchAsync(query, cancellationToken))
+            .Where(result => requested.Contains(result.Provider))
+            .ToList();
+    }
+
+    Task<IReadOnlyList<OnlineProviderTrackModel>> SearchProviderAsync(
+        string query,
+        string provider,
+        CancellationToken cancellationToken = default) =>
+        SearchAsync(query, new[] { provider }, cancellationToken);
+
     Task<OnlinePlaybackResolution?> ResolveAsync(
         string provider,
         string providerTrackId,

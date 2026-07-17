@@ -3,65 +3,123 @@
     x:Class="PrismWave_WinUI.Views.Library.FavoritesPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:converters="using:PrismWave_WinUI.Converters">
+    xmlns:converters="using:PrismWave_WinUI.Converters"
+    xmlns:media="using:PrismWave_WinUI.Controls.Media">
     <Page.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <Style x:Key="FavoriteTrackItemStyle" TargetType="ListViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,1" />
+            <Setter Property="MinHeight" Value="64" />
+        </Style>
     </Page.Resources>
-    <Grid Padding="{StaticResource PrismPagePadding}" RowSpacing="16">
+
+    <Grid Padding="{StaticResource PrismPagePadding}" RowSpacing="14">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <Grid>
-            <StackPanel>
-                <TextBlock Text="Favorites" Style="{StaticResource PrismPageTitleTextStyle}" />
-                <TextBlock Text="Your saved tracks, in your preferred order." Style="{StaticResource PrismCaptionTextStyle}" />
-            </StackPanel>
-            <Button HorizontalAlignment="Right" Command="{Binding PlayAllCommand}" ToolTipService.ToolTip="Play all favorites">
-                <StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE768;" FontSize="14" /><TextBlock Text="Play all" /></StackPanel>
-            </Button>
+
+        <TextBlock Text="我最爱的" Style="{StaticResource PrismPageTitleTextStyle}" />
+
+        <AutoSuggestBox
+            Grid.Row="1"
+            QueryIcon="Find"
+            PlaceholderText="搜索收藏歌曲"
+            Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+        <Grid Grid.Row="2" Padding="12,4" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="56" />
+                <ColumnDefinition Width="1.6*" />
+                <ColumnDefinition Width="1.1*" />
+                <ColumnDefinition Width="1.1*" />
+                <ColumnDefinition Width="64" />
+                <ColumnDefinition Width="38" />
+                <ColumnDefinition Width="38" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="1" Text="歌曲" Style="{StaticResource PrismCaptionTextStyle}" />
+            <TextBlock Grid.Column="2" Text="艺术家" Style="{StaticResource PrismCaptionTextStyle}" />
+            <TextBlock Grid.Column="3" Text="专辑" Style="{StaticResource PrismCaptionTextStyle}" />
+            <TextBlock Grid.Column="4" Text="时长" Style="{StaticResource PrismCaptionTextStyle}" HorizontalAlignment="Right" />
         </Grid>
-        <Border Grid.Row="1" Style="{StaticResource PrismPanelBorderStyle}">
-            <Grid>
+
+        <Grid Grid.Row="3">
             <ListView
-                ItemsSource="{Binding Tracks}"
-                SelectionMode="None"
-                IsItemClickEnabled="True"
-                ItemClick="Tracks_ItemClick"
+                x:Name="FavoriteTracksList"
+                ItemsSource="{Binding VisibleTracks}"
+                ItemContainerStyle="{StaticResource FavoriteTrackItemStyle}"
+                SelectionMode="Single"
+                SelectedValuePath="Id"
+                SelectedValue="{Binding CurrentTrackId, Mode=OneWay}"
                 CanDragItems="True"
                 CanReorderItems="True"
                 AllowDrop="True"
                 DragItemsCompleted="Tracks_DragItemsCompleted">
+                <ListView.ItemContainerTransitions>
+                    <TransitionCollection>
+                        <AddDeleteThemeTransition />
+                        <RepositionThemeTransition />
+                    </TransitionCollection>
+                </ListView.ItemContainerTransitions>
                 <ListView.ItemTemplate>
                     <DataTemplate>
-                        <Grid Padding="8" ColumnSpacing="12">
+                        <Grid Tag="{Binding}" Padding="12,6" ColumnSpacing="12" DoubleTapped="TrackRow_DoubleTapped">
+                            <Grid.ContextFlyout>
+                                <MenuFlyout>
+                                    <MenuFlyoutItem Text="立即播放" Tag="{Binding}" Click="PlayTrack_Click" />
+                                    <MenuFlyoutItem Text="添加到播放队列" Tag="{Binding}" Click="AddTrackToQueue_Click" />
+                                    <MenuFlyoutItem Text="下一首播放" Tag="{Binding}" Click="PlayTrackNext_Click" />
+                                    <MenuFlyoutSeparator />
+                                    <MenuFlyoutItem Text="取消收藏" Tag="{Binding}" Click="Favorite_Click" />
+                                </MenuFlyout>
+                            </Grid.ContextFlyout>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="52" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="70" />
-                                <ColumnDefinition Width="44" />
+                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="1.6*" />
+                                <ColumnDefinition Width="1.1*" />
+                                <ColumnDefinition Width="1.1*" />
+                                <ColumnDefinition Width="64" />
+                                <ColumnDefinition Width="38" />
+                                <ColumnDefinition Width="38" />
                             </Grid.ColumnDefinitions>
-                            <Border Width="52" Height="52" CornerRadius="8" Background="{StaticResource PrismSurfaceStrongBrush}">
-                                <Image Source="{Binding CoverPath, Converter={StaticResource CoverImageSourceConverter}}" Stretch="UniformToFill" />
+                            <Border Width="48" Height="48" CornerRadius="7" Background="{StaticResource PrismSurfaceStrongBrush}">
+                                <media:StableCoverImage SourcePath="{Binding CoverPath}" Stretch="UniformToFill" />
                             </Border>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding Artist}" Style="{StaticResource PrismCaptionTextStyle}" />
-                            </StackPanel>
-                            <TextBlock Grid.Column="2" Text="{Binding Duration}" Style="{StaticResource PrismCaptionTextStyle}" VerticalAlignment="Center" />
-                            <Button Grid.Column="3" Tag="{Binding}" Click="Favorite_Click" ToolTipService.ToolTip="Remove from favorites">
-                                <FontIcon Glyph="{Binding FavoriteGlyph}" FontSize="15" />
+                            <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="{Binding Artist}" Style="{StaticResource PrismCaptionTextStyle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="3" Text="{Binding Album}" Style="{StaticResource PrismCaptionTextStyle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="4" Text="{Binding Duration}" Style="{StaticResource PrismCaptionTextStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            <Button Grid.Column="5" Tag="{Binding}" Click="Favorite_Click" ToolTipService.ToolTip="取消收藏">
+                                <FontIcon Glyph="&#xEB52;" FontSize="15" />
+                            </Button>
+                            <Button Grid.Column="6" ToolTipService.ToolTip="更多歌曲操作">
+                                <FontIcon Glyph="&#xE712;" FontSize="14" />
+                                <Button.Flyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem Text="添加到播放队列" Tag="{Binding}" Click="AddTrackToQueue_Click" />
+                                        <MenuFlyoutItem Text="下一首播放" Tag="{Binding}" Click="PlayTrackNext_Click" />
+                                        <MenuFlyoutItem Text="取消收藏" Tag="{Binding}" Click="Favorite_Click" />
+                                    </MenuFlyout>
+                                </Button.Flyout>
                             </Button>
                         </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}">
+
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="8"
+                Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}">
                 <FontIcon Glyph="&#xEB51;" FontSize="34" Foreground="{StaticResource PrismTextSecondaryBrush}" />
-                <TextBlock Text="No favorites yet" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                <TextBlock Text="Use the heart button in your library to save tracks here." Style="{StaticResource PrismCaptionTextStyle}" />
+                <TextBlock Text="没有匹配的收藏歌曲" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                <TextBlock Text="收藏歌曲后会显示在这里" Style="{StaticResource PrismCaptionTextStyle}" />
             </StackPanel>
-            </Grid>
-        </Border>
+        </Grid>
     </Grid>
 </Page>

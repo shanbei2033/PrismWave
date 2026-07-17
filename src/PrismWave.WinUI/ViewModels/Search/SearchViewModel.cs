@@ -12,17 +12,31 @@ public sealed partial class SearchViewModel : ObservableObject
     private readonly IOnlineSearchService _searchService;
     private readonly IPlaybackService _playbackService;
     private readonly ISettingsService _settingsService;
+    private readonly IOnlineAccountService _accountService;
+    private readonly ILibraryService? _libraryService;
+    private readonly Dictionary<string, SearchSourceState> _sourceStates = new(StringComparer.OrdinalIgnoreCase);
     private string _query = string.Empty;
     private bool _isSearching;
     private string? _error;
     private int _searchRevision;
     private CancellationTokenSource? _searchCancellation;
+    private string? _currentTrackId;
 
-    public SearchViewModel(IOnlineSearchService searchService, IPlaybackService playbackService, ISettingsService settingsService)
+    private bool _hasSubmittedSearch;
+
+    public SearchViewModel(
+        IOnlineSearchService searchService,
+        IPlaybackService playbackService,
+        ISettingsService settingsService,
+        IOnlineAccountService accountService,
+        ILibraryService? libraryService = null)
     {
         _searchService = searchService;
         _playbackService = playbackService;
         _settingsService = settingsService;
+        _accountService = accountService;
+        _libraryService = libraryService;
+        _playbackService.StateChanged += (_, _) => RefreshCurrentTrackState();
         foreach (var item in settingsService.Current.SearchHistory.Take(HistoryLimit))
         {
             History.Add(item);
@@ -37,16 +51,31 @@ public sealed partial class SearchViewModel : ObservableObject
             if (SetProperty(ref _query, value))
             {
                 OnPropertyChanged(nameof(HasQuery));
-                _ = ScheduleSearchAsync();
             }
         }
     }
 
     public ObservableCollection<string> History { get; } = new();
-    public ObservableCollection<SearchResultModel> Results { get; } = new();
+    public ObservableCollection<SearchDisplayItemViewModel> DisplayItems { get; } = new();
 
     public bool HasQuery => !string.IsNullOrWhiteSpace(Query);
-    public bool HasResults => Results.Count > 0;
+    public bool HasResults => _sourceStates.Values.Any(state => state.Results.Count > 0);
+    public bool HasHistory => History.Count > 0;
+    public bool HasSubmittedSearch
+    {
+        get => _hasSubmittedSearch;
+        private set
+        {
+            if (SetProperty(ref _hasSubmittedSearch, value))
+            {
+                OnPropertyChanged(nameof(ShowHistory));
+                OnPropertyChanged(nameof(ShowNoResults));
+            }
+        }
+    }
+
+    public bool ShowHistory => !HasSubmittedSearch;
+    public bool ShowNoResults => HasSubmittedSearch && !IsSearching && !HasResults;
     public bool IsSearching
     {
         get => _isSearching;
@@ -76,51 +105,39 @@ public sealed partial class SearchViewModel : ObservableObject
         await ExecuteSearchAsync(addToHistory: true, _searchCancellation.Token);
     }
 
-    private async Task ScheduleSearchAsync()
-    {
-        _searchCancellation?.Cancel();
-        _searchCancellation?.Dispose();
-        var cancellation = new CancellationTokenSource();
-        _searchCancellation = cancellation;
-        try
-        {
-            await Task.Delay(350, cancellation.Token);
-            await ExecuteSearchAsync(addToHistory: false, cancellation.Token);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-    }
-
     private async Task ExecuteSearchAsync(bool addToHistory, CancellationToken cancellationToken)
     {
         var revision = ++_searchRevision;
-        Results.Clear();
         var cleaned = Query.Trim();
         if (cleaned.Length == 0)
         {
-            OnPropertyChanged(nameof(HasResults));
             return;
         }
 
+        HasSubmittedSearch = true;
         if (addToHistory)
         {
-            AddHistory(cleaned);
+            await AddHistoryAsync(cleaned);
         }
         IsSearching = true;
         Error = null;
+        _sourceStates.Clear();
+        AddSource("local", "本地音乐");
+        if (_accountService.GetSnapshot("netease").State == OnlineProviderAuthState.Authenticated)
+        {
+            AddSource("netease", "网易云音乐");
+        }
+        if (_accountService.GetSnapshot("qq").State == OnlineProviderAuthState.Authenticated)
+        {
+            AddSource("qq", "QQ音乐");
+        }
+        RebuildDisplayItems();
         try
         {
-            var results = await _searchService.SearchAsync(cleaned, cancellationToken);
-            if (revision != _searchRevision || cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-
-            foreach (var result in results)
-            {
-                Results.Add(result);
-            }
+            var tasks = _sourceStates.Keys
+                .Select(source => LoadSourceAsync(source, cleaned, revision, cancellationToken))
+                .ToList();
+            await Task.WhenAll(tasks);
         }
         catch (OperationCanceledException)
         {
@@ -135,49 +152,52 @@ public sealed partial class SearchViewModel : ObservableObject
             {
                 IsSearching = false;
                 OnPropertyChanged(nameof(HasResults));
+                OnPropertyChanged(nameof(ShowNoResults));
             }
         }
     }
 
     [RelayCommand]
-    private void SelectHistory(string value)
+    private async Task SelectHistoryAsync(string value)
     {
         Query = value;
+        _searchCancellation?.Cancel();
+        _searchCancellation?.Dispose();
+        _searchCancellation = new CancellationTokenSource();
+        await ExecuteSearchAsync(addToHistory: true, _searchCancellation.Token);
     }
 
     [RelayCommand]
     private void RemoveHistory(string value)
     {
         History.Remove(value);
-        SaveHistory();
-    }
-
-    [RelayCommand]
-    private void Clear()
-    {
-        Query = string.Empty;
-        Results.Clear();
-        OnPropertyChanged(nameof(HasResults));
+        OnPropertyChanged(nameof(HasHistory));
+        _ = SaveHistoryAsync();
     }
 
     [RelayCommand]
     private void PlaySearchResult(SearchResultModel result)
     {
-        var track = new TrackModel(
-            result.Source ?? result.Title,
-            result.Source ?? (result.IsLocal ? $"local://{result.Title}" : $"online://{result.Provider}/{result.Title}"),
-            result.Title,
-            result.Artist,
-            result.Album,
-            result.Duration,
-            result.CoverPath,
-            !result.IsLocal,
-            result.Provider,
-            result.IsLocal ? null : result.Source);
+        var track = CreateTrack(result);
         _playbackService.Play(track, new[] { track });
     }
 
-    private void AddHistory(string value)
+    [RelayCommand]
+    private void AddToQueue(SearchResultModel result) => _playbackService.AddToQueue(CreateTrack(result));
+
+    [RelayCommand]
+    private void PlayNext(SearchResultModel result) => _playbackService.PlayNext(CreateTrack(result));
+
+    [RelayCommand]
+    private async Task ToggleFavoriteAsync(SearchResultModel result)
+    {
+        if (_libraryService is not null)
+        {
+            await _libraryService.ToggleFavoriteAsync(CreateTrack(result));
+        }
+    }
+
+    private async Task AddHistoryAsync(string value)
     {
         var existing = History.FirstOrDefault(item => string.Equals(item, value, StringComparison.OrdinalIgnoreCase));
         if (existing is not null)
@@ -191,14 +211,144 @@ public sealed partial class SearchViewModel : ObservableObject
             History.RemoveAt(History.Count - 1);
         }
 
-        SaveHistory();
+        OnPropertyChanged(nameof(HasHistory));
+        await SaveHistoryAsync();
     }
 
-    private void SaveHistory()
+    private Task SaveHistoryAsync()
     {
-        _ = _settingsService.SaveAsync(_settingsService.Current with
+        return _settingsService.SaveAsync(_settingsService.Current with
         {
             SearchHistory = History.ToList()
         });
+    }
+
+    private void AddSource(string key, string title)
+    {
+        _sourceStates[key] = new SearchSourceState(title);
+    }
+
+    private async Task LoadSourceAsync(
+        string source,
+        string query,
+        int revision,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var results = source == "local"
+                ? await _searchService.SearchLocalAsync(query, cancellationToken)
+                : await _searchService.SearchProviderAsync(query, source, cancellationToken);
+            if (revision != _searchRevision || cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _sourceStates[source].Results = results;
+            _sourceStates[source].IsLoading = false;
+            RebuildDisplayItems();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            if (revision != _searchRevision)
+            {
+                return;
+            }
+
+            var state = _sourceStates[source];
+            state.IsLoading = false;
+            state.Error = FriendlySourceError(source, exception);
+            RebuildDisplayItems();
+        }
+    }
+
+    private void RebuildDisplayItems()
+    {
+        DisplayItems.Clear();
+        foreach (var source in new[] { "local", "netease", "qq" })
+        {
+            if (!_sourceStates.TryGetValue(source, out var state))
+            {
+                continue;
+            }
+
+            DisplayItems.Add(SearchDisplayItemViewModel.CreateHeader(source, state.Title));
+            foreach (var result in state.Results)
+            {
+                var item = SearchDisplayItemViewModel.CreateTrack(source, result);
+                item.IsCurrent = string.Equals(CreateTrack(result).Id, _playbackService.CurrentTrack?.Id, StringComparison.Ordinal);
+                DisplayItems.Add(item);
+            }
+
+            if (state.IsLoading)
+            {
+                DisplayItems.Add(SearchDisplayItemViewModel.CreateStatus(source, "正在搜索…"));
+            }
+            else if (!string.IsNullOrWhiteSpace(state.Error))
+            {
+                DisplayItems.Add(SearchDisplayItemViewModel.CreateStatus(source, state.Error, true));
+            }
+        }
+
+        OnPropertyChanged(nameof(HasResults));
+        OnPropertyChanged(nameof(ShowNoResults));
+    }
+
+    private static TrackModel CreateTrack(SearchResultModel result)
+    {
+        var source = result.Source ?? (result.IsLocal
+            ? result.Title
+            : $"online://{result.ProviderKey ?? result.Provider}/{Uri.EscapeDataString(result.ProviderTrackId ?? result.Title)}");
+        return new TrackModel(
+            result.IsLocal ? source : $"{result.ProviderKey}:{result.ProviderTrackId ?? source}",
+            source,
+            result.Title,
+            result.Artist,
+            result.Album,
+            result.Duration,
+            result.CoverPath,
+            !result.IsLocal,
+            result.ProviderKey ?? result.Provider,
+            result.IsLocal ? null : result.PlaybackUrl,
+            DurationSeconds: ParseDuration(result.Duration),
+            IsFavorite: result.IsFavorite,
+            OnlineProviderTrackId: result.ProviderTrackId);
+    }
+
+    private static double ParseDuration(string value) =>
+        TimeSpan.TryParse(value, out var duration) ? duration.TotalSeconds : 0;
+
+    private static string FriendlySourceError(string source, Exception exception) => source switch
+    {
+        "netease" => $"网易云音乐暂时不可用：{exception.Message}",
+        "qq" => $"QQ音乐暂时不可用：{exception.Message}",
+        _ => $"本地音乐搜索失败：{exception.Message}"
+    };
+
+    private void RefreshCurrentTrackState()
+    {
+        var currentTrackId = _playbackService.CurrentTrack?.Id;
+        if (string.Equals(_currentTrackId, currentTrackId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _currentTrackId = currentTrackId;
+        foreach (var item in DisplayItems.Where(item => item.IsTrack && item.Result is not null))
+        {
+            item.IsCurrent = string.Equals(CreateTrack(item.Result!).Id, currentTrackId, StringComparison.Ordinal);
+        }
+    }
+
+    private sealed class SearchSourceState(string title)
+    {
+        public string Title { get; } = title;
+        public IReadOnlyList<SearchResultModel> Results { get; set; } = Array.Empty<SearchResultModel>();
+        public bool IsLoading { get; set; } = true;
+        public string? Error { get; set; }
     }
 }

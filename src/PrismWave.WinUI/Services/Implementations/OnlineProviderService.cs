@@ -108,13 +108,26 @@ public sealed class OnlineProviderService : IOnlineProviderService
         string query,
         CancellationToken cancellationToken = default)
     {
+        return await SearchAsync(query, _providerKeys, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<OnlineProviderTrackModel>> SearchAsync(
+        string query,
+        IReadOnlyCollection<string> providers,
+        CancellationToken cancellationToken = default)
+    {
         var trimmed = query.Trim();
         if (trimmed.Length == 0)
         {
             return Array.Empty<OnlineProviderTrackModel>();
         }
 
-        var searches = _providerKeys.Select(provider =>
+        var selectedProviders = providers
+            .Select(NormalizeProvider)
+            .Where(_adapters.ContainsKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var searches = selectedProviders.Select(provider =>
             SearchProviderSafelyAsync(provider, trimmed, cancellationToken));
         var batches = await Task.WhenAll(searches);
         var results = batches
@@ -126,8 +139,26 @@ public sealed class OnlineProviderService : IOnlineProviderService
             .Select(group => group.First())
             .ToList();
         StartupLog.Write(
-            $"online.providers.search.complete: query=\"{trimmed}\", total={results.Count}, providers={string.Join(',', results.Select(item => item.Provider).Distinct())}");
+            $"online.providers.search.complete: query=\"{trimmed}\", total={results.Count}, providers={string.Join(',', selectedProviders)}");
         return results;
+    }
+
+    public async Task<IReadOnlyList<OnlineProviderTrackModel>> SearchProviderAsync(
+        string query,
+        string provider,
+        CancellationToken cancellationToken = default)
+    {
+        var trimmed = query.Trim();
+        if (trimmed.Length == 0)
+        {
+            return Array.Empty<OnlineProviderTrackModel>();
+        }
+
+        return await SearchProviderCoreAsync(
+            NormalizeProvider(provider),
+            trimmed,
+            suppressErrors: false,
+            cancellationToken);
     }
 
     public async Task<OnlinePlaybackResolution?> ResolveAsync(
@@ -644,11 +675,28 @@ public sealed class OnlineProviderService : IOnlineProviderService
     private async Task<IReadOnlyList<OnlineProviderTrackModel>> SearchProviderSafelyAsync(
         string provider,
         string query,
+        CancellationToken cancellationToken) =>
+        await SearchProviderCoreAsync(provider, query, suppressErrors: true, cancellationToken);
+
+    private async Task<IReadOnlyList<OnlineProviderTrackModel>> SearchProviderCoreAsync(
+        string provider,
+        string query,
+        bool suppressErrors,
         CancellationToken cancellationToken)
     {
-        if (!_adapters.TryGetValue(provider, out var adapter) || !_healthTracker.CanRequest(provider))
+        if (!_adapters.TryGetValue(provider, out var adapter))
         {
             return Array.Empty<OnlineProviderTrackModel>();
+        }
+
+        if (!_healthTracker.CanRequest(provider))
+        {
+            if (suppressErrors)
+            {
+                return Array.Empty<OnlineProviderTrackModel>();
+            }
+
+            throw new InvalidOperationException($"Provider '{provider}' is temporarily unavailable.");
         }
 
         var cacheKey = $"{provider}:{NormalizeText(query)}";
@@ -680,7 +728,12 @@ public sealed class OnlineProviderService : IOnlineProviderService
             _healthTracker.ReportFailure(provider, OnlineProviderFailureKind.NetworkOrProtocol);
             StartupLog.Write(
                 $"online.providers.search.failed: provider={provider}, query=\"{query}\", {OnlineProviderLogSanitizer.Describe(exception)}");
-            return Array.Empty<OnlineProviderTrackModel>();
+            if (suppressErrors)
+            {
+                return Array.Empty<OnlineProviderTrackModel>();
+            }
+
+            throw;
         }
     }
 

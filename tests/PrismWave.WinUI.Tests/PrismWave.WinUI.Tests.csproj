@@ -89,7 +89,10 @@
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Shell/ShellViewModel.cs" Link="ViewModels/ShellViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Hits/HitsStatusViewModel.cs" Link="ViewModels/HitsStatusViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Home/HomeViewModel.cs" Link="ViewModels/HomeViewModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/ViewModels/Search/SearchViewModel.cs" Link="ViewModels/SearchViewModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/ViewModels/Search/SearchDisplayItemViewModel.cs" Link="ViewModels/SearchDisplayItemViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Library/LibraryViewModel.cs" Link="ViewModels/LibraryViewModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/ViewModels/Library/FavoritesViewModel.cs" Link="ViewModels/FavoritesViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Library/LibraryFolderEntryViewModel.cs" Link="ViewModels/LibraryFolderEntryViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Library/LibraryFolderManagerViewModel.cs" Link="ViewModels/LibraryFolderManagerViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Settings/OnlineAccountSettingsViewModel.cs" Link="ViewModels/OnlineAccountSettingsViewModel.cs" />

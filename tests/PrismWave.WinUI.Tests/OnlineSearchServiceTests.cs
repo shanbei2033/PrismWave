@@ -8,7 +8,7 @@ namespace PrismWave_WinUI.Tests;
 public sealed class OnlineSearchServiceTests
 {
     [Fact]
-    public async Task SearchAsync_PrefersLocalAndSuppressesMatchingOnlineDuplicate()
+    public async Task SearchAsync_KeepsMatchingTracksFromDifferentSources()
     {
         var local = new TrackModel(
             "local-song",
@@ -42,23 +42,79 @@ public sealed class OnlineSearchServiceTests
 
         var results = await service.SearchAsync("Song");
 
-        Assert.Equal(2, results.Count);
+        Assert.Equal(3, results.Count);
         Assert.True(results[0].IsLocal);
         Assert.Equal(local.Path, results[0].Source);
-        Assert.Equal("QQ Music", results[1].Provider);
-        Assert.Equal("online://qq/qq-2", results[1].Source);
-        Assert.DoesNotContain(results, result => result.Provider == "NetEase");
+        Assert.Contains(results, result => result.Provider == "NetEase" && result.Source == "online://netease/123");
+        Assert.Contains(results, result => result.Provider == "QQ Music" && result.Source == "online://qq/qq-2");
+    }
+
+    [Fact]
+    public async Task SearchProviderAsync_RequestsOnlyTheSelectedProvider()
+    {
+        var library = new FakeLibraryService(Array.Empty<TrackModel>());
+        var online = new FakeProviderService(new[]
+        {
+            new OnlineProviderTrackModel("netease", "1", "Song", "Artist", "Album", 120),
+            new OnlineProviderTrackModel("qq", "2", "Song", "Artist", "Album", 121)
+        });
+        var service = new OnlineSearchService(library, online);
+
+        var results = await service.SearchProviderAsync("Song", "qq");
+
+        Assert.Equal("qq", online.LastDirectProvider);
+        Assert.Empty(online.LastRequestedProviders);
+        Assert.Single(results);
+        Assert.Equal("QQ Music", results[0].Provider);
+    }
+
+    [Fact]
+    public async Task SearchLocalAsync_DoesNotContactOnlineProviders()
+    {
+        var track = new TrackModel("1", @"C:\Music\Song.flac", "Song", "Artist", "Album", "02:00", null);
+        var online = new FakeProviderService(Array.Empty<OnlineProviderTrackModel>());
+        var service = new OnlineSearchService(new FakeLibraryService(new[] { track }), online);
+
+        var results = await service.SearchLocalAsync("Song");
+
+        Assert.Single(results);
+        Assert.Empty(online.LastRequestedProviders);
     }
 
     private sealed class FakeProviderService(IReadOnlyList<OnlineProviderTrackModel> results) : IOnlineProviderService
     {
         public IReadOnlyList<string> SearchProviders { get; } = Array.Empty<string>();
+        public IReadOnlyList<string> LastRequestedProviders { get; private set; } = Array.Empty<string>();
+        public string? LastDirectProvider { get; private set; }
 
         public Task<IReadOnlyList<OnlineProviderTrackModel>> SearchAsync(
             string query,
             CancellationToken cancellationToken = default)
         {
             return Task.FromResult(results);
+        }
+
+        public Task<IReadOnlyList<OnlineProviderTrackModel>> SearchAsync(
+            string query,
+            IReadOnlyCollection<string> providers,
+            CancellationToken cancellationToken = default)
+        {
+            LastRequestedProviders = providers.ToList();
+            return Task.FromResult<IReadOnlyList<OnlineProviderTrackModel>>(
+                results.Where(result => providers.Contains(result.Provider, StringComparer.OrdinalIgnoreCase)).ToList());
+        }
+
+        public Task<IReadOnlyList<OnlineProviderTrackModel>> SearchProviderAsync(
+            string query,
+            string provider,
+            CancellationToken cancellationToken = default)
+        {
+            LastDirectProvider = provider;
+            return Task.FromResult<IReadOnlyList<OnlineProviderTrackModel>>(
+                results.Where(result => string.Equals(
+                    result.Provider,
+                    provider,
+                    StringComparison.OrdinalIgnoreCase)).ToList());
         }
 
         public Task<OnlinePlaybackResolution?> ResolveAsync(

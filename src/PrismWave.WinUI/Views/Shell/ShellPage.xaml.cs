@@ -24,6 +24,8 @@ namespace PrismWave_WinUI.Views.Shell;
 public sealed partial class ShellPage : Page
 {
     private const double FullPlayTransitionDurationMilliseconds = 280;
+    private const double CoverTransitionDurationMilliseconds = 240;
+    private const float NestedTransitionOffset = 72;
     private const double QueueOpenTransitionDurationMilliseconds = 240;
     private const double QueueCloseTransitionDurationMilliseconds = 210;
     private const double QueuePaneWidth = 344;
@@ -485,6 +487,7 @@ public sealed partial class ShellPage : Page
         DetachFullPlayExitBatch();
         _isFullPlayVisible = false;
         SetFullPlayImmersiveTitleBar(false);
+        ElementCompositionPreview.SetIsTranslationEnabled(FullPlayOverlay, true);
         var visual = ElementCompositionPreview.GetElementVisual(FullPlayOverlay);
         visual.StopAnimation("Opacity");
         visual.StopAnimation("Translation.Y");
@@ -612,7 +615,11 @@ public sealed partial class ShellPage : Page
 
         var incomingVisual = ElementCompositionPreview.GetElementVisual(_incomingContentFrame);
         incomingVisual.StopAnimation("Offset.X");
-        incomingVisual.Offset = new Vector3((float)Math.Max(0, PageTransitionHost.ActualWidth), 0, 0);
+        incomingVisual.Offset = new Vector3(GetCoverTransitionOffset(intent), 0, 0);
+
+        var incomingContentVisual = ElementCompositionPreview.GetElementVisual(incomingContent);
+        incomingContentVisual.StopAnimation("Opacity");
+        incomingContentVisual.Opacity = IsNestedTransition(intent.NavigationKind) ? 0.92f : 1f;
 
         EnterTransitionInputLock();
         AttachIncomingLoadedHandler(incomingContent, intent.Revision);
@@ -675,6 +682,9 @@ public sealed partial class ShellPage : Page
 
         DetachIncomingLoadedHandler();
         DetachAnimationBatch();
+        StartupLog.Write(
+            $"navigation.cover.failed route={failedIntent.Route} revision={failedIntent.Revision}",
+            exception);
         ResetFrame(failedFrame);
         if (!string.IsNullOrWhiteSpace(rollback.RollbackRoute))
         {
@@ -687,9 +697,6 @@ public sealed partial class ShellPage : Page
         }
 
         RestoreCurrentInputAndFocus();
-        StartupLog.Write(
-            $"navigation.cover.failed route={failedIntent.Route} revision={failedIntent.Revision}",
-            exception);
     }
 
     private void AttachIncomingLoadedHandler(FrameworkElement element, long revision)
@@ -749,21 +756,55 @@ public sealed partial class ShellPage : Page
         var compositor = ElementCompositionPreview.GetElementVisual(PageTransitionHost).Compositor;
         var incomingVisual = ElementCompositionPreview.GetElementVisual(_incomingContentFrame);
         incomingVisual.StopAnimation("Offset.X");
-        incomingVisual.Offset = new Vector3((float)intent.HostWidth, 0, 0);
+        incomingVisual.Offset = new Vector3(GetCoverTransitionOffset(intent), 0, 0);
+        var incomingContent = _incomingContentFrame.Content as UIElement;
+        var incomingContentVisual = incomingContent is null
+            ? null
+            : ElementCompositionPreview.GetElementVisual(incomingContent);
+        incomingContentVisual?.StopAnimation("Opacity");
+
+        if (!_animationsEnabled)
+        {
+            incomingVisual.Offset = Vector3.Zero;
+            if (incomingContentVisual is not null)
+            {
+                incomingContentVisual.Opacity = 1;
+            }
+
+            StartupLog.Write(
+                $"navigation.cover.started route={intent.Route} revision={intent.Revision} durationMs=0");
+            ExecuteIntent(_navigationCoordinator.AnimationCompleted(intent.Revision));
+            return;
+        }
 
         var easing = compositor.CreateCubicBezierEasingFunction(
             new Vector2(0.1f, 0.9f),
             new Vector2(0.2f, 1.0f));
         var animation = compositor.CreateScalarKeyFrameAnimation();
         animation.InsertKeyFrame(1f, 0f, easing);
-        animation.Duration = TimeSpan.FromMilliseconds(280);
+        animation.Duration = TimeSpan.FromMilliseconds(CoverTransitionDurationMilliseconds);
+
+        ScalarKeyFrameAnimation? fade = null;
+        if (incomingContentVisual is not null && IsNestedTransition(intent.NavigationKind))
+        {
+            incomingContentVisual.Opacity = 1;
+            fade = compositor.CreateScalarKeyFrameAnimation();
+            fade.InsertKeyFrame(0f, 0.92f);
+            fade.InsertKeyFrame(1f, 1f, easing);
+            fade.Duration = animation.Duration;
+        }
 
         _activeAnimationRevision = intent.Revision;
         _activeAnimationBatch = compositor.CreateScopedBatch(CompositionBatchTypes.Animation);
         _activeAnimationBatch.Completed += CoverAnimationBatch_Completed;
         incomingVisual.StartAnimation("Offset.X", animation);
+        if (fade is not null && incomingContentVisual is not null)
+        {
+            incomingContentVisual.StartAnimation("Opacity", fade);
+        }
         _activeAnimationBatch.End();
-        StartupLog.Write($"navigation.cover.started route={intent.Route} revision={intent.Revision} durationMs=280");
+        StartupLog.Write(
+            $"navigation.cover.started route={intent.Route} revision={intent.Revision} durationMs={CoverTransitionDurationMilliseconds:0}");
     }
 
     private void CoverAnimationBatch_Completed(object sender, CompositionBatchCompletedEventArgs args)
@@ -802,6 +843,12 @@ public sealed partial class ShellPage : Page
         var incomingVisual = ElementCompositionPreview.GetElementVisual(_incomingContentFrame);
         incomingVisual.StopAnimation("Offset.X");
         incomingVisual.Offset = Vector3.Zero;
+        if (_incomingContentFrame.Content is UIElement incomingContent)
+        {
+            var incomingContentVisual = ElementCompositionPreview.GetElementVisual(incomingContent);
+            incomingContentVisual.StopAnimation("Opacity");
+            incomingContentVisual.Opacity = 1;
+        }
 
         var previousContentFrame = _currentContentFrame;
         var previousPage = previousContentFrame.Content as Page;
@@ -830,6 +877,17 @@ public sealed partial class ShellPage : Page
         ResetFrame(_incomingContentFrame);
         QueueTransitionFinalization(intent);
     }
+
+    private static bool IsNestedTransition(ShellNavigationKind kind) =>
+        kind is ShellNavigationKind.Nested or ShellNavigationKind.Back;
+
+    private static float GetCoverTransitionOffset(CoverNavigationIntent intent) =>
+        intent.NavigationKind switch
+        {
+            ShellNavigationKind.Back => -NestedTransitionOffset,
+            ShellNavigationKind.Nested => NestedTransitionOffset,
+            _ => (float)Math.Max(0, intent.HostWidth)
+        };
 
     private void QueueTransitionFinalization(CoverNavigationIntent completedIntent)
     {
@@ -923,16 +981,28 @@ public sealed partial class ShellPage : Page
         _activeAnimationRevision = 0;
     }
 
-    private static void ResetFrame(Frame frame)
+    private void ResetFrame(Frame frame)
     {
         var visual = ElementCompositionPreview.GetElementVisual(frame);
         visual.StopAnimation("Offset.X");
         visual.Offset = Vector3.Zero;
+        frame.Visibility = Visibility.Collapsed;
+        frame.IsHitTestVisible = false;
+        try
+        {
+            ResetFrameContent(frame);
+        }
+        catch (Exception exception)
+        {
+            StartupLog.Write("navigation.frame.reset.deferred", exception);
+        }
+    }
+
+    private static void ResetFrameContent(Frame frame)
+    {
         frame.BackStack.Clear();
         frame.ForwardStack.Clear();
         frame.Content = null;
-        frame.Visibility = Visibility.Collapsed;
-        frame.IsHitTestVisible = false;
     }
 
     private void PageTransitionHost_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -995,6 +1065,8 @@ public sealed partial class ShellPage : Page
         var primaryRoute = route switch
         {
             "TopPlaylist" or "AlbumDetail" => "Home",
+            "LocalAlbumDetail" => "Albums",
+            "ArtistDetail" => "Artists",
             _ => route
         };
 
@@ -1021,7 +1093,9 @@ public sealed partial class ShellPage : Page
         "AlbumDetail" => typeof(AlbumDetailPage),
         "Search" => typeof(SearchPage),
         "Albums" => typeof(AlbumsPage),
+        "LocalAlbumDetail" => typeof(LocalAlbumDetailPage),
         "Artists" => typeof(ArtistsPage),
+        "ArtistDetail" => typeof(ArtistDetailPage),
         "Favorites" => typeof(FavoritesPage),
         "FullPlay" => typeof(FullPlayPage),
         "Hits" => typeof(HitsStatusPage),

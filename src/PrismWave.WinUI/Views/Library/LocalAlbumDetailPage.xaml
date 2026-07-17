@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="PrismWave_WinUI.Views.Library.LocalAlbumDetailPage"
+    x:Name="AlbumDetailRoot"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:media="using:PrismWave_WinUI.Controls.Media"
+    Background="{StaticResource PrismBackgroundBrush}"
+    Loaded="Page_Loaded"
+    Unloaded="Page_Unloaded">
+    <Page.Resources>
+        <Style x:Key="AlbumTrackItemStyle" TargetType="ListViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,1" />
+            <Setter Property="MinHeight" Value="58" />
+        </Style>
+    </Page.Resources>
+
+    <ListView
+        x:Name="AlbumTracksList"
+        ItemsSource="{Binding SelectedTracks}"
+        ItemContainerStyle="{StaticResource AlbumTrackItemStyle}"
+        SelectionMode="Single"
+        SelectedValuePath="Id"
+        SelectedValue="{Binding CurrentTrackId, Mode=OneWay}"
+        ContainerContentChanging="AlbumTracksList_ContainerContentChanging">
+        <ListView.Header>
+            <Grid x:Name="AlbumHero" Height="410" Background="{StaticResource PrismSurfaceBrush}">
+                <media:StableCoverImage
+                    x:Name="HeroCoverImage"
+                    SourcePath="{Binding SelectedAlbum.CoverUrl}"
+                    Stretch="UniformToFill" />
+                <Grid
+                    x:Name="HeroBlurHost"
+                    Height="250"
+                    VerticalAlignment="Bottom"
+                    IsHitTestVisible="False" />
+                <Rectangle IsHitTestVisible="False">
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                            <GradientStop Color="#08000000" Offset="0" />
+                            <GradientStop Color="#44000000" Offset="0.46" />
+                            <GradientStop Color="#CC202124" Offset="0.82" />
+                            <GradientStop Color="#FF292A2D" Offset="1" />
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+                <Rectangle IsHitTestVisible="False">
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                            <GradientStop Color="#B8000000" Offset="0" />
+                            <GradientStop Color="#52000000" Offset="0.46" />
+                            <GradientStop Color="#08000000" Offset="1" />
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+
+                <Button
+                    Margin="24,22,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Click="Back_Click"
+                    ToolTipService.ToolTip="返回专辑">
+                    <FontIcon Glyph="&#xE72B;" FontSize="18" />
+                </Button>
+
+                <Grid Margin="28,0,28,34" VerticalAlignment="Bottom" ColumnSpacing="20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="7" MaxWidth="760" HorizontalAlignment="Left">
+                        <TextBlock
+                            Text="{Binding SelectedAlbum.Title}"
+                            FontSize="36"
+                            FontWeight="SemiBold"
+                            TextTrimming="CharacterEllipsis"
+                            MaxLines="2" />
+                        <TextBlock
+                            Text="{Binding SelectedAlbum.Artist}"
+                            FontSize="17"
+                            Foreground="#E8FFFFFF"
+                            TextTrimming="CharacterEllipsis" />
+                        <TextBlock
+                            Text="{Binding SelectedAlbumMetadata}"
+                            Foreground="#B8FFFFFF"
+                            TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <Button
+                        Grid.Column="1"
+                        Command="{Binding PlaySelectedCommand}"
+                        Background="{StaticResource PrismAccentBrush}"
+                        VerticalAlignment="Bottom"
+                        ToolTipService.ToolTip="播放全部">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <FontIcon Glyph="&#xE768;" FontSize="15" />
+                            <TextBlock Text="播放全部" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Grid>
+        </ListView.Header>
+
+        <ListView.ItemContainerTransitions>
+            <TransitionCollection>
+                <EntranceThemeTransition FromVerticalOffset="10" IsStaggeringEnabled="False" />
+            </TransitionCollection>
+        </ListView.ItemContainerTransitions>
+        <ListView.ItemTemplate>
+            <DataTemplate>
+                <Grid
+                    Tag="{Binding}"
+                    Padding="18,7"
+                    ColumnSpacing="12"
+                    DoubleTapped="TrackRow_DoubleTapped">
+                    <Grid.ContextFlyout>
+                        <MenuFlyout>
+                            <MenuFlyoutItem Text="立即播放" Tag="{Binding}" Click="PlayTrack_Click" />
+                            <MenuFlyoutItem Text="添加到播放队列" Tag="{Binding}" Click="AddTrackToQueue_Click" />
+                            <MenuFlyoutItem Text="下一首播放" Tag="{Binding}" Click="PlayTrackNext_Click" />
+                            <MenuFlyoutItem Text="收藏" Tag="{Binding}" Click="FavoriteTrack_Click" />
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="查看艺术家" Tag="{Binding}" Click="ViewTrackArtist_Click" />
+                        </MenuFlyout>
+                    </Grid.ContextFlyout>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="42" />
+                        <ColumnDefinition Width="1.7*" />
+                        <ColumnDefinition Width="1.1*" />
+                        <ColumnDefinition Width="64" />
+                        <ColumnDefinition Width="38" />
+                        <ColumnDefinition Width="38" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="TrackIndex" Style="{StaticResource PrismCaptionTextStyle}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding Artist}" Style="{StaticResource PrismCaptionTextStyle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="{Binding Duration}" Style="{StaticResource PrismCaptionTextStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                    <Button Grid.Column="4" Tag="{Binding}" Click="FavoriteTrack_Click" ToolTipService.ToolTip="切换收藏">
+                        <FontIcon Glyph="{Binding FavoriteGlyph}" FontSize="15" />
+                    </Button>
+                    <Button Grid.Column="5" ToolTipService.ToolTip="更多歌曲操作">
+                        <FontIcon Glyph="&#xE712;" FontSize="14" />
+                        <Button.Flyout>
+                            <MenuFlyout>
+                                <MenuFlyoutItem Text="添加到播放队列" Tag="{Binding}" Click="AddTrackToQueue_Click" />
+                                <MenuFlyoutItem Text="下一首播放" Tag="{Binding}" Click="PlayTrackNext_Click" />
+                                <MenuFlyoutItem Text="查看艺术家" Tag="{Binding}" Click="ViewTrackArtist_Click" />
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+                </Grid>
+            </DataTemplate>
+        </ListView.ItemTemplate>
+        <ListView.Footer>
+            <Grid Height="36" />
+        </ListView.Footer>
+    </ListView>
+</Page>

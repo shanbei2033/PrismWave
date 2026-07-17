@@ -30,21 +30,9 @@ public sealed class OnlineSearchService : IOnlineSearchService
 
         var local = SearchLocal(trimmed);
         var onlineTracks = await _providerService.SearchAsync(trimmed, cancellationToken);
-        var localKeys = local
-            .Select(item => Identity(item.Result.Title, item.Result.Artist))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var online = onlineTracks
-            .Where(track => !localKeys.Contains(Identity(track.Title, track.Artist)))
             .Select(track => new RankedResult(
-                new SearchResultModel(
-                    track.Title,
-                    track.Artist,
-                    track.Album,
-                    track.ProviderLabel,
-                    FormatDuration(track.DurationSeconds),
-                    false,
-                    track.Descriptor,
-                    track.CoverUrl),
+                MapOnline(track),
                 ScoreOnline(track, trimmed)))
             .ToList();
 
@@ -59,6 +47,42 @@ public sealed class OnlineSearchService : IOnlineSearchService
         StartupLog.Write(
             $"online.search.complete: query=\"{trimmed}\", local={local.Count}, online={online.Count}, total={results.Count}");
         return results;
+    }
+
+    public Task<IReadOnlyList<SearchResultModel>> SearchLocalAsync(
+        string query,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var trimmed = query.Trim();
+        return Task.FromResult<IReadOnlyList<SearchResultModel>>(
+            trimmed.Length == 0
+                ? Array.Empty<SearchResultModel>()
+                : SearchLocal(trimmed)
+                    .OrderByDescending(item => item.Score)
+                    .Take(80)
+                    .Select(item => item.Result)
+                    .ToList());
+    }
+
+    public async Task<IReadOnlyList<SearchResultModel>> SearchProviderAsync(
+        string query,
+        string provider,
+        CancellationToken cancellationToken = default)
+    {
+        var trimmed = query.Trim();
+        if (trimmed.Length == 0)
+        {
+            return Array.Empty<SearchResultModel>();
+        }
+
+        return (await _providerService.SearchProviderAsync(trimmed, provider, cancellationToken))
+            .Select(track => new RankedResult(MapOnline(track), ScoreOnline(track, trimmed)))
+            .OrderByDescending(item => item.Score)
+            .ThenBy(item => item.Result.Title, StringComparer.CurrentCultureIgnoreCase)
+            .Take(80)
+            .Select(item => item.Result)
+            .ToList();
     }
 
     private List<RankedResult> SearchLocal(string query)
@@ -76,10 +100,25 @@ public sealed class OnlineSearchService : IOnlineSearchService
                     item.Track.Duration,
                     true,
                     item.Track.Path,
-                    item.Track.CoverPath),
+                    item.Track.CoverPath,
+                    "local",
+                    IsFavorite: item.Track.IsFavorite),
                 item.Score + LocalBoost))
             .ToList();
     }
+
+    private static SearchResultModel MapOnline(OnlineProviderTrackModel track) => new(
+        track.Title,
+        track.Artist,
+        track.Album,
+        track.ProviderLabel,
+        FormatDuration(track.DurationSeconds),
+        false,
+        track.Descriptor,
+        track.CoverUrl,
+        track.Provider,
+        track.ProviderTrackId,
+        track.DirectAudioUrl);
 
     private static double ScoreLocal(TrackModel track, string query)
     {
@@ -115,11 +154,6 @@ public sealed class OnlineSearchService : IOnlineSearchService
         }
 
         return score;
-    }
-
-    private static string Identity(string title, string artist)
-    {
-        return $"{title.Trim().ToLowerInvariant()}|{artist.Trim().ToLowerInvariant()}";
     }
 
     private static string FormatDuration(double seconds)

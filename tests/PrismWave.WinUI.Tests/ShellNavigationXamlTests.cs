@@ -226,6 +226,53 @@ public sealed class ShellNavigationXamlTests
             "The shared reset path must restore the normal title bar.");
     }
 
+    [Fact]
+    public void Shell_PageCoverTransitionUsesResponsiveDurationAndSafeTranslationReset()
+    {
+        var codeBehind = File.ReadAllText(FindRepositoryFile(
+            "src", "PrismWave.WinUI", "Views", "Shell", "ShellPage.xaml.cs"));
+
+        Assert.Contains("CoverTransitionDurationMilliseconds = 240", codeBehind, StringComparison.Ordinal);
+        Assert.Contains(
+            "TimeSpan.FromMilliseconds(CoverTransitionDurationMilliseconds)",
+            codeBehind,
+            StringComparison.Ordinal);
+
+        var resetStart = codeBehind.IndexOf("private void ResetFullPlayOverlay()", StringComparison.Ordinal);
+        var resetEnd = codeBehind.IndexOf("private static void SetFullPlayImmersiveTitleBar", resetStart, StringComparison.Ordinal);
+        var reset = codeBehind[resetStart..resetEnd];
+        var enable = reset.IndexOf(
+            "ElementCompositionPreview.SetIsTranslationEnabled(FullPlayOverlay, true)",
+            StringComparison.Ordinal);
+        var stop = reset.IndexOf("visual.StopAnimation(\"Translation.Y\")", StringComparison.Ordinal);
+        Assert.True(enable >= 0 && enable < stop, "Translation must be enabled before ResetFullPlayOverlay stops Translation.Y.");
+    }
+
+    [Fact]
+    public void Shell_NestedTransitionsAreSubtleDirectionalAndRespectReducedMotion()
+    {
+        var codeBehind = File.ReadAllText(FindRepositoryFile(
+            "src", "PrismWave.WinUI", "Views", "Shell", "ShellPage.xaml.cs"));
+
+        Assert.Contains("NestedTransitionOffset = 72", codeBehind, StringComparison.Ordinal);
+        Assert.Contains(
+            "ShellNavigationKind.Back => -NestedTransitionOffset",
+            codeBehind,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "ShellNavigationKind.Nested => NestedTransitionOffset",
+            codeBehind,
+            StringComparison.Ordinal);
+        Assert.Contains("fade.InsertKeyFrame(0f, 0.92f)", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("incomingContentVisual.StartAnimation(\"Opacity\", fade)", codeBehind, StringComparison.Ordinal);
+
+        var beginStart = codeBehind.IndexOf("private void BeginCoverAnimation", StringComparison.Ordinal);
+        var beginEnd = codeBehind.IndexOf("private void CoverAnimationBatch_Completed", beginStart, StringComparison.Ordinal);
+        var begin = codeBehind[beginStart..beginEnd];
+        Assert.Contains("if (!_animationsEnabled)", begin, StringComparison.Ordinal);
+        Assert.Contains("durationMs=0", begin, StringComparison.Ordinal);
+    }
+
     private static string FindRepositoryFile(params string[] relativeSegments)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

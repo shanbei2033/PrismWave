@@ -36,4 +36,11 @@ public sealed record SearchResultModel(
     string Duration,
     bool IsLocal,
     string? Source = null,
-    string? CoverPath = null);
+    string? CoverPath = null,
+    string? ProviderKey = null,
+    string? ProviderTrackId = null,
+    string? PlaybackUrl = null,
+    bool IsFavorite = false)
+{
+    public string FavoriteGlyph => IsFavorite ? "\uEB52" : "\uEB51";
+}

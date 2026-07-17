@@ -32,6 +32,8 @@ public interface IPlaybackService
     void SetVolume(double volume);
     void Seek(double seconds);
     void PlayFromQueue(TrackModel track);
+    void AddToQueue(TrackModel track) { }
+    void PlayNext(TrackModel track) { }
     void ReorderQueue(IReadOnlyList<TrackModel> tracks);
     void RemoveFromQueue(TrackModel track);
     void ClearQueue();

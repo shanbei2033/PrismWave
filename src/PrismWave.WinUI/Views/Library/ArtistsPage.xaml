@@ -2,83 +2,72 @@
 <Page
     x:Class="PrismWave_WinUI.Views.Library.ArtistsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid Padding="{StaticResource PrismPagePadding}" RowSpacing="16">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:PrismWave_WinUI.Converters">
+    <Page.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <Style x:Key="ArtistRowItemStyle" TargetType="ListViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,1" />
+            <Setter Property="MinHeight" Value="58" />
+        </Style>
+    </Page.Resources>
+
+    <Grid Padding="{StaticResource PrismPagePadding}" RowSpacing="14">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <StackPanel>
-            <TextBlock Text="Artists" Style="{StaticResource PrismPageTitleTextStyle}" />
-            <TextBlock Text="Browse your local collection by artist." Style="{StaticResource PrismCaptionTextStyle}" />
-        </StackPanel>
-        <Grid Grid.Row="1" ColumnSpacing="16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="310" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <GridView ItemsSource="{Binding Artists}" SelectionMode="Single" IsItemClickEnabled="True" ItemClick="Artists_ItemClick">
-                <GridView.ItemTemplate>
+
+        <TextBlock Text="艺术家" Style="{StaticResource PrismPageTitleTextStyle}" />
+        <AutoSuggestBox
+            Grid.Row="1"
+            QueryIcon="Find"
+            PlaceholderText="搜索艺术家"
+            Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+        <Grid Grid.Row="2">
+            <ListView
+                ItemsSource="{Binding FilteredArtists}"
+                SelectionMode="None"
+                IsItemClickEnabled="True"
+                ItemClick="Artists_ItemClick"
+                ItemContainerStyle="{StaticResource ArtistRowItemStyle}">
+                <ListView.ItemContainerTransitions>
+                    <TransitionCollection>
+                        <EntranceThemeTransition FromVerticalOffset="10" IsStaggeringEnabled="False" />
+                        <RepositionThemeTransition />
+                    </TransitionCollection>
+                </ListView.ItemContainerTransitions>
+                <ListView.ItemTemplate>
                     <DataTemplate>
-                        <Border Width="278" Height="82" Margin="0,0,10,10" Style="{StaticResource PrismCardBorderStyle}">
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="52" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Border Width="52" Height="52" CornerRadius="26" Background="{StaticResource PrismAccentBrush}">
-                                    <TextBlock Text="{Binding Initial}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" />
-                                </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding TrackCount}" Style="{StaticResource PrismCaptionTextStyle}" />
-                                </StackPanel>
-                            </Grid>
-                        </Border>
+                        <Grid Padding="12,10" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="32" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding TrackCount}" Style="{StaticResource PrismCaptionTextStyle}" />
+                                <TextBlock Text="首歌曲" Style="{StaticResource PrismCaptionTextStyle}" />
+                            </StackPanel>
+                            <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="13" Foreground="{StaticResource PrismTextSecondaryBrush}" VerticalAlignment="Center" />
+                        </Grid>
                     </DataTemplate>
-                </GridView.ItemTemplate>
-            </GridView>
-            <Border Grid.Column="1" Style="{StaticResource PrismPanelBorderStyle}">
-                <Grid RowSpacing="14">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Grid ColumnSpacing="14">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="64" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Border Width="64" Height="64" CornerRadius="32" Background="{StaticResource PrismAccentBrush}">
-                            <TextBlock Text="{Binding SelectedArtist.Initial}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20" FontWeight="Bold" />
-                        </Border>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding SelectedArtist.Name}" Style="{StaticResource PrismSectionTitleTextStyle}" />
-                            <TextBlock Text="{Binding SelectedArtist.TrackCount}" Style="{StaticResource PrismCaptionTextStyle}" />
-                        </StackPanel>
-                        <Button Grid.Column="2" Command="{Binding PlaySelectedCommand}" VerticalAlignment="Center" ToolTipService.ToolTip="Play artist">
-                            <StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE768;" FontSize="14" /><TextBlock Text="Play all" /></StackPanel>
-                        </Button>
-                    </Grid>
-                    <ListView Grid.Row="1" ItemsSource="{Binding SelectedTracks}" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Tracks_ItemClick">
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Padding="8" ColumnSpacing="12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="180" />
-                                        <ColumnDefinition Width="70" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1" Text="{Binding Album}" Style="{StaticResource PrismCaptionTextStyle}" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="2" Text="{Binding Duration}" Style="{StaticResource PrismCaptionTextStyle}" VerticalAlignment="Center" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-                </Grid>
-            </Border>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="8"
+                Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}">
+                <FontIcon Glyph="&#xE77B;" FontSize="34" Foreground="{StaticResource PrismTextSecondaryBrush}" />
+                <TextBlock Text="没有匹配的艺术家" FontWeight="SemiBold" />
+            </StackPanel>
         </Grid>
     </Grid>
 </Page>

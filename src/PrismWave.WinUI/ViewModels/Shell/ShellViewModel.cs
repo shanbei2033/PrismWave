@@ -12,6 +12,8 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         "FullPlay",
         "AlbumDetail",
+        "LocalAlbumDetail",
+        "ArtistDetail",
         "TopPlaylist"
     };
     private readonly Stack<string> _backStack = new();

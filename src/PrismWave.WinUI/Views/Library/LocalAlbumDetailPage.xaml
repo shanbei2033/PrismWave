@@ -11,9 +11,21 @@
     <Page.Resources>
         <Style x:Key="AlbumTrackItemStyle" TargetType="ListViewItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Background" Value="{StaticResource PrismBackgroundBrush}" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0,1" />
             <Setter Property="MinHeight" Value="58" />
+        </Style>
+        <Style x:Key="AlbumTrackActionButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="38" />
+            <Setter Property="MinWidth" Value="38" />
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
     </Page.Resources>
 
@@ -26,27 +38,32 @@
         SelectedValue="{Binding CurrentTrackId, Mode=OneWay}"
         ContainerContentChanging="AlbumTracksList_ContainerContentChanging">
         <ListView.Header>
-            <Grid x:Name="AlbumHero" Height="410" Background="{StaticResource PrismSurfaceBrush}">
+            <Grid x:Name="AlbumHero" Height="430" Background="{StaticResource PrismSurfaceBrush}">
                 <media:StableCoverImage
                     x:Name="HeroCoverImage"
                     SourcePath="{Binding SelectedAlbum.CoverUrl}"
                     Stretch="UniformToFill" />
                 <Grid
                     x:Name="HeroBlurHost"
-                    Height="250"
+                    Height="210"
                     VerticalAlignment="Bottom"
                     IsHitTestVisible="False" />
-                <Rectangle IsHitTestVisible="False">
+                <Rectangle
+                    x:Name="AlbumTransitionLayer"
+                    Canvas.ZIndex="2"
+                    Height="160"
+                    VerticalAlignment="Bottom"
+                    IsHitTestVisible="False">
                     <Rectangle.Fill>
                         <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-                            <GradientStop Color="#08000000" Offset="0" />
-                            <GradientStop Color="#44000000" Offset="0.46" />
-                            <GradientStop Color="#CC202124" Offset="0.82" />
+                            <GradientStop Color="#00292A2D" Offset="0" />
+                            <GradientStop Color="#5C292A2D" Offset="0.34" />
+                            <GradientStop Color="#D4292A2D" Offset="0.72" />
                             <GradientStop Color="#FF292A2D" Offset="1" />
                         </LinearGradientBrush>
                     </Rectangle.Fill>
                 </Rectangle>
-                <Rectangle IsHitTestVisible="False">
+                <Rectangle Canvas.ZIndex="1" IsHitTestVisible="False">
                     <Rectangle.Fill>
                         <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
                             <GradientStop Color="#B8000000" Offset="0" />
@@ -57,6 +74,7 @@
                 </Rectangle>
 
                 <Button
+                    Canvas.ZIndex="3"
                     Margin="24,22,0,0"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Top"
@@ -65,7 +83,7 @@
                     <FontIcon Glyph="&#xE72B;" FontSize="18" />
                 </Button>
 
-                <Grid Margin="28,0,28,34" VerticalAlignment="Bottom" ColumnSpacing="20">
+                <Grid Canvas.ZIndex="3" Margin="28,0,28,34" VerticalAlignment="Bottom" ColumnSpacing="20">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -129,18 +147,30 @@
                         <ColumnDefinition Width="1.7*" />
                         <ColumnDefinition Width="1.1*" />
                         <ColumnDefinition Width="64" />
-                        <ColumnDefinition Width="38" />
-                        <ColumnDefinition Width="38" />
+                        <ColumnDefinition Width="44" />
+                        <ColumnDefinition Width="44" />
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="TrackIndex" Style="{StaticResource PrismCaptionTextStyle}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="2" Text="{Binding Artist}" Style="{StaticResource PrismCaptionTextStyle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="3" Text="{Binding Duration}" Style="{StaticResource PrismCaptionTextStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                    <Button Grid.Column="4" Tag="{Binding}" Click="FavoriteTrack_Click" ToolTipService.ToolTip="切换收藏">
-                        <FontIcon Glyph="{Binding FavoriteGlyph}" FontSize="15" />
+                    <Button
+                        Grid.Column="4"
+                        Style="{StaticResource AlbumTrackActionButtonStyle}"
+                        Tag="{Binding}"
+                        Click="FavoriteTrack_Click"
+                        ToolTipService.ToolTip="切换收藏"
+                        AutomationProperties.AutomationId="AlbumTrackFavoriteButton">
+                        <FontIcon
+                            Glyph="{Binding FavoriteGlyph}"
+                            FontSize="18"
+                            AutomationProperties.AutomationId="AlbumTrackFavoriteIcon" />
                     </Button>
-                    <Button Grid.Column="5" ToolTipService.ToolTip="更多歌曲操作">
-                        <FontIcon Glyph="&#xE712;" FontSize="14" />
+                    <Button
+                        Grid.Column="5"
+                        Style="{StaticResource AlbumTrackActionButtonStyle}"
+                        ToolTipService.ToolTip="更多歌曲操作">
+                        <FontIcon Glyph="&#xE712;" FontSize="16" />
                         <Button.Flyout>
                             <MenuFlyout>
                                 <MenuFlyoutItem Text="添加到播放队列" Tag="{Binding}" Click="AddTrackToQueue_Click" />

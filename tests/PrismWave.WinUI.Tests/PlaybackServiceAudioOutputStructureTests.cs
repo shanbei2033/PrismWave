@@ -39,8 +39,45 @@ public sealed class PlaybackServiceAudioOutputStructureTests
         Assert.InRange(finalFailure, fallback + 1, Source.Length - 1);
     }
 
+    [Fact]
+    public void HitsSession_UsesExistingHostAndFreezesPrimaryState()
+    {
+        var main = Read("Services", "Implementations", "PlaybackService.cs");
+        var hits = Read("Services", "Implementations", "PlaybackService.HitsSession.cs");
+
+        Assert.Contains("partial class PlaybackService", main);
+        Assert.Contains("IHitsPlaybackSession", main);
+        Assert.Contains("CapturePrimaryPlaybackSession", hits);
+        Assert.Contains("_mpvHost.ResetPreference(\"wasapi_shared\"", hits);
+        Assert.Contains("RestorePrimaryPlaybackSession", hits);
+        Assert.DoesNotContain("new MpvPlaybackEngineHost", hits);
+        Assert.DoesNotContain("SaveAsync", hits);
+    }
+
+    [Fact]
+    public void HostCallbacks_AreRoutedByTransientRevision()
+    {
+        var main = Read("Services", "Implementations", "PlaybackService.cs");
+
+        Assert.Contains("TryHandleHitsPlaybackStarted", main);
+        Assert.Contains("TryHandleHitsPlaybackFailed", main);
+        Assert.Contains("TryHandleHitsPlaybackEnded", main);
+        Assert.Contains("TryRefreshHitsPosition", main);
+    }
+
     private static string SourcePath() => Path.GetFullPath(Path.Combine(
         AppContext.BaseDirectory,
         "..", "..", "..", "..", "..",
         "src", "PrismWave.WinUI", "Services", "Implementations", "PlaybackService.cs"));
+
+    private static string Read(params string[] segments)
+    {
+        var path = Path.Combine(
+            new[]
+            {
+                AppContext.BaseDirectory,
+                "..", "..", "..", "..", "..", "src", "PrismWave.WinUI"
+            }.Concat(segments).ToArray());
+        return File.ReadAllText(Path.GetFullPath(path));
+    }
 }

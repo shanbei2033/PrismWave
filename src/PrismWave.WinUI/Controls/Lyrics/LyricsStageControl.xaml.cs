@@ -130,8 +130,12 @@ public sealed partial class LyricsStageControl : UserControl
     private void LyricsStageControl_Loaded(object sender, RoutedEventArgs e)
     {
         EnsureClockStarted();
-        EnsureDeviceResources();
-        RebuildLayoutCache();
+        if (StageCanvas.ReadyToDraw)
+        {
+            EnsureDeviceResources(StageCanvas);
+            RebuildLayoutCache();
+        }
+
         EnsureRenderingSubscription();
         StageCanvas.Invalidate();
     }
@@ -150,11 +154,11 @@ public sealed partial class LyricsStageControl : UserControl
     private void StageCanvas_CreateResources(CanvasControl sender, CanvasCreateResourcesEventArgs args)
     {
         DisposeBrushes();
-        EnsureDeviceResources();
+        EnsureDeviceResources(sender);
         RebuildLayoutCache();
     }
 
-    private void EnsureDeviceResources()
+    private void EnsureDeviceResources(CanvasControl resourceCreator)
     {
         if (_baseBrush is not null && _highlightBrush is not null && _partialBrush is not null)
         {
@@ -163,9 +167,9 @@ public sealed partial class LyricsStageControl : UserControl
         }
 
         DisposeBrushes();
-        _baseBrush = new CanvasSolidColorBrush(StageCanvas, Color.FromArgb(255, 136, 136, 136));
-        _highlightBrush = new CanvasSolidColorBrush(StageCanvas, Microsoft.UI.Colors.White);
-        _partialBrush = new CanvasSolidColorBrush(StageCanvas, Microsoft.UI.Colors.White);
+        _baseBrush = new CanvasSolidColorBrush(resourceCreator, Color.FromArgb(255, 136, 136, 136));
+        _highlightBrush = new CanvasSolidColorBrush(resourceCreator, Microsoft.UI.Colors.White);
+        _partialBrush = new CanvasSolidColorBrush(resourceCreator, Microsoft.UI.Colors.White);
         _resourcesReady = true;
     }
 

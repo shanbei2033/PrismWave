@@ -365,9 +365,30 @@ public sealed class FullPlayPageXamlTests
         Assert.Contains("_lyricsReturnTimer.Tick -= LyricsReturnTimer_Tick", codeBehind, StringComparison.Ordinal);
         Assert.Contains("surface.Dispose()", codeBehind, StringComparison.Ordinal);
         Assert.Contains("CompositionTarget.Rendering -= CompositionTarget_Rendering", lyricsStage, StringComparison.Ordinal);
-        Assert.Contains("EnsureDeviceResources()", lyricsStage, StringComparison.Ordinal);
+        Assert.Contains("EnsureDeviceResources(", lyricsStage, StringComparison.Ordinal);
         Assert.Contains("DisposeLayoutCache()", lyricsStage, StringComparison.Ordinal);
         Assert.Contains("DisposeBrushes()", lyricsStage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LyricsStage_CreatesWin2DResourcesOnlyAfterCanvasDeviceIsReady()
+    {
+        var lyricsStage = File.ReadAllText(FindRepositoryFile(
+            "src", "PrismWave.WinUI", "Controls", "Lyrics", "LyricsStageControl.xaml.cs"));
+        var loadedStart = lyricsStage.IndexOf(
+            "private void LyricsStageControl_Loaded", StringComparison.Ordinal);
+        var unloadedStart = lyricsStage.IndexOf(
+            "private void LyricsStageControl_Unloaded", loadedStart, StringComparison.Ordinal);
+        var createStart = lyricsStage.IndexOf(
+            "private void StageCanvas_CreateResources", unloadedStart, StringComparison.Ordinal);
+        var ensureStart = lyricsStage.IndexOf(
+            "private void EnsureDeviceResources", createStart, StringComparison.Ordinal);
+        var loaded = lyricsStage[loadedStart..unloadedStart];
+        var createResources = lyricsStage[createStart..ensureStart];
+
+        Assert.Contains("if (StageCanvas.ReadyToDraw)", loaded, StringComparison.Ordinal);
+        Assert.Contains("EnsureDeviceResources(StageCanvas)", loaded, StringComparison.Ordinal);
+        Assert.Contains("EnsureDeviceResources(sender)", createResources, StringComparison.Ordinal);
     }
 
     [Fact]

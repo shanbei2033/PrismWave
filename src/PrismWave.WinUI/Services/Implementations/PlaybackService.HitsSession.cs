@@ -64,7 +64,10 @@ public sealed partial class PlaybackService
         _dsdEngine.Stop();
 
         var settings = _settingsService.Current;
-        _mpvHost.ResetPreference("wasapi_shared", settings.AudioOutputDevice);
+        _mpvHost.ResetPreference(
+            "wasapi_shared",
+            settings.AudioOutputDevice,
+            forceRestart: true);
         NotifyHits(revision);
         return revision;
     }
@@ -188,7 +191,10 @@ public sealed partial class PlaybackService
         StopHitsPlayback(clearTrack: true);
         if (!_hitsSessionGuard.TryEnd(revision, out var snapshot) || snapshot is null) return;
         var settings = _settingsService.Current;
-        _mpvHost.ResetPreference(settings.AudioOutputMode, settings.AudioOutputDevice);
+        _mpvHost.ResetPreference(
+            settings.AudioOutputMode,
+            settings.AudioOutputDevice,
+            forceRestart: true);
         RestorePrimaryPlaybackSession(snapshot);
     }
 

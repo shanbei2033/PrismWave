@@ -88,6 +88,30 @@ public sealed class MpvPlaybackEngineHostTests
         Assert.Equal(3, factory.Created.Count);
     }
 
+    [Fact]
+    public void ForcedResetSamePreference_RetiresEngineAtSessionBoundary()
+    {
+        var factory = new FakePlaybackEngineFactory();
+        using var host = new MpvPlaybackEngineHost(
+            factory,
+            AudioOutputPolicy.WasapiSharedId,
+            "auto");
+        var retired = factory.Created[0].Engine;
+        var ended = 0;
+        host.PlaybackEnded += (_, _) => ended++;
+
+        var replaced = host.ResetPreference(
+            AudioOutputPolicy.WasapiSharedId,
+            "auto",
+            forceRestart: true);
+        retired.RaisePlaybackEnded();
+
+        Assert.True(replaced);
+        Assert.True(retired.IsDisposed);
+        Assert.Equal(2, factory.Created.Count);
+        Assert.Equal(0, ended);
+    }
+
     private sealed class FakePlaybackEngineFactory : IPlaybackEngineFactory
     {
         public List<CreatedEngine> Created { get; } = [];

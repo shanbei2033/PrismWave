@@ -48,7 +48,8 @@ public sealed class PlaybackServiceAudioOutputStructureTests
         Assert.Contains("partial class PlaybackService", main);
         Assert.Contains("IHitsPlaybackSession", main);
         Assert.Contains("CapturePrimaryPlaybackSession", hits);
-        Assert.Contains("_mpvHost.ResetPreference(\"wasapi_shared\"", hits);
+        Assert.Contains("_mpvHost.ResetPreference(\n            \"wasapi_shared\"", hits);
+        Assert.Contains("forceRestart: true", hits);
         Assert.Contains("RestorePrimaryPlaybackSession", hits);
         Assert.DoesNotContain("new MpvPlaybackEngineHost", hits);
         Assert.DoesNotContain("SaveAsync", hits);

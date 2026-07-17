@@ -76,15 +76,27 @@ public void Begin_ClonesQueueAndOwnsOneActiveRevision()
 }
 
 [Fact]
-public void TryEnd_IsIdempotentAndRejectsStaleRevision()
+public void BeginWhileActive_PreservesOriginalSnapshot()
 {
     var guard = new TransientPlaybackSessionGuard();
     var first = guard.Begin(Snapshot("first"));
     var second = guard.Begin(Snapshot("second"));
 
+    Assert.Equal(first, second);
+    Assert.True(guard.TryEnd(first, out var restored));
+    Assert.Equal("first", restored!.Track!.Id);
+}
+
+[Fact]
+public void TryEnd_IsIdempotentAndRejectsPreviousRevision()
+{
+    var guard = new TransientPlaybackSessionGuard();
+    var first = guard.Begin(Snapshot("first"));
+    Assert.True(guard.TryEnd(first, out _));
+    var second = guard.Begin(Snapshot("second"));
+
     Assert.False(guard.TryEnd(first, out _));
-    Assert.True(guard.TryEnd(second, out var restored));
-    Assert.Equal("second", restored!.Track!.Id);
+    Assert.True(guard.TryEnd(second, out _));
     Assert.False(guard.TryEnd(second, out _));
 }
 ```
@@ -137,6 +149,11 @@ public sealed class TransientPlaybackSessionGuard
 
     public long Begin(PlaybackSessionSnapshot snapshot)
     {
+        if (ActiveRevision != 0)
+        {
+            return ActiveRevision;
+        }
+
         Snapshot = snapshot with { Queue = snapshot.Queue.ToArray() };
         ActiveRevision = ++_revision;
         return ActiveRevision;
@@ -556,4 +573,3 @@ dotnet run --project src\PrismWave.WinUI\PrismWave.WinUI.csproj -p:Platform=x64 
 ```
 
 Leave the final Demo window open for the user.
-

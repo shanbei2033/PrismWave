@@ -55,6 +55,7 @@ public sealed class FullPlayPageXamlTests
             element.Attribute("DoubleTapped") is not null);
 
         Assert.Equal("FullPlayCover_DoubleTapped", interactiveHost.Attribute("DoubleTapped")?.Value);
+        Assert.Null(interactiveHost.Attribute("ToolTipService.ToolTip"));
         Assert.Contains("_isCoverSearchDialogOpen", codeBehind, StringComparison.Ordinal);
         Assert.Contains("ShowCoverSearchDialogAsync", codeBehind, StringComparison.Ordinal);
         Assert.Contains("e.Handled = true", codeBehind, StringComparison.Ordinal);

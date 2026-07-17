@@ -142,6 +142,22 @@ public sealed class HitsImmersivePageStructureTests
         Assert.Contains("args.Handled = true", handler, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void EscapeShortcut_RemainsFunctionalWithoutShowingAKeyboardHintPopup()
+    {
+        var document = XDocument.Parse(Read("Views", "Hits", "HitsStatusPage.xaml"));
+        var page = document.Root!;
+        var escape = Assert.Single(document.Descendants(), element =>
+            element.Name.LocalName == "KeyboardAccelerator" &&
+            element.Attribute("Key")?.Value == "Escape");
+        var backButton = Assert.Single(document.Descendants(), element =>
+            element.Attribute("Click")?.Value == "BackButton_Click");
+
+        Assert.Equal("Hidden", page.Attribute("KeyboardAcceleratorPlacementMode")?.Value);
+        Assert.Equal("BackKeyboardAccelerator_Invoked", escape.Attribute("Invoked")?.Value);
+        Assert.NotNull(backButton);
+    }
+
     private static string SliceMethod(string source, string startMarker, string endMarker)
     {
         var start = source.IndexOf(startMarker, StringComparison.Ordinal);

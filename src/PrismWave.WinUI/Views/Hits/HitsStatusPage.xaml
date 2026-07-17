@@ -4,7 +4,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:converters="using:PrismWave_WinUI.Converters"
-    xmlns:media="using:PrismWave_WinUI.Controls.Media">
+    xmlns:media="using:PrismWave_WinUI.Controls.Media"
+    KeyboardAcceleratorPlacementMode="Hidden">
     <Page.KeyboardAccelerators>
         <KeyboardAccelerator Key="Escape" Invoked="BackKeyboardAccelerator_Invoked" />
     </Page.KeyboardAccelerators>

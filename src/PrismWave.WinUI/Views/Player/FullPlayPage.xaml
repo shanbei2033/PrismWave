@@ -79,8 +79,7 @@
                         Height="420"
                         Background="{StaticResource PrismSurfaceStrongBrush}"
                         CornerRadius="14"
-                        DoubleTapped="FullPlayCover_DoubleTapped"
-                        ToolTipService.ToolTip="双击更换封面">
+                        DoubleTapped="FullPlayCover_DoubleTapped">
                         <Grid Width="420" Height="420">
                             <FontIcon
                                 Glyph="&#xE8D6;"

@@ -25,6 +25,7 @@
     <Compile Include="../../src/PrismWave.WinUI/Models/CoverModels.cs" Link="Models/CoverModels.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/OnlinePlaybackResolution.cs" Link="Models/OnlinePlaybackResolution.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/OnlinePlaybackFailure.cs" Link="Models/OnlinePlaybackFailure.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/OnlineAudioCacheModels.cs" Link="Models/OnlineAudioCacheModels.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/OnlineAccountModels.cs" Link="Models/OnlineAccountModels.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/AudioOutputModels.cs" Link="Models/AudioOutputModels.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/OnlineProviderTrackModel.cs" Link="Models/OnlineProviderTrackModel.cs" />
@@ -61,6 +62,7 @@
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlineAccountService.cs" Link="Contracts/IOnlineAccountService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlineMusicProviderAdapter.cs" Link="Contracts/IOnlineMusicProviderAdapter.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlineSearchService.cs" Link="Contracts/IOnlineSearchService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlineAudioCache.cs" Link="Contracts/IOnlineAudioCache.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlineHomeService.cs" Link="Contracts/IOnlineHomeService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/ILibraryService.cs" Link="Contracts/ILibraryService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/ILocalMusicScanner.cs" Link="Contracts/ILocalMusicScanner.cs" />
@@ -82,6 +84,7 @@
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/PlaybackLoadEventGuard.cs" Link="Services/PlaybackLoadEventGuard.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/SampleOnlineSearchService.cs" Link="Services/OnlineSearchService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/SettingsService.cs" Link="Services/SettingsService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/OnlineAudioCache.cs" Link="Services/OnlineAudioCache.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/LocalMusicScanner.cs" Link="Services/LocalMusicScanner.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/LibraryService.cs" Link="Services/LibraryService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Player/PlaybackViewModel.cs" Link="ViewModels/PlaybackViewModel.cs" />

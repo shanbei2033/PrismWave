@@ -3,7 +3,7 @@
   <img src="assets/logo.png" alt="logo" width="128">
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
-  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-R503-blue" alt="Release"></a>
+  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.0-blue" alt="Release"></a>
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.29.3-blue" alt="Flutter"></a>
 </div>
 
@@ -31,6 +31,25 @@ Flutter 应用仍保留在 `app/` 目录，作为旧版/对照客户端。
 > WinUI 3 外壳、真实本地曲库扫描、在线音频缓存、逐字歌词、沉浸式
 > FullPlay，以及可切换的经典纯色 / 浅色云母 / 亚克力外观。Flutter 应用仍
 > 保留在 `app/` 目录中，用于对照和兼容。
+
+## 最新版本：v1.0.0
+
+这是 PrismWave WinUI 的首个正式版本，包含：
+
+- 完整的原生 WinUI 3 桌面音乐播放器，采用现代 Windows 11 设计
+- 支持元数据和封面回退的真实递归本地曲库扫描
+- MPV、WASAPI 共享和 WASAPI 独占播放路径，带自动回退
+- 本地和在线统一搜索，即时播放和队列构建
+- 在线音源：Audius、网易云、酷我、咪咕、QQ音乐、酷狗、太合
+- 逐字歌词，支持 QQ QRC 和网易云 YRC
+- 沉浸式 FullPlay 页面，使用 Win2D 歌词画布
+- 播放队列，支持拖拽排序和在线音源按需恢复
+- HITS 广播模式，基于节目单的在线播放，10 个音源 provider
+- Windows DSD 后端（BASS/BASSDSD/BASSASIO），支持 .dsf/.dff 文件
+- 开发者模式，带实时播放日志
+- 可配置外观：经典纯色、浅色 Windows 11 云母和亚克力风格
+
+下载请前往 [v1.0.0 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.0)。
 
 ## 功能
 

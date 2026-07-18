@@ -8,14 +8,24 @@ namespace PrismWave_WinUI.Services.Implementations;
 public sealed class SettingsService : ISettingsService
 {
     private readonly string _settingsPath;
+    private readonly object _stateSync = new();
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
+    private long _saveRevision;
 
     public SettingsService(FlutterPreferencesMigrationService migrationService)
+        : this(
+            migrationService,
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "PrismWave",
+                "WinUI",
+                "settings.json"))
     {
-        _settingsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "PrismWave",
-            "WinUI",
-            "settings.json");
+    }
+
+    internal SettingsService(FlutterPreferencesMigrationService migrationService, string settingsPath)
+    {
+        _settingsPath = Path.GetFullPath(settingsPath);
 
         var loaded = LoadExisting() ?? CreateFromMigration(migrationService.Load());
         Current = loaded with
@@ -28,7 +38,7 @@ public sealed class SettingsService : ISettingsService
             OnlineCacheDirectory = loaded.OnlineCacheDirectory?.Trim() ?? string.Empty
         };
         Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
-        File.WriteAllText(_settingsPath, JsonSerializer.Serialize(Current, JsonOptions));
+        WriteSnapshotAtomically(Current);
     }
 
     public SettingsSnapshot Current { get; private set; }
@@ -36,10 +46,90 @@ public sealed class SettingsService : ISettingsService
 
     public Task SaveAsync(SettingsSnapshot snapshot)
     {
-        Current = snapshot;
-        Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
+        long revision;
+        lock (_stateSync)
+        {
+            Current = snapshot;
+            revision = ++_saveRevision;
+        }
+
         SettingsChanged?.Invoke(this, EventArgs.Empty);
-        return File.WriteAllTextAsync(_settingsPath, JsonSerializer.Serialize(snapshot, JsonOptions));
+        return SaveSnapshotAsync(snapshot, revision);
+    }
+
+    private async Task SaveSnapshotAsync(SettingsSnapshot snapshot, long revision)
+    {
+        await _saveGate.WaitAsync().ConfigureAwait(false);
+        string? temporaryPath = null;
+        try
+        {
+            lock (_stateSync)
+            {
+                if (revision != _saveRevision)
+                {
+                    return;
+                }
+            }
+
+            var directory = Path.GetDirectoryName(_settingsPath)!;
+            Directory.CreateDirectory(directory);
+            temporaryPath = Path.Combine(directory, $"settings.{Guid.NewGuid():N}.tmp");
+            await File.WriteAllTextAsync(
+                temporaryPath,
+                JsonSerializer.Serialize(snapshot, JsonOptions)).ConfigureAwait(false);
+
+            lock (_stateSync)
+            {
+                if (revision != _saveRevision)
+                {
+                    return;
+                }
+            }
+
+            File.Move(temporaryPath, _settingsPath, overwrite: true);
+            temporaryPath = null;
+        }
+        finally
+        {
+            if (temporaryPath is not null)
+            {
+                TryDelete(temporaryPath);
+            }
+
+            _saveGate.Release();
+        }
+    }
+
+    private void WriteSnapshotAtomically(SettingsSnapshot snapshot)
+    {
+        var directory = Path.GetDirectoryName(_settingsPath)!;
+        var temporaryPath = Path.Combine(directory, $"settings.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.WriteAllText(temporaryPath, JsonSerializer.Serialize(snapshot, JsonOptions));
+            File.Move(temporaryPath, _settingsPath, overwrite: true);
+        }
+        finally
+        {
+            TryDelete(temporaryPath);
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 
     private SettingsSnapshot? LoadExisting()

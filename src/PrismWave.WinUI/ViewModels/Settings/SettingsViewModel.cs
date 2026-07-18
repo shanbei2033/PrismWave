@@ -200,7 +200,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public double OnlineCacheMaximumGigabytes
     {
-        get => _settingsService.Current.OnlineCacheMaximumBytes / 1024d / 1024d / 1024d / 1024d;
+        get => _settingsService.Current.OnlineCacheMaximumBytes / (1024d * 1024d * 1024d);
         set
         {
             var normalized = Math.Clamp(value, 0.5, 1024);
@@ -408,9 +408,9 @@ public sealed partial class SettingsViewModel : ObservableObject
             AudioOutputDevice = AudioOutputDevice,
             WindowsDsdDevice = WindowsDsdDevice,
             FadeEnabled = FadeEnabled,
-            FadeDurationMs = FadeDurationMs
-            ,OnlineCacheMaximumBytes = (long)Math.Round(OnlineCacheMaximumGigabytes * 1024 * 1024 * 1024)
-            ,OnlineCacheDirectory = _settingsService.Current.OnlineCacheDirectory
+            FadeDurationMs = FadeDurationMs,
+            OnlineCacheMaximumBytes = (long)Math.Round(OnlineCacheMaximumGigabytes * 1024 * 1024 * 1024),
+            OnlineCacheDirectory = _settingsService.Current.OnlineCacheDirectory
         });
     }
 

@@ -46,6 +46,38 @@ public sealed partial class SearchPage : Page
         }
     }
 
+    private void ResultRow_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (e.Handled || IsInsideButton(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
+
+        if (sender is FrameworkElement { Tag: SearchResultModel result })
+        {
+            App.Services.Search.PlaySearchResultCommand.Execute(result);
+            e.Handled = true;
+        }
+    }
+
+    private void ResultMoreButton_Tapped(object sender, TappedRoutedEventArgs e) =>
+        e.Handled = true;
+
+    private static bool IsInsideButton(DependencyObject? source)
+    {
+        while (source is not null)
+        {
+            if (source is Button)
+            {
+                return true;
+            }
+
+            source = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(source);
+        }
+
+        return false;
+    }
+
     private void PlayResult_Click(object sender, RoutedEventArgs e) =>
         ExecuteResultCommand(sender, App.Services.Search.PlaySearchResultCommand);
 

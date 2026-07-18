@@ -920,7 +920,10 @@ public sealed class OnlineProviderService : IOnlineProviderService
                 CleanText(title),
                 CleanText(artist),
                 CleanText(ReadString(item, "album") ?? string.Empty),
-                0));
+                0,
+                NormalizeUrl(ReadString(item, "pic")
+                    ?? ReadString(item, "pic_url")
+                    ?? ReadString(item, "cover"))));
         }
 
         if (results.Count > 0)
@@ -930,6 +933,111 @@ public sealed class OnlineProviderService : IOnlineProviderService
         }
 
         return results;
+    }
+
+    private async Task<IReadOnlyList<OnlineProviderTrackModel>> EnrichMissingCoversAsync(
+        IReadOnlyList<OnlineProviderTrackModel> tracks,
+        string source,
+        CancellationToken cancellationToken)
+    {
+        if (tracks.Count == 0 || tracks.All(track => !string.IsNullOrWhiteSpace(track.CoverUrl)))
+        {
+            return tracks;
+        }
+
+        var enriched = await Task.WhenAll(tracks.Select(async track =>
+        {
+            if (!string.IsNullOrWhiteSpace(track.CoverUrl))
+            {
+                return track;
+            }
+
+            var cover = source.Equals("qq", StringComparison.OrdinalIgnoreCase)
+                ? await ResolveQqCoverAsync(track.ProviderTrackId, cancellationToken)
+                : await ResolveGdStudioCoverAsync(source, track.ProviderTrackId, cancellationToken);
+            return string.IsNullOrWhiteSpace(cover) ? track : track with { CoverUrl = cover };
+        }));
+        return enriched;
+    }
+
+    private async Task<string?> ResolveQqCoverAsync(
+        string songMid,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var payload = JsonSerializer.Serialize(new Dictionary<string, object>
+            {
+                ["comm"] = new Dictionary<string, object> { ["ct"] = 24, ["cv"] = 0 },
+                ["songinfo"] = new Dictionary<string, object>
+                {
+                    ["module"] = "music.pf_song_detail_svr",
+                    ["method"] = "get_song_detail_yqq",
+                    ["param"] = new Dictionary<string, object>
+                    {
+                        ["song_mid"] = songMid,
+                        ["song_id"] = 0
+                    }
+                }
+            });
+            var uri = new Uri(
+                "https://u.y.qq.com/cgi-bin/musicu.fcg?format=json&data="
+                + Uri.EscapeDataString(payload));
+            using var document = await GetJsonAsync(uri, QqHeaders, cancellationToken);
+            if (document is null
+                || !document.RootElement.TryGetProperty("songinfo", out var songInfo)
+                || !songInfo.TryGetProperty("data", out var data)
+                || !data.TryGetProperty("track_info", out var trackInfo)
+                || !trackInfo.TryGetProperty("album", out var album))
+            {
+                return null;
+            }
+
+            return album.TryGetProperty("mid", out var albumMid)
+                ? BuildQqCover(albumMid.GetString())
+                : null;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException)
+        {
+            StartupLog.Write($"online.providers.cover.failed: provider=qq, id={songMid}, error={exception.Message}");
+            return null;
+        }
+    }
+
+    private async Task<string?> ResolveGdStudioCoverAsync(
+        string source,
+        string trackId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var uri = new Uri(
+                $"https://music-api.gdstudio.xyz/api.php?types=pic&source={Uri.EscapeDataString(source)}&id={Uri.EscapeDataString(trackId)}");
+            using var document = await GetJsonAsync(uri, PyncmdHeaders, cancellationToken);
+            if (document is null)
+            {
+                return null;
+            }
+
+            var root = document.RootElement;
+            var value = root.ValueKind == JsonValueKind.String
+                ? root.GetString()
+                : ReadString(root, "url") ?? ReadString(root, "pic") ?? ReadString(root, "cover");
+            return NormalizeUrl(value);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException)
+        {
+            StartupLog.Write($"online.providers.cover.failed: provider={source}, id={trackId}, error={exception.Message}");
+            return null;
+        }
     }
 
     private async Task<IReadOnlyList<OnlineProviderTrackModel>> SearchAudiusAsync(
@@ -1022,7 +1130,7 @@ public sealed class OnlineProviderService : IOnlineProviderService
             cancellationToken);
         if (compatibilityResults.Count > 0)
         {
-            return compatibilityResults;
+            return await EnrichMissingCoversAsync(compatibilityResults, "kuwo", cancellationToken);
         }
 
         var token = await GetKuwoTokenAsync(cancellationToken) ?? string.Empty;
@@ -1040,12 +1148,13 @@ public sealed class OnlineProviderService : IOnlineProviderService
             return Array.Empty<OnlineProviderTrackModel>();
         }
 
-        return list.EnumerateArray()
+        var results = list.EnumerateArray()
             .Select(ParseKuwoTrack)
             .Where(track => track is not null)
             .Select(track => track!)
             .Take(10)
             .ToList();
+        return await EnrichMissingCoversAsync(results, "kuwo", cancellationToken);
     }
 
     private async Task<IReadOnlyList<OnlineProviderTrackModel>> SearchMiguAsync(
@@ -1094,6 +1203,7 @@ public sealed class OnlineProviderService : IOnlineProviderService
         string query,
         CancellationToken cancellationToken)
     {
+        IReadOnlyList<OnlineProviderTrackModel> smartboxResults = Array.Empty<OnlineProviderTrackModel>();
         var smartboxUri = new Uri(
             $"https://c.y.qq.com/splcloud/fcgi-bin/smartbox_new.fcg?key={Uri.EscapeDataString(query)}&format=json");
         using (var smartboxDocument = await GetJsonAsync(smartboxUri, QqHeaders, cancellationToken))
@@ -1104,16 +1214,12 @@ public sealed class OnlineProviderService : IOnlineProviderService
                 && smartboxSong.TryGetProperty("itemlist", out var smartboxItems)
                 && smartboxItems.ValueKind == JsonValueKind.Array)
             {
-                var smartboxResults = smartboxItems.EnumerateArray()
+                smartboxResults = smartboxItems.EnumerateArray()
                     .Select(ParseQqSmartboxTrack)
                     .Where(track => track is not null)
                     .Select(track => track!)
                     .Take(10)
                     .ToList();
-                if (smartboxResults.Count > 0)
-                {
-                    return smartboxResults;
-                }
             }
         }
 
@@ -1121,21 +1227,25 @@ public sealed class OnlineProviderService : IOnlineProviderService
             "https://c.y.qq.com/soso/fcgi-bin/client_search_cp"
             + $"?ct=24&qqmusic_ver=1298&new_json=1&remoteplace=txt.yqq.song&searchid=1&t=0&aggr=1&cr=1&catZhida=1&lossless=0&flag_qc=0&p=1&n=10&w={Uri.EscapeDataString(query)}&format=json");
         using var legacyDocument = await GetJsonAsync(legacyUri, QqHeaders, cancellationToken);
-        if (legacyDocument is null
-            || !legacyDocument.RootElement.TryGetProperty("data", out var data)
-            || !data.TryGetProperty("song", out var song)
-            || !song.TryGetProperty("list", out var list)
-            || list.ValueKind != JsonValueKind.Array)
+        if (legacyDocument is not null
+            && legacyDocument.RootElement.TryGetProperty("data", out var data)
+            && data.TryGetProperty("song", out var song)
+            && song.TryGetProperty("list", out var list)
+            && list.ValueKind == JsonValueKind.Array)
         {
-            return Array.Empty<OnlineProviderTrackModel>();
+            var results = list.EnumerateArray()
+                .Select(ParseQqTrack)
+                .Where(track => track is not null)
+                .Select(track => track!)
+                .Take(10)
+                .ToList();
+            if (results.Count > 0)
+            {
+                return await EnrichMissingCoversAsync(results, "qq", cancellationToken);
+            }
         }
 
-        return list.EnumerateArray()
-            .Select(ParseQqTrack)
-            .Where(track => track is not null)
-            .Select(track => track!)
-            .Take(10)
-            .ToList();
+        return await EnrichMissingCoversAsync(smartboxResults, "qq", cancellationToken);
     }
 
     private async Task<IReadOnlyList<OnlineProviderTrackModel>> SearchKugouAsync(
@@ -1674,6 +1784,23 @@ public sealed class OnlineProviderService : IOnlineProviderService
             return null;
         }
 
+        var cover = NormalizeUrl(ReadString(item, "pic")
+            ?? ReadString(item, "pic120")
+            ?? ReadString(item, "albumpic")
+            ?? ReadString(item, "albumPic"));
+        if (cover is not null)
+        {
+            cover = cover.Replace("{size}", "500", StringComparison.OrdinalIgnoreCase);
+        }
+        else
+        {
+            var albumId = ReadString(item, "albumid") ?? ReadString(item, "albumId");
+            if (!string.IsNullOrWhiteSpace(albumId))
+            {
+                cover = $"https://img4.kuwo.cn/star/albumcover/500/{Uri.EscapeDataString(albumId)}.jpg";
+            }
+        }
+
         return new OnlineProviderTrackModel(
             "kuwo",
             id,
@@ -1681,9 +1808,7 @@ public sealed class OnlineProviderService : IOnlineProviderService
             CleanText(ReadString(item, "artist") ?? string.Empty),
             CleanText(ReadString(item, "album") ?? string.Empty),
             ReadDouble(item, "duration"),
-            NormalizeUrl(ReadString(item, "pic")
-                ?? ReadString(item, "pic120")
-                ?? ReadString(item, "albumpic")));
+            cover);
     }
 
     private static OnlineProviderTrackModel? ParseMiguTrack(JsonElement item)
@@ -1723,13 +1848,18 @@ public sealed class OnlineProviderService : IOnlineProviderService
             return null;
         }
 
+        var albumMid = ReadString(item, "album_mid")
+            ?? ReadString(item, "albummid")
+            ?? ReadString(item, "albumMid");
+        var cover = BuildQqCover(albumMid);
         return new OnlineProviderTrackModel(
             "qq",
             id,
             CleanText(title),
             CleanText(ReadString(item, "singer") ?? string.Empty),
-            string.Empty,
-            0);
+            CleanText(ReadString(item, "albumname") ?? ReadString(item, "album") ?? string.Empty),
+            ReadDouble(item, "interval"),
+            cover);
     }
 
     private static OnlineProviderTrackModel? ParseQqTrack(JsonElement item)
@@ -1753,7 +1883,7 @@ public sealed class OnlineProviderService : IOnlineProviderService
                 var albumMid = ReadString(rawAlbum, "mid");
                 if (!string.IsNullOrWhiteSpace(albumMid))
                 {
-                    cover = $"https://y.gtimg.cn/music/photo_new/T002R500x500M000{albumMid}.jpg";
+                    cover = BuildQqCover(albumMid);
                 }
             }
         }
@@ -1766,6 +1896,13 @@ public sealed class OnlineProviderService : IOnlineProviderService
             CleanText(album),
             ReadDouble(item, "interval"),
             cover);
+    }
+
+    private static string? BuildQqCover(string? albumMid)
+    {
+        return string.IsNullOrWhiteSpace(albumMid)
+            ? null
+            : $"https://y.gtimg.cn/music/photo_new/T002R500x500M000{Uri.EscapeDataString(albumMid)}.jpg";
     }
 
     private static OnlineProviderTrackModel? ParseKugouTrack(JsonElement item)

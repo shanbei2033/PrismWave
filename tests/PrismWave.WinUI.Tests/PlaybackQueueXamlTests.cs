@@ -65,7 +65,9 @@ public sealed class PlaybackQueueXamlTests
             element.Attribute(xamlName)?.Value == "CurrentItemIndicator" &&
             element.Attribute("Visibility")?.Value.Contains("IsCurrent", StringComparison.Ordinal) == true);
         Assert.Contains(list.Descendants(), element =>
-            element.Name.LocalName == "Button" && element.Attribute("AutomationProperties.Name")?.Value == "从播放队列移除");
+            element.Name.LocalName == "MenuFlyoutItem"
+            && element.Attribute("Text")?.Value == "从播放队列移除"
+            && element.Attribute("Click")?.Value == "Remove_Click");
     }
 
     [Fact]

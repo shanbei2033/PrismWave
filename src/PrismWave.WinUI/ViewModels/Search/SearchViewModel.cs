@@ -12,7 +12,6 @@ public sealed partial class SearchViewModel : ObservableObject
     private readonly IOnlineSearchService _searchService;
     private readonly IPlaybackService _playbackService;
     private readonly ISettingsService _settingsService;
-    private readonly IOnlineAccountService _accountService;
     private readonly ILibraryService? _libraryService;
     private readonly Dictionary<string, SearchSourceState> _sourceStates = new(StringComparer.OrdinalIgnoreCase);
     private string _query = string.Empty;
@@ -34,7 +33,7 @@ public sealed partial class SearchViewModel : ObservableObject
         _searchService = searchService;
         _playbackService = playbackService;
         _settingsService = settingsService;
-        _accountService = accountService;
+        _ = accountService;
         _libraryService = libraryService;
         _playbackService.StateChanged += (_, _) => RefreshCurrentTrackState();
         foreach (var item in settingsService.Current.SearchHistory.Take(HistoryLimit))
@@ -123,14 +122,7 @@ public sealed partial class SearchViewModel : ObservableObject
         Error = null;
         _sourceStates.Clear();
         AddSource("local", "本地音乐");
-        if (_accountService.GetSnapshot("netease").State == OnlineProviderAuthState.Authenticated)
-        {
-            AddSource("netease", "网易云音乐");
-        }
-        if (_accountService.GetSnapshot("qq").State == OnlineProviderAuthState.Authenticated)
-        {
-            AddSource("qq", "QQ音乐");
-        }
+        AddSource("online", "在线音乐");
         RebuildDisplayItems();
         try
         {
@@ -179,7 +171,16 @@ public sealed partial class SearchViewModel : ObservableObject
     private void PlaySearchResult(SearchResultModel result)
     {
         var track = CreateTrack(result);
-        _playbackService.Play(track, new[] { track });
+        var queue = DisplayItems
+            .Where(item => item.IsTrack && item.Result is not null)
+            .Select(item => CreateTrack(item.Result!))
+            .ToList();
+        if (queue.Count == 0)
+        {
+            queue.Add(track);
+        }
+
+        _playbackService.Play(track, queue);
     }
 
     [RelayCommand]
@@ -238,7 +239,9 @@ public sealed partial class SearchViewModel : ObservableObject
         {
             var results = source == "local"
                 ? await _searchService.SearchLocalAsync(query, cancellationToken)
-                : await _searchService.SearchProviderAsync(query, source, cancellationToken);
+                : (await _searchService.SearchAsync(query, cancellationToken))
+                    .Where(result => !result.IsLocal)
+                    .ToList();
             if (revision != _searchRevision || cancellationToken.IsCancellationRequested)
             {
                 return;
@@ -269,7 +272,7 @@ public sealed partial class SearchViewModel : ObservableObject
     private void RebuildDisplayItems()
     {
         DisplayItems.Clear();
-        foreach (var source in new[] { "local", "netease", "qq" })
+        foreach (var source in new[] { "local", "online" })
         {
             if (!_sourceStates.TryGetValue(source, out var state))
             {
@@ -326,6 +329,7 @@ public sealed partial class SearchViewModel : ObservableObject
     {
         "netease" => $"网易云音乐暂时不可用：{exception.Message}",
         "qq" => $"QQ音乐暂时不可用：{exception.Message}",
+        "online" => $"在线音乐暂时不可用：{exception.Message}",
         _ => $"本地音乐搜索失败：{exception.Message}"
     };
 

@@ -23,11 +23,11 @@ public sealed class SearchViewModelTests
     }
 
     [Fact]
-    public async Task SubmitSearch_UsesLocalAndAuthenticatedOnlineSourcesOnly()
+    public async Task SubmitSearch_UsesLocalThenAllOnlineSources()
     {
         var search = new FakeSearchService();
         var accounts = new FakeAccountService(
-            new OnlineAccountSnapshot("netease", OnlineProviderAuthState.Authenticated),
+            new OnlineAccountSnapshot("netease", OnlineProviderAuthState.Disconnected),
             new OnlineAccountSnapshot("qq", OnlineProviderAuthState.Disconnected));
         var settings = new FakeSettingsService(CreateSettings());
         var viewModel = CreateViewModel(search, settings, accounts);
@@ -35,13 +35,11 @@ public sealed class SearchViewModelTests
 
         await viewModel.RunSearchCommand.ExecuteAsync(null);
 
-        Assert.Equal(new[] { "local:Song", "netease:Song" }, search.Calls.OrderBy(value => value).ToArray());
-        Assert.DoesNotContain(search.Calls, value => value.StartsWith("qq:", StringComparison.Ordinal));
+        Assert.Equal(new[] { "local:Song", "online:Song" }, search.Calls.OrderBy(value => value).ToArray());
         Assert.Equal("Song", viewModel.History[0]);
         Assert.True(viewModel.HasSubmittedSearch);
         Assert.Contains(viewModel.DisplayItems, item => item.Header == "本地音乐");
-        Assert.Contains(viewModel.DisplayItems, item => item.Header == "网易云音乐");
-        Assert.DoesNotContain(viewModel.DisplayItems, item => item.Header == "QQ音乐");
+        Assert.Contains(viewModel.DisplayItems, item => item.Header == "在线音乐");
     }
 
     [Fact]
@@ -81,7 +79,7 @@ public sealed class SearchViewModelTests
     {
         var search = new FakeSearchService { FailingProvider = "netease" };
         var accounts = new FakeAccountService(
-            new OnlineAccountSnapshot("netease", OnlineProviderAuthState.Authenticated));
+            new OnlineAccountSnapshot("netease", OnlineProviderAuthState.Disconnected));
         var viewModel = CreateViewModel(search, new FakeSettingsService(CreateSettings()), accounts);
         viewModel.Query = "Song";
 
@@ -89,9 +87,33 @@ public sealed class SearchViewModelTests
 
         Assert.Contains(viewModel.DisplayItems, item => item.Result?.Provider == "Local");
         Assert.Contains(viewModel.DisplayItems, item =>
-            item.SourceKey == "netease"
+            item.SourceKey == "online"
             && item.IsErrorStatus
             && item.StatusMessage?.Contains("暂时不可用", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
+    public async Task PlayingSearchResult_UsesLocalThenOnlineDisplayOrderAsQueue()
+    {
+        var search = new FakeSearchService();
+        var playback = new FakePlaybackService();
+        var viewModel = new SearchViewModel(
+            search,
+            playback,
+            new FakeSettingsService(CreateSettings()),
+            new FakeAccountService());
+        viewModel.Query = "Song";
+        await viewModel.RunSearchCommand.ExecuteAsync(null);
+        var onlineResult = Assert.Single(
+            viewModel.DisplayItems,
+            item => item.IsTrack && item.Result is { IsLocal: false }).Result!;
+
+        viewModel.PlaySearchResultCommand.Execute(onlineResult);
+
+        Assert.Equal(2, playback.LastQueue.Count);
+        Assert.True(playback.LastQueue[0].IsRemote == false);
+        Assert.True(playback.LastQueue[1].IsRemote);
+        Assert.Equal(onlineResult.Title, playback.LastPlayed?.Title);
     }
 
     private static SearchViewModel CreateViewModel(
@@ -146,7 +168,32 @@ public sealed class SearchViewModelTests
 
         public Task<IReadOnlyList<SearchResultModel>> SearchAsync(
             string query,
-            CancellationToken cancellationToken = default) => SearchLocalAsync(query, cancellationToken);
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add($"online:{query}");
+            if (DelayFirstRequest && query == "First")
+            {
+                FirstRequestStarted.TrySetResult();
+                return WaitAndReturnAsync(query, cancellationToken);
+            }
+
+            if (string.Equals(FailingProvider, "netease", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromException<IReadOnlyList<SearchResultModel>>(
+                    new HttpRequestException("provider unavailable"));
+            }
+
+            return Task.FromResult<IReadOnlyList<SearchResultModel>>(
+                [new SearchResultModel(query, "Artist", "Album", "NetEase", "03:00", false, $"online://netease/1")]);
+        }
+
+        private async Task<IReadOnlyList<SearchResultModel>> WaitAndReturnAsync(
+            string query,
+            CancellationToken cancellationToken)
+        {
+            await ReleaseFirstRequest.Task.WaitAsync(cancellationToken);
+            return [new SearchResultModel(query, "Artist", "Album", "NetEase", "03:00", false, $"online://netease/1")];
+        }
     }
 
     private sealed class FakeSettingsService(SettingsSnapshot current) : ISettingsService
@@ -185,6 +232,8 @@ public sealed class SearchViewModelTests
 
     private sealed class FakePlaybackService : IPlaybackService
     {
+        public TrackModel? LastPlayed { get; private set; }
+        public IReadOnlyList<TrackModel> LastQueue { get; private set; } = [];
         public TrackModel? CurrentTrack => null;
         public IReadOnlyList<TrackModel> Queue => [];
         public PlaybackMode Mode => PlaybackMode.Loop;
@@ -205,7 +254,11 @@ public sealed class SearchViewModelTests
             add { }
             remove { }
         }
-        public void Play(TrackModel track, IReadOnlyList<TrackModel>? queue = null) { }
+        public void Play(TrackModel track, IReadOnlyList<TrackModel>? queue = null)
+        {
+            LastPlayed = track;
+            LastQueue = queue ?? [track];
+        }
         public void Stop() { }
         public void TogglePlayPause() { }
         public void Next() { }

@@ -113,6 +113,7 @@
                                     Padding="8,6"
                                     MinHeight="58"
                                     ColumnSpacing="12"
+                                    Tapped="ResultRow_Tapped"
                                     DoubleTapped="ResultRow_DoubleTapped"
                                     Visibility="{Binding IsTrack, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <Grid.ContextFlyout>
@@ -177,7 +178,7 @@
                                         Style="{StaticResource PrismCaptionTextStyle}"
                                         HorizontalAlignment="Right"
                                         VerticalAlignment="Center" />
-                                    <Button Grid.Column="6">
+                                    <Button Grid.Column="6" Tapped="ResultMoreButton_Tapped">
                                         <FontIcon Glyph="&#xE712;" FontSize="14" />
                                         <Button.Flyout>
                                             <MenuFlyout>

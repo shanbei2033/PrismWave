@@ -332,7 +332,17 @@ public sealed class LibraryService : ILibraryService
 
         if (deleteSourceFile)
         {
-            await Task.Run(() => DeleteTrackSourceFiles(track.Path));
+            try
+            {
+                await Task.Run(() => DeleteTrackSourceFiles(track.Path));
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                Error = $"Could not delete '{track.Title}': {exception.Message}";
+                StartupLog.Write($"library.remove.failed: path={track.Path}, error={exception.Message}");
+                Notify();
+                return;
+            }
         }
 
         var settings = _settingsService.Current;
@@ -356,6 +366,7 @@ public sealed class LibraryService : ILibraryService
         });
 
         _tracks.RemoveAll(item => PathsEqual(item.Path, track.Path));
+        Error = null;
         StartupLog.Write($"library.remove: path={track.Path}, deleteSource={deleteSourceFile}");
         RebuildDerivedCollections(favoriteOrder);
         Notify();

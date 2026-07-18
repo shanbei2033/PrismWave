@@ -51,7 +51,8 @@ public sealed class MediaPagesXamlTests
 
         Assert.DoesNotContain("ScheduleSearchAsync", code, StringComparison.Ordinal);
         Assert.DoesNotContain("Task.Delay(350", code, StringComparison.Ordinal);
-        Assert.Contains("OnlineProviderAuthState.Authenticated", code, StringComparison.Ordinal);
+        Assert.Contains("AddSource(\"online\", \"在线音乐\")", code, StringComparison.Ordinal);
+        Assert.Contains("SearchAsync(query, cancellationToken)", code, StringComparison.Ordinal);
     }
 
     [Fact]

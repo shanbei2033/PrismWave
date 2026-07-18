@@ -3,7 +3,7 @@
   <img src="assets/logo.png" alt="logo" width="128">
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
-  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-R503-blue" alt="Release"></a>
+  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.0-blue" alt="Release"></a>
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.29.3-blue" alt="Flutter"></a>
 </div>
 
@@ -34,6 +34,25 @@ The Flutter application remains under `app/` as the legacy/reference client.
 > word-by-word lyrics, immersive FullPlay, and configurable Solid / light Mica
 > / Acrylic appearance styles. The Flutter application remains available in
 > `app/` for comparison and compatibility.
+
+## Latest release: v1.0.0
+
+This is the first stable release of PrismWave WinUI, featuring:
+
+- Complete native WinUI 3 desktop music player with modern Windows 11 design
+- Real recursive local library scanning with metadata and cover art fallback
+- MPV, WASAPI shared, and WASAPI exclusive output paths with automatic fallback
+- Unified local and online search with instant playback and queue building
+- Online providers: Audius, NetEase, Kuwo, Migu, QQ Music, Kugou, and Taihe
+- Word-by-word lyrics with QQ QRC and NetEase YRC support
+- Immersive FullPlay page with Win2D lyrics canvas
+- Playback queue with drag-to-reorder and on-demand online source recovery
+- HITS radio mode with schedule-based online playback and 10 audio providers
+- Windows DSD backend (BASS/BASSDSD/BASSASIO) for .dsf/.dff files
+- Developer mode with live playback logs
+- Configurable appearance: Classic solid, light Windows 11 Mica, and Acrylic styles
+
+Downloads are available from the [v1.0.0 release page](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.0).
 
 ## Features
 

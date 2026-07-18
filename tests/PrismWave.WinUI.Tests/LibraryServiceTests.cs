@@ -279,6 +279,28 @@ public sealed class LibraryServiceTests
         Assert.True(changed > 0);
     }
 
+    [Fact]
+    public async Task RemoveTrack_WhenSourceIsLocked_PreservesLibraryAndReportsError()
+    {
+        using var library = new TemporaryMusicLibrary();
+        var path = library.CreateFile("locked.mp3");
+        var settings = CreateSettings([library.Root]);
+        var scanner = new FakeScanner((folders, _, _) => Task.FromResult(Success(
+            folders,
+            [CreateTrack(path)])));
+        var service = CreateService(settings, scanner);
+        await service.InitializeAsync();
+        var track = Assert.Single(service.Tracks);
+        await using var lockStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+
+        await service.RemoveTrackAsync(track, deleteSourceFile: true);
+
+        Assert.True(File.Exists(path));
+        Assert.Single(service.Tracks);
+        Assert.NotNull(service.Error);
+        Assert.Contains("Could not delete", service.Error, StringComparison.Ordinal);
+    }
+
     private static LibraryService CreateService(
         FakeSettingsService settings,
         ILocalMusicScanner scanner,

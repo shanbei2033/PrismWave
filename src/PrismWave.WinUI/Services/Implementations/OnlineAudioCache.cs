@@ -15,6 +15,8 @@ public sealed class OnlineAudioCache : IOnlineAudioCache, IDisposable
     private readonly object _gate = new();
     private readonly HashSet<string> _activeKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly bool _ownsHttpClient;
+    private long _reservedBytes;
+    private long _cacheRevision;
 
     public OnlineAudioCache(ISettingsService settingsService, HttpClient? httpClient = null)
     {
@@ -70,6 +72,7 @@ public sealed class OnlineAudioCache : IOnlineAudioCache, IDisposable
         }
 
         var key = CreateTrackKey(track);
+        long cacheRevision;
         lock (_gate)
         {
             if (_activeKeys.Contains(key) || FindCacheFile(key) is not null || Status.IsAtCapacity)
@@ -78,6 +81,7 @@ public sealed class OnlineAudioCache : IOnlineAudioCache, IDisposable
             }
 
             _activeKeys.Add(key);
+            cacheRevision = _cacheRevision;
         }
 
         var directory = ResolveDirectory();
@@ -85,6 +89,7 @@ public sealed class OnlineAudioCache : IOnlineAudioCache, IDisposable
         var extension = GetSafeExtension(source.AbsolutePath);
         var finalPath = Path.Combine(directory, $"{key}{extension}");
         var temporaryPath = $"{finalPath}.{Guid.NewGuid():N}.tmp";
+        long reservation = 0;
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, source);
@@ -100,9 +105,28 @@ public sealed class OnlineAudioCache : IOnlineAudioCache, IDisposable
             response.EnsureSuccessStatusCode();
 
             Refresh();
-            var remaining = Math.Max(0, Status.MaximumBytes - Status.CurrentBytes);
-            if (remaining == 0
-                || response.Content.Headers.ContentLength is long length && length > remaining)
+            long writeLimit;
+            lock (_gate)
+            {
+                if (cacheRevision != _cacheRevision)
+                {
+                    return;
+                }
+
+                var available = Math.Max(0, Status.MaximumBytes - Status.CurrentBytes - _reservedBytes);
+                var contentLength = response.Content.Headers.ContentLength;
+                if (available == 0 || contentLength is > 0 && contentLength > available)
+                {
+                    StartupLog.Write($"playback.cache.skipped-capacity: title=\"{track.Title}\"");
+                    return;
+                }
+
+                reservation = contentLength is > 0 ? contentLength.Value : available;
+                writeLimit = reservation;
+                _reservedBytes += reservation;
+            }
+
+            if (writeLimit == 0)
             {
                 StartupLog.Write($"playback.cache.skipped-capacity: title=\"{track.Title}\"");
                 return;
@@ -127,7 +151,7 @@ public sealed class OnlineAudioCache : IOnlineAudioCache, IDisposable
                 }
 
                 written += read;
-                if (written > remaining)
+                if (written > writeLimit)
                 {
                     StartupLog.Write($"playback.cache.aborted-capacity: title=\"{track.Title}\"");
                     return;
@@ -140,7 +164,16 @@ public sealed class OnlineAudioCache : IOnlineAudioCache, IDisposable
             output.Close();
             if (written > 0)
             {
-                File.Move(temporaryPath, finalPath, overwrite: true);
+                lock (_gate)
+                {
+                    if (cacheRevision != _cacheRevision)
+                    {
+                        return;
+                    }
+
+                    File.Move(temporaryPath, finalPath, overwrite: true);
+                }
+
                 StartupLog.Write($"playback.cache.saved: key={key}, title=\"{track.Title}\", bytes={written}");
             }
         }
@@ -159,6 +192,7 @@ public sealed class OnlineAudioCache : IOnlineAudioCache, IDisposable
             lock (_gate)
             {
                 _activeKeys.Remove(key);
+                _reservedBytes = Math.Max(0, _reservedBytes - reservation);
             }
 
             Refresh();
@@ -169,7 +203,8 @@ public sealed class OnlineAudioCache : IOnlineAudioCache, IDisposable
     {
         if (!Uri.TryCreate(cachedTrack.PlaybackSource, UriKind.Absolute, out var source)
             || source.Scheme != Uri.UriSchemeFile
-            || !IsWithinCacheDirectory(source.LocalPath))
+            || !IsWithinCacheDirectory(source.LocalPath)
+            || !IsOwnedFinalCacheFile(source.LocalPath))
         {
             return;
         }
@@ -181,10 +216,15 @@ public sealed class OnlineAudioCache : IOnlineAudioCache, IDisposable
 
     public Task ClearAsync(CancellationToken cancellationToken = default)
     {
+        lock (_gate)
+        {
+            _cacheRevision++;
+        }
+
         var directory = ResolveDirectory();
         if (Directory.Exists(directory))
         {
-            foreach (var file in Directory.EnumerateFiles(directory))
+            foreach (var file in Directory.EnumerateFiles(directory).Where(IsOwnedCacheFile))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 TryDelete(file);
@@ -206,7 +246,7 @@ public sealed class OnlineAudioCache : IOnlineAudioCache, IDisposable
             if (Directory.Exists(directory))
             {
                 foreach (var file in Directory.EnumerateFiles(directory)
-                    .Where(path => !path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)))
+                    .Where(IsOwnedFinalCacheFile))
                 {
                     var info = new FileInfo(file);
                     bytes += Math.Max(0, info.Length);
@@ -248,7 +288,7 @@ public sealed class OnlineAudioCache : IOnlineAudioCache, IDisposable
             return !Directory.Exists(directory)
                 ? null
                 : Directory.EnumerateFiles(directory, $"{key}.*")
-                    .Where(path => !path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+                    .Where(IsOwnedFinalCacheFile)
                     .Select(path => new FileInfo(path))
                     .FirstOrDefault(file => file.Length > 0);
         }
@@ -305,6 +345,41 @@ public sealed class OnlineAudioCache : IOnlineAudioCache, IDisposable
             ? extension
             : ".audio";
     }
+
+    private static bool IsOwnedCacheFile(string path) =>
+        IsOwnedFinalCacheFile(path) || IsOwnedTemporaryCacheFile(path);
+
+    private static bool IsOwnedFinalCacheFile(string path)
+    {
+        var extension = Path.GetExtension(path).ToLowerInvariant();
+        return IsSupportedCacheExtension(extension)
+            && IsSha256Key(Path.GetFileNameWithoutExtension(path));
+    }
+
+    private static bool IsOwnedTemporaryCacheFile(string path)
+    {
+        var name = Path.GetFileName(path);
+        if (!name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var withoutTmp = name[..^4];
+        var guidSeparator = withoutTmp.LastIndexOf('.');
+        if (guidSeparator <= 0
+            || !Guid.TryParseExact(withoutTmp[(guidSeparator + 1)..], "N", out _))
+        {
+            return false;
+        }
+
+        return IsOwnedFinalCacheFile(withoutTmp[..guidSeparator]);
+    }
+
+    private static bool IsSupportedCacheExtension(string extension) =>
+        extension is ".mp3" or ".m4a" or ".aac" or ".flac" or ".ogg" or ".wav" or ".opus" or ".audio";
+
+    private static bool IsSha256Key(string value) =>
+        value.Length == 64 && value.All(Uri.IsHexDigit);
 
     private static void TryDelete(string path)
     {

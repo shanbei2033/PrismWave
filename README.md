@@ -13,6 +13,13 @@ PrismWave is a Windows music player built with Flutter, combining a local
 library with an online-first home page for recommendations, search, and
 queue-based playback.
 
+> **WinUI beta branch**: the current native Windows UI is maintained on the
+> [`WinUI`](https://github.com/shanbei2033/PrismWave/tree/WinUI) branch. It
+> includes the WinUI 3 shell, real local-library scanning, online audio cache,
+> word-by-word lyrics, immersive FullPlay, and configurable Solid / light Mica
+> / Acrylic appearance styles. The Flutter application remains available in
+> `app/` for comparison and compatibility.
+
 ## Features
 
 - Local music library scan with folder management
@@ -92,6 +99,25 @@ Installer output:
 ```text
 dist/PrismWave-Setup-R503.exe
 ```
+
+## Native WinUI build
+
+To run the current WinUI beta from the `WinUI` branch:
+
+```powershell
+git switch WinUI
+dotnet run --project src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64
+```
+
+To build the native x64 application without restoring packages:
+
+```powershell
+dotnet build src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64 --no-restore
+```
+
+The WinUI beta supports local folders, MPV/WASAPI playback routing, short-term
+online audio caching, QRC/YRC word lyrics when available, and light Windows 11
+Mica, Acrylic, and classic solid appearance styles from Settings.
 
 ## Audio notes
 

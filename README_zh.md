@@ -11,6 +11,12 @@
 
 PrismWave 是一个基于 Flutter 开发的 Windows 音乐播放器，结合了本地音乐库和在线优先的首页推荐、搜索与播放队列。
 
+> **WinUI Beta 分支**：当前原生 Windows 界面维护在
+> [`WinUI`](https://github.com/shanbei2033/PrismWave/tree/WinUI) 分支，包含
+> WinUI 3 外壳、真实本地曲库扫描、在线音频缓存、逐字歌词、沉浸式
+> FullPlay，以及可切换的经典纯色 / 浅色云母 / 亚克力外观。Flutter 应用仍
+> 保留在 `app/` 目录中，用于对照和兼容。
+
 ## 功能
 
 - 本地音乐库扫描与文件夹管理
@@ -87,6 +93,25 @@ app/build/windows/x64/runner/Release/prismwave_demo.exe
 ```text
 dist/PrismWave-Setup-R503.exe
 ```
+
+## 原生 WinUI 构建
+
+在 `WinUI` 分支运行当前 WinUI Beta：
+
+```powershell
+git switch WinUI
+dotnet run --project src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64
+```
+
+不还原依赖并构建原生 x64 应用：
+
+```powershell
+dotnet build src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64 --no-restore
+```
+
+WinUI Beta 支持本地音乐文件夹、MPV/WASAPI 播放路由、短期在线音频缓存、
+可用时的 QRC/YRC 逐字歌词，以及设置中的浅色 Windows 11 云母、亚克力和
+经典纯色外观切换。
 
 ## 音频说明
 

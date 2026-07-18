@@ -22,6 +22,10 @@ public static class LyricsParser
         @"(?:\[\d+,\d+\])?((?:(?!\(\d+,\d+\)).)*)\((\d+),(\d+)\)",
         RegexOptions.Compiled);
 
+    private static readonly Regex YrcWordPattern = new(
+        @"\((?<start>\d+),(?<duration>\d+),\d+\)(?<text>.*?)(?=\(\d+,\d+,\d+\)|$)",
+        RegexOptions.Compiled);
+
     private static readonly Regex QrcAttributePattern = new(
         "LyricContent=(?:\"(?<double>[\\s\\S]*?)\"|'(?<single>[\\s\\S]*?)')",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -39,6 +43,12 @@ public static class LyricsParser
         if (string.IsNullOrWhiteSpace(raw))
         {
             return LyricsDocumentModel.Empty(source);
+        }
+
+        var yrcLines = ParseYrc(raw);
+        if (yrcLines.Count > 0)
+        {
+            return new LyricsDocumentModel(yrcLines, source, provider, true, raw);
         }
 
         var qrcLines = ParseQrc(raw);
@@ -102,6 +112,46 @@ public static class LyricsParser
             .Select((text, index) => new LyricLineModel(stepSeconds * index, string.Empty, text))
             .ToList();
         return new LyricsDocumentModel(lines, source, provider, false, raw);
+    }
+
+    private static IReadOnlyList<LyricLineModel> ParseYrc(string raw)
+    {
+        var lines = new List<LyricLineModel>();
+        foreach (var rawLine in NormalizeLines(raw))
+        {
+            var lineMatch = QrcLinePattern.Match(rawLine.Trim());
+            if (!lineMatch.Success)
+            {
+                continue;
+            }
+
+            var segments = YrcWordPattern.Matches(lineMatch.Groups["body"].Value)
+                .Select(match =>
+                {
+                    var start = ReadMilliseconds(match.Groups["start"].Value);
+                    var duration = ReadMilliseconds(match.Groups["duration"].Value);
+                    return new LyricSegmentModel(
+                        start,
+                        start + Math.Max(duration, 0.01),
+                        match.Groups["text"].Value);
+                })
+                .Where(segment => segment.Text.Length > 0 && segment.Text != "\r")
+                .ToList();
+            if (segments.Count == 0)
+            {
+                continue;
+            }
+
+            var lineStart = ReadMilliseconds(lineMatch.Groups["start"].Value);
+            lines.Add(new LyricLineModel(
+                lineStart,
+                FormatTime(lineStart),
+                string.Concat(segments.Select(segment => segment.Text)),
+                segments));
+        }
+
+        lines.Sort((left, right) => left.TimeSeconds.CompareTo(right.TimeSeconds));
+        return lines;
     }
 
     private static IReadOnlyList<LyricLineModel> ParseQrc(string raw)

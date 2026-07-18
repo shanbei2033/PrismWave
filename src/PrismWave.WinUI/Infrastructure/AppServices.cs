@@ -22,6 +22,7 @@ public sealed class AppServices
     public required IPlaybackService PlaybackService { get; init; }
     public required IOnlineProviderService OnlineProviderService { get; init; }
     public required IOnlinePlaybackResolver OnlinePlaybackResolver { get; init; }
+    public required IOnlineAudioCache OnlineAudioCache { get; init; }
     public required IOnlineAccountService OnlineAccountService { get; init; }
     public required IOnlineHomeService OnlineHomeService { get; init; }
     public required IOnlineSearchService OnlineSearchService { get; init; }
@@ -58,7 +59,8 @@ public sealed class AppServices
             accountService: onlineAccountService,
             qualityPreference: () => settingsService.Current.OnlineQualityPreference);
         var onlinePlaybackResolver = new OnlinePlaybackResolver(onlineProviderService);
-        var playbackService = new PlaybackService(settingsService, onlinePlaybackResolver);
+        var onlineAudioCache = new OnlineAudioCache(settingsService);
+        var playbackService = new PlaybackService(settingsService, onlinePlaybackResolver, onlineAudioCache);
         IHitsPlaybackSession hitsPlaybackSession = playbackService;
         var onlineHomeService = new OnlineHomeService();
         var onlineSearchService = new OnlineSearchService(libraryService, onlineProviderService);
@@ -84,7 +86,10 @@ public sealed class AppServices
         var albums = new AlbumsViewModel(libraryService, playbackService);
         var artists = new ArtistsViewModel(libraryService, playbackService);
         var favorites = new FavoritesViewModel(libraryService, playbackService);
-        var settings = new SettingsViewModel(settingsService, libraryFolders, playbackService, themeService, developerLogService, onlineAccountService);
+        // Keep the shared settings construction explicit; the cache and folder picker are
+        // additional services owned by this same SettingsViewModel instance.
+        // new SettingsViewModel(settingsService, libraryFolders, playbackService, themeService, developerLogService, onlineAccountService)
+        var settings = new SettingsViewModel(settingsService, libraryFolders, playbackService, themeService, developerLogService, onlineAccountService, musicFolderPicker, onlineAudioCache);
         var hits = new HitsStatusViewModel(hitsService, hitsPlaybackSession);
 
         return new AppServices
@@ -94,6 +99,7 @@ public sealed class AppServices
             PlaybackService = playbackService,
             OnlineProviderService = onlineProviderService,
             OnlinePlaybackResolver = onlinePlaybackResolver,
+            OnlineAudioCache = onlineAudioCache,
             OnlineAccountService = onlineAccountService,
             OnlineHomeService = onlineHomeService,
             OnlineSearchService = onlineSearchService,

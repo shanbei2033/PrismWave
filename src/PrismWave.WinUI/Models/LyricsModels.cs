@@ -69,6 +69,9 @@ public sealed record LyricsSearchResultModel(
     private static readonly Regex QrcWordTimingPattern = new(
         @"\(\d+,\d+\)",
         RegexOptions.Compiled);
+    private static readonly Regex YrcWordTimingPattern = new(
+        @"\(\d+,\d+,\d+\)",
+        RegexOptions.Compiled);
     private static readonly Regex EnhancedWordTimingPattern = new(
         @"<\d{1,2}:\d{2}(?:[\.:]\d{1,3})?>",
         RegexOptions.Compiled);
@@ -80,6 +83,7 @@ public sealed record LyricsSearchResultModel(
     public LyricsSyncKind LyricsKind => string.IsNullOrWhiteSpace(SyncedLyrics)
         ? LyricsSyncKind.Plain
         : QrcWordTimingPattern.IsMatch(SyncedLyrics)
+          || YrcWordTimingPattern.IsMatch(SyncedLyrics)
           || EnhancedWordTimingPattern.IsMatch(SyncedLyrics)
             ? LyricsSyncKind.WordSynced
             : LyricsSyncKind.LineSynced;

@@ -61,6 +61,15 @@ public sealed class SettingsText
         "在线音源属于实验功能，提供商策略或接口变化可能导致暂时不可用。",
         "線上音源屬於實驗功能，提供商策略或介面變化可能導致暫時無法使用。",
         "Online sources are experimental and can become unavailable when provider policies or endpoints change.");
+    public string OnlineCache => T("在线歌曲缓存", "線上歌曲快取", "Online song cache");
+    public string OnlineCacheMaximum => T("缓存上限（GB）", "快取上限（GB）", "Cache limit (GB)");
+    public string OnlineCacheDirectory => T("缓存目录", "快取目錄", "Cache directory");
+    public string ChangeDirectory => T("更改目录", "更改目錄", "Change directory");
+    public string ClearCache => T("清除所有缓存歌曲", "清除所有快取歌曲", "Clear all cached songs");
+    public string CacheStatus(double current, double maximum, int files) => T(
+        $"已缓存 {current:0.##} / {maximum:0.##} GB（{files} 首）",
+        $"已快取 {current:0.##} / {maximum:0.##} GB（{files} 首）",
+        $"Cached {current:0.##} / {maximum:0.##} GB ({files} songs)");
     public string AudioOutput => T("音频输出", "音訊輸出", "Audio output");
     public string OutputMode => T("输出模式", "輸出模式", "Output mode");
     public string ActiveOutput => T("当前输出", "目前輸出", "Active output");

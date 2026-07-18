@@ -12,6 +12,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly ISettingsService _settingsService;
     private readonly IDeveloperLogService _developerLogService;
     private readonly IPlaybackService _playbackService;
+    private readonly IMusicFolderPicker _folderPicker;
+    private readonly IOnlineAudioCache _onlineAudioCache;
     private string _language = "zh-CN";
     private bool _experimentalFeaturesEnabled;
     private bool _onlineModeEnabled = true;
@@ -33,11 +35,16 @@ public sealed partial class SettingsViewModel : ObservableObject
         IPlaybackService playbackService,
         IThemeService themeService,
         IDeveloperLogService developerLogService,
-        IOnlineAccountService onlineAccountService)
+        IOnlineAccountService onlineAccountService,
+        IMusicFolderPicker folderPicker,
+        IOnlineAudioCache onlineAudioCache)
     {
         _settingsService = settingsService;
         _developerLogService = developerLogService;
         _playbackService = playbackService;
+        _folderPicker = folderPicker;
+        _onlineAudioCache = onlineAudioCache;
+        _onlineAudioCache.CacheChanged += (_, _) => RefreshCacheStatus();
         LibraryFolders = libraryFolders;
         OnlineAccounts = new OnlineAccountSettingsViewModel(onlineAccountService);
         _developerLogService.LogsChanged += (_, _) => RefreshLogs();
@@ -191,6 +198,29 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public string ThemeName => Text.ThemeName;
 
+    public double OnlineCacheMaximumGigabytes
+    {
+        get => _settingsService.Current.OnlineCacheMaximumBytes / 1024d / 1024d / 1024d / 1024d;
+        set
+        {
+            var normalized = Math.Clamp(value, 0.5, 1024);
+            var bytes = (long)Math.Round(normalized * 1024 * 1024 * 1024, MidpointRounding.AwayFromZero);
+            if (_settingsService.Current.OnlineCacheMaximumBytes == bytes)
+            {
+                return;
+            }
+
+            _ = _settingsService.SaveAsync(_settingsService.Current with { OnlineCacheMaximumBytes = bytes });
+            RefreshCacheStatus();
+        }
+    }
+
+    public string OnlineCacheDirectory => _onlineAudioCache.Status.DirectoryPath;
+    public string OnlineCacheStatus => Text.CacheStatus(
+        _onlineAudioCache.Status.CurrentGigabytes,
+        _onlineAudioCache.Status.MaximumGigabytes,
+        _onlineAudioCache.Status.FileCount);
+
     public string AudioOutputMode
     {
         get => _audioOutputMode;
@@ -309,6 +339,25 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task ChangeOnlineCacheDirectoryAsync()
+    {
+        var result = await _folderPicker.PickAsync();
+        if (result.Status != MusicFolderPickStatus.Selected || string.IsNullOrWhiteSpace(result.Path))
+        {
+            return;
+        }
+
+        await _settingsService.SaveAsync(_settingsService.Current with
+        {
+            OnlineCacheDirectory = Path.GetFullPath(result.Path)
+        });
+        RefreshCacheStatus();
+    }
+
+    [RelayCommand]
+    private Task ClearOnlineCacheAsync() => _onlineAudioCache.ClearAsync();
+
+    [RelayCommand]
     private async Task RefreshWindowsDsdDevicesAsync()
     {
         if (IsRefreshingDsdDevices)
@@ -360,7 +409,16 @@ public sealed partial class SettingsViewModel : ObservableObject
             WindowsDsdDevice = WindowsDsdDevice,
             FadeEnabled = FadeEnabled,
             FadeDurationMs = FadeDurationMs
+            ,OnlineCacheMaximumBytes = (long)Math.Round(OnlineCacheMaximumGigabytes * 1024 * 1024 * 1024)
+            ,OnlineCacheDirectory = _settingsService.Current.OnlineCacheDirectory
         });
+    }
+
+    private void RefreshCacheStatus()
+    {
+        OnPropertyChanged(nameof(OnlineCacheDirectory));
+        OnPropertyChanged(nameof(OnlineCacheMaximumGigabytes));
+        OnPropertyChanged(nameof(OnlineCacheStatus));
     }
 
     private void RefreshLogs()

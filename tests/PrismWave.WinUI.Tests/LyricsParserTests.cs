@@ -6,6 +6,21 @@ namespace PrismWave_WinUI.Tests;
 public sealed class LyricsParserTests
 {
     [Fact]
+    public void ParseNeteaseYrc_CreatesWordTimedSegments()
+    {
+        const string raw = "[1000,1200](1000,400,0)你(1400,400,0)好(1800,400,0)呀";
+
+        var document = LyricsParser.Parse(raw, provider: "netease-yrc");
+
+        var line = Assert.Single(document.Lines);
+        Assert.Equal("你好呀", line.Text);
+        Assert.Equal(3, line.TimedSegments.Count);
+        Assert.Equal(1, line.TimedSegments[0].StartSeconds);
+        Assert.Equal(1.4, line.TimedSegments[0].EndSeconds);
+        Assert.True(document.HasTimedSegments);
+    }
+
+    [Fact]
     public void ParseLrc_IgnoresMetadataAndExpandsMultipleTimeTags()
     {
         const string raw = "[ti:Example]\n[ar:Artist]\n[00:02.50][00:05.00]Hello\n[00:08]World";

@@ -21,7 +21,11 @@ public sealed class SettingsService : ISettingsService
         Current = loaded with
         {
             AudioOutputMode = AudioOutputPolicy.NormalizeModeId(loaded.AudioOutputMode),
-            AppearanceStyle = AppearanceStyleIds.Normalize(loaded.AppearanceStyle)
+            AppearanceStyle = AppearanceStyleIds.Normalize(loaded.AppearanceStyle),
+            OnlineCacheMaximumBytes = loaded.OnlineCacheMaximumBytes > 0
+                ? loaded.OnlineCacheMaximumBytes
+                : OnlineAudioCacheDefault.MaximumBytes,
+            OnlineCacheDirectory = loaded.OnlineCacheDirectory?.Trim() ?? string.Empty
         };
         Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
         File.WriteAllText(_settingsPath, JsonSerializer.Serialize(Current, JsonOptions));

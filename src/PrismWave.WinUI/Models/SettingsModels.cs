@@ -35,7 +35,14 @@ public sealed record SettingsSnapshot(
     IReadOnlyDictionary<string, double>? LyricsOffsets = null,
     IReadOnlyDictionary<string, string>? CustomCoverPaths = null,
     OnlineQualityPreference OnlineQualityPreference = OnlineQualityPreference.Lossless,
-    string AppearanceStyle = AppearanceStyleIds.Mica);
+    string AppearanceStyle = AppearanceStyleIds.Mica,
+    long OnlineCacheMaximumBytes = OnlineAudioCacheDefault.MaximumBytes,
+    string OnlineCacheDirectory = "");
+
+public static class OnlineAudioCacheDefault
+{
+    public const long MaximumBytes = 5L * 1024 * 1024 * 1024;
+}
 
 public sealed record FlutterPreferencesMigrationResult(
     string SourceFile,

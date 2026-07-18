@@ -69,7 +69,7 @@ public sealed class LyricsServiceTests : IDisposable
         Assert.Equal("lrclib", online.Provider);
         Assert.Equal("Online line", Assert.Single(online.Lines).Text);
         Assert.Equal("Online line", Assert.Single(cached.Lines).Text);
-        Assert.Equal(2, handler.RequestCount);
+        Assert.True(handler.RequestCount >= 2);
         Assert.Single(Directory.EnumerateFiles(cache, "*.json"));
     }
 
@@ -99,7 +99,7 @@ public sealed class LyricsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task LoadLyricsDocumentAsync_UsesFirstUsableConcurrentOnlineResult()
+    public async Task LoadLyricsDocumentAsync_UsesFirstUsableConcurrentLineFallbackAfterWordSearch()
     {
         const string exactResponse = """
             {"id":1,"trackName":"Song","artistName":"Artist","duration":120,"instrumental":false,"syncedLyrics":"[00:01]Exact"}
@@ -120,8 +120,49 @@ public sealed class LyricsServiceTests : IDisposable
 
         stopwatch.Stop();
         Assert.Equal("Search", Assert.Single(document.Lines).Text);
-        Assert.Equal(2, handler.RequestCount);
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromMilliseconds(500), $"Online race took {stopwatch.Elapsed}.");
+        Assert.True(handler.RequestCount >= 2);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(2), $"Online fallback took {stopwatch.Elapsed}.");
+    }
+
+    [Fact]
+    public async Task LoadLyricsDocumentAsync_PrefersQrcBeforeLineSyncedFallback()
+    {
+        const string encrypted = "28308A27A460E589D0583A2625C428682F393E78386138F7";
+        var handler = new WordFirstHttpMessageHandler(encrypted);
+        var service = new LyricsService(
+            new FakeSettingsService(CreateSettings()),
+            new HttpClient(handler),
+            Path.Combine(_tempDirectory, "word-first-cache"));
+
+        var document = await service.LoadLyricsDocumentAsync(
+            CreateTrack("remote://word-first", isRemote: true),
+            forceOnline: true);
+
+        Assert.Equal("qqmusic-qrc", document.Provider);
+        Assert.True(document.HasTimedSegments);
+        Assert.Equal("Hi", Assert.Single(document.Lines).Text);
+        Assert.Contains(handler.Paths, path => path.Contains("musicu", StringComparison.Ordinal));
+        Assert.DoesNotContain(handler.Paths, path => path.StartsWith("lrclib.net/api/", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task SearchOnlineLyricsAsync_MergesProvidersAndRanksQrcFirst()
+    {
+        const string encrypted = "28308A27A460E589D0583A2625C428682F393E78386138F7";
+        var handler = new WordFirstHttpMessageHandler(encrypted);
+        var service = new LyricsService(
+            new FakeSettingsService(CreateSettings()),
+            new HttpClient(handler),
+            Path.Combine(_tempDirectory, "word-search-cache"));
+
+        var results = await service.SearchOnlineLyricsAsync(
+            CreateTrack("remote://word-search", isRemote: true),
+            "Song Artist");
+
+        Assert.True(results.Count >= 2);
+        Assert.Equal(LyricsSyncKind.WordSynced, results[0].LyricsKind);
+        Assert.Equal("qqmusic-qrc", results[0].Provider);
+        Assert.Contains(results, result => result.Provider == "lrclib");
     }
 
     [Fact]
@@ -165,7 +206,7 @@ public sealed class LyricsServiceTests : IDisposable
         Assert.Equal("[0,1000]Hi(0,1000)", result.SyncedLyrics);
         var document = LyricsParser.Parse(result.SyncedLyrics!, provider: result.Provider);
         Assert.True(Assert.Single(document.Lines).HasTimedSegments);
-        Assert.Contains(handler.Paths, path => path.Contains("lyric_download", StringComparison.Ordinal));
+        Assert.Contains(handler.Paths, path => path.Contains("musicu", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -184,7 +225,7 @@ public sealed class LyricsServiceTests : IDisposable
         var document = await operation;
 
         Assert.NotNull(document);
-        Assert.Equal("qqmusic", document.Provider);
+        Assert.Equal("qqmusic-qrc", document.Provider);
         Assert.True(Assert.Single(document.Lines).HasTimedSegments);
     }
 
@@ -344,6 +385,11 @@ public sealed class LyricsServiceTests : IDisposable
                 return Json("{\"data\":{\"song\":{\"itemlist\":[{\"id\":\"1\",\"mid\":\"mid\",\"name\":\"Song\",\"singer\":\"Artist\"}]}}}");
             }
 
+            if (uri.AbsolutePath.Contains("musicu", StringComparison.Ordinal))
+            {
+                return Json($"{{\"req\":{{\"code\":0,\"data\":{{\"qrc\":1,\"crypt\":1,\"lyric\":\"{encrypted}\"}}}}}}");
+            }
+
             if (uri.AbsolutePath.Contains("lyric_download", StringComparison.Ordinal))
             {
                 return new HttpResponseMessage(HttpStatusCode.OK)
@@ -353,6 +399,59 @@ public sealed class LyricsServiceTests : IDisposable
             }
 
             await Task.Delay(150, cancellationToken);
+            return Json("{\"lyric\":\"[00:01]Line fallback\"}");
+        }
+
+        private static HttpResponseMessage Json(string content)
+        {
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(content, Encoding.UTF8, "application/json")
+            };
+        }
+    }
+
+    private sealed class WordFirstHttpMessageHandler(string encrypted) : HttpMessageHandler
+    {
+        public List<string> Paths { get; } = new();
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            var uri = request.RequestUri!;
+            Paths.Add($"{uri.Host}{uri.AbsolutePath}");
+            if (uri.Host == "lrclib.net")
+            {
+                return Json("""
+                    [{"id":2,"trackName":"Song","artistName":"Artist","duration":120,"instrumental":false,"syncedLyrics":"[00:01]Line fallback"}]
+                    """);
+            }
+
+            if (uri.AbsolutePath.Contains("smartbox", StringComparison.Ordinal))
+            {
+                return Json("{\"data\":{\"song\":{\"itemlist\":[{\"id\":\"1\",\"mid\":\"mid\",\"name\":\"Song\",\"singer\":\"Artist\"}]}}}");
+            }
+
+            if (uri.AbsolutePath.Contains("musicu", StringComparison.Ordinal))
+            {
+                return Json($"{{\"req\":{{\"code\":0,\"data\":{{\"qrc\":1,\"crypt\":1,\"lyric\":\"{encrypted}\"}}}}}}");
+            }
+
+            if (uri.AbsolutePath.Contains("client_search", StringComparison.Ordinal))
+            {
+                return Json("{\"data\":{\"song\":{\"list\":[]}}}");
+            }
+
+            if (uri.AbsolutePath.Contains("lyric_download", StringComparison.Ordinal))
+            {
+                await Task.Delay(80, cancellationToken);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent($"<content><![CDATA[{encrypted}]]></content>", Encoding.UTF8, "text/xml")
+                };
+            }
+
             return Json("{\"lyric\":\"[00:01]Line fallback\"}");
         }
 

@@ -10,6 +10,7 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
     private readonly List<TrackModel> _queue = new();
     private readonly ISettingsService _settingsService;
     private readonly IOnlinePlaybackResolver _onlinePlaybackResolver;
+    private readonly IOnlineAudioCache _onlineAudioCache;
     private readonly MpvPlaybackEngineHost _mpvHost;
     private readonly RemotePlaybackRecoveryPolicy _remoteRecoveryPolicy = new();
     private readonly PlaybackLoadEventGuard _mpvLoadEventGuard = new();
@@ -58,10 +59,12 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
     public PlaybackService(
         ISettingsService settingsService,
         IOnlinePlaybackResolver onlinePlaybackResolver,
+        IOnlineAudioCache onlineAudioCache,
         IPlaybackEngineFactory? playbackEngineFactory = null)
     {
         _settingsService = settingsService;
         _onlinePlaybackResolver = onlinePlaybackResolver;
+        _onlineAudioCache = onlineAudioCache;
         _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         var settings = _settingsService.Current;
         _mpvHost = new MpvPlaybackEngineHost(
@@ -534,6 +537,16 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         _usingDsdBackend = false;
         _windowsDsdFallbackReason = null;
 
+        if (CurrentTrack.IsRemote)
+        {
+            var cachedTrack = _onlineAudioCache.TryGetCachedTrack(CurrentTrack);
+            if (cachedTrack is not null)
+            {
+                CurrentTrack = cachedTrack;
+                ReplaceQueuedTrack(cachedTrack);
+            }
+        }
+
         if (NeedsOnlineResolution(CurrentTrack))
         {
             IsLoading = true;
@@ -648,6 +661,7 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
                 var resolvedTrack = OnlinePlaybackTrack.ApplyResolution(track, resolved);
                 ReplaceQueuedTrack(resolvedTrack);
                 CurrentTrack = resolvedTrack;
+                _ = _onlineAudioCache.CacheAsync(track, resolved, CancellationToken.None);
                 stopwatch.Stop();
                 StartupLog.Write(
                     $"online.resolve.success: revision={revision}, provider={resolved.Provider}, candidate={candidateKey}, attempt={resolved.Attempt}, elapsed={stopwatch.ElapsedMilliseconds}ms, source={DescribeSource(resolved.PlaybackUrl)}");
@@ -848,6 +862,7 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         if (recoveryAction is RemotePlaybackRecoveryAction.ResolveNextSource
             or RemotePlaybackRecoveryAction.ResolveNextSourceAndResume)
         {
+            _onlineAudioCache.Invalidate(failedTrack);
             _onlinePlaybackResolver.InvalidatePlaybackUrl(failedTrack.PlaybackSource);
             BeginRemoteSourceRecovery(
                 failedTrack,

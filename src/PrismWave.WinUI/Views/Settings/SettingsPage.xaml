@@ -162,6 +162,18 @@
                                 <InfoBar IsOpen="True" Severity="Informational" Title="{Binding Text.ThirdPartyProviders}" Message="{Binding Text.ThirdPartyProvidersMessage}" />
                             </StackPanel>
                         </Border>
+                        <Border Style="{StaticResource PrismPanelBorderStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="{Binding Text.OnlineCache}" Style="{StaticResource PrismSectionTitleTextStyle}" />
+                                <Slider Header="{Binding Text.OnlineCacheMaximum}" Minimum="0.5" Maximum="1024" StepFrequency="0.5" Value="{Binding OnlineCacheMaximumGigabytes, Mode=TwoWay}" />
+                                <TextBlock Text="{Binding OnlineCacheStatus}" Style="{StaticResource PrismCaptionTextStyle}" />
+                                <TextBlock Text="{Binding OnlineCacheDirectory}" TextWrapping="Wrap" Style="{StaticResource PrismCaptionTextStyle}" />
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Content="{Binding Text.ChangeDirectory}" Command="{Binding ChangeOnlineCacheDirectoryCommand}" />
+                                    <Button Content="{Binding Text.ClearCache}" Command="{Binding ClearOnlineCacheCommand}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                     </ScrollViewer>
                 </PivotItem>

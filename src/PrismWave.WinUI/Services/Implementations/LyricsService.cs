@@ -103,15 +103,17 @@ public sealed class LyricsService : ILyricsService
             return Array.Empty<LyricsSearchResultModel>();
         }
 
-        var results = await RequestSearchAsync(normalizedQuery, cancellationToken);
-        if (results.Count > 0)
-        {
-            return ScoreResults(results, track, normalizedQuery)
-                .Take(20)
-                .ToList();
-        }
+        var lrclibTask = RequestSearchAsync(normalizedQuery, cancellationToken);
+        var qqTask = SearchQqLyricsAsync(track, normalizedQuery, cancellationToken);
+        var neteaseTask = SearchNeteaseWordLyricsAsync(track, normalizedQuery, cancellationToken);
+        await Task.WhenAll(lrclibTask, qqTask, neteaseTask);
 
-        return await SearchQqLyricsAsync(track, normalizedQuery, cancellationToken);
+        return ScoreResults(
+                lrclibTask.Result.Concat(qqTask.Result).Concat(neteaseTask.Result),
+                track,
+                normalizedQuery)
+            .Take(20)
+            .ToList();
     }
 
     public async Task<LyricsDocumentModel> LoadSearchResultAsync(
@@ -147,28 +149,105 @@ public sealed class LyricsService : ILyricsService
         TrackModel track,
         CancellationToken cancellationToken = default)
     {
+        using var raceCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var pending = new List<Task<LyricsDocumentModel?>>
+        {
+            TryLoadNeteaseWordSyncedLyricsDocumentAsync(track, raceCancellation.Token),
+            TryLoadQqWordSyncedLyricsDocumentAsync(track, raceCancellation.Token)
+        };
+        while (pending.Count > 0)
+        {
+            var completed = await Task.WhenAny(pending);
+            pending.Remove(completed);
+            try
+            {
+                var document = await completed;
+                if (document is null || document.IsEmpty || !document.HasTimedSegments)
+                {
+                    continue;
+                }
+
+                raceCancellation.Cancel();
+                foreach (var remaining in pending)
+                {
+                    _ = ObserveAsync(remaining);
+                }
+
+                await SaveCacheAsync(track, document, cancellationToken);
+                StartupLog.Write(
+                    $"lyrics.online.word: provider={document.Provider}, track=\"{track.Title}\", lines={document.Lines.Count}");
+                return document;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                StartupLog.Write($"lyrics.online.word.provider-failed: {exception.Message}");
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        StartupLog.Write($"lyrics.online.word.none: track=\"{track.Title}\", reason=providers-exhausted");
+        return null;
+    }
+
+    private async Task<LyricsDocumentModel?> TryLoadQqWordSyncedLyricsDocumentAsync(
+        TrackModel track,
+        CancellationToken cancellationToken)
+    {
         var query = BuildDefaultQuery(track);
-        var candidates = await SearchQqSuggestionsAsync(query, cancellationToken);
+        var candidates = await SearchQqCandidatesAsync(query, cancellationToken);
         var exactCandidates = candidates
             .Where(candidate => IsExactIdentity(track.Title, candidate.Title)
-                && IsExactIdentity(track.Artist, candidate.Artist))
-            .Take(6)
+                && IsMatchingArtist(track.Artist, candidate.Artist))
+            .OrderByDescending(candidate =>
+                MatchScore(track.Title, candidate.Title, 50, 24)
+                + MatchScore(track.Artist, candidate.Artist, 35, 16))
+            .Take(8)
             .ToList();
         if (exactCandidates.Count == 0)
         {
             return null;
         }
 
-        var resolved = await Task.WhenAll(exactCandidates.Select(candidate =>
-            FetchQqQrcLyricsAsync(candidate, cancellationToken)));
-        var best = resolved
-            .Where(result => result?.LyricsKind == LyricsSyncKind.WordSynced)
-            .Cast<LyricsSearchResultModel>()
-            .OrderByDescending(result => ScoreResult(result, track, query))
-            .FirstOrDefault();
+        using var raceCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var pending = exactCandidates
+            .Select(candidate => FetchQqQrcLyricsAsync(candidate, raceCancellation.Token))
+            .ToList();
+        LyricsSearchResultModel? best = null;
+        while (pending.Count > 0)
+        {
+            var completed = await Task.WhenAny(pending);
+            pending.Remove(completed);
+            try
+            {
+                var result = await completed;
+                if (result?.LyricsKind == LyricsSyncKind.WordSynced)
+                {
+                    best = result;
+                    break;
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch
+            {
+            }
+        }
+
         if (best is null || string.IsNullOrWhiteSpace(best.SyncedLyrics))
         {
             return null;
+        }
+
+        raceCancellation.Cancel();
+        foreach (var remaining in pending)
+        {
+            _ = ObserveAsync(remaining);
         }
 
         var document = LyricsParser.Parse(
@@ -181,9 +260,6 @@ public sealed class LyricsService : ILyricsService
             return null;
         }
 
-        await SaveCacheAsync(track, document, cancellationToken);
-        StartupLog.Write(
-            $"lyrics.online.word-upgrade: provider={best.Provider}, track=\"{track.Title}\", lines={document.Lines.Count}");
         return document;
     }
 
@@ -192,6 +268,34 @@ public sealed class LyricsService : ILyricsService
         var expectedKey = NormalizeSearchText(expected);
         var actualKey = NormalizeSearchText(actual);
         return expectedKey.Length > 0 && expectedKey == actualKey;
+    }
+
+    private static bool IsMatchingArtist(string expected, string actual)
+    {
+        if (IsExactIdentity(expected, actual))
+        {
+            return true;
+        }
+
+        var expectedArtists = SplitArtists(expected);
+        var actualArtists = SplitArtists(actual);
+        return expectedArtists.Count > 0
+            && actualArtists.Count > 0
+            && expectedArtists.SetEquals(actualArtists);
+    }
+
+    private static HashSet<string> SplitArtists(string value)
+    {
+        var normalized = Regex.Replace(
+            value,
+            @"\b(?:feat(?:uring)?|ft)\.?\b",
+            "&",
+            RegexOptions.IgnoreCase);
+        return normalized
+            .Split(new[] { '&', '/', '\\', ',', '，', '、', ';', '；', '·' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(NormalizeSearchText)
+            .Where(item => item.Length > 0)
+            .ToHashSet(StringComparer.Ordinal);
     }
 
     public string GetPreferredSource(TrackModel track)
@@ -285,14 +389,27 @@ public sealed class LyricsService : ILyricsService
         bool forceOnline,
         CancellationToken cancellationToken)
     {
+        var cached = LyricsDocumentModel.Empty(OnlineSource);
         if (!forceOnline)
         {
-            var cached = await LoadCacheAsync(track, cancellationToken);
-            if (!cached.IsEmpty)
+            cached = await LoadCacheAsync(track, cancellationToken);
+            if (!cached.IsEmpty && cached.HasTimedSegments)
             {
-                StartupLog.Write($"lyrics.online.cache: track=\"{track.Title}\", lines={cached.Lines.Count}");
+                StartupLog.Write($"lyrics.online.cache.word: track=\"{track.Title}\", lines={cached.Lines.Count}");
                 return cached;
             }
+        }
+
+        var wordSynced = await TryLoadWordSyncedLyricsDocumentAsync(track, cancellationToken);
+        if (wordSynced is not null && !wordSynced.IsEmpty && wordSynced.HasTimedSegments)
+        {
+            return wordSynced;
+        }
+
+        if (!cached.IsEmpty)
+        {
+            StartupLog.Write($"lyrics.online.cache.line-fallback: track=\"{track.Title}\", lines={cached.Lines.Count}");
+            return cached;
         }
 
         var best = await ResolveBestOnlineResultAsync(track, cancellationToken);
@@ -377,6 +494,166 @@ public sealed class LyricsService : ILyricsService
         return ScoreResults(results, track, query).FirstOrDefault();
     }
 
+    private async Task<LyricsDocumentModel?> TryLoadNeteaseWordSyncedLyricsDocumentAsync(
+        TrackModel track,
+        CancellationToken cancellationToken)
+    {
+        var results = await SearchNeteaseWordLyricsAsync(track, track.Title, cancellationToken);
+        var best = results
+            .Where(result => IsExactIdentity(track.Title, result.TrackName)
+                && IsMatchingArtist(track.Artist, result.ArtistName)
+                && result.LyricsKind == LyricsSyncKind.WordSynced)
+            .OrderByDescending(result => ScoreResult(result, track, BuildDefaultQuery(track)))
+            .FirstOrDefault();
+        if (best?.SyncedLyrics is null)
+        {
+            return null;
+        }
+
+        var document = LyricsParser.Parse(
+            best.SyncedLyrics,
+            track.DurationSeconds,
+            OnlineSource,
+            best.Provider);
+        return document.IsEmpty || !document.HasTimedSegments ? null : document;
+    }
+
+    private async Task<IReadOnlyList<LyricsSearchResultModel>> SearchNeteaseWordLyricsAsync(
+        TrackModel track,
+        string query,
+        CancellationToken cancellationToken)
+    {
+        using var search = await RequestJsonAsync(
+            "music.163.com",
+            "/api/search/get/web",
+            new Dictionary<string, string>
+            {
+                ["s"] = string.IsNullOrWhiteSpace(track.Title) ? query : track.Title,
+                ["type"] = "1",
+                ["limit"] = "30",
+                ["offset"] = "0"
+            },
+            cancellationToken);
+        if (search is null
+            || !search.RootElement.TryGetProperty("result", out var result)
+            || !result.TryGetProperty("songs", out var songs)
+            || songs.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<LyricsSearchResultModel>();
+        }
+
+        var candidates = songs.EnumerateArray()
+            .Select(ReadNeteaseCandidate)
+            .Where(candidate => candidate is not null)
+            .Cast<NeteaseSongCandidate>()
+            .Where(candidate => IsExactIdentity(track.Title, candidate.Title)
+                && IsMatchingArtist(track.Artist, candidate.Artist))
+            .OrderByDescending(candidate =>
+                MatchScore(track.Title, candidate.Title, 50, 24)
+                + MatchScore(track.Artist, candidate.Artist, 35, 16)
+                + MatchScore(track.Album, candidate.Album, 12, 0))
+            .Take(8)
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            return Array.Empty<LyricsSearchResultModel>();
+        }
+
+        var resolved = await Task.WhenAll(candidates.Select(candidate =>
+            FetchNeteaseYrcLyricsAsync(candidate, cancellationToken)));
+        return resolved
+            .Where(item => item is not null)
+            .Cast<LyricsSearchResultModel>()
+            .ToList();
+    }
+
+    private async Task<LyricsSearchResultModel?> FetchNeteaseYrcLyricsAsync(
+        NeteaseSongCandidate candidate,
+        CancellationToken cancellationToken)
+    {
+        using var document = await RequestJsonAsync(
+            "music.163.com",
+            "/api/song/lyric/v1",
+            new Dictionary<string, string>
+            {
+                ["id"] = candidate.Id,
+                ["cp"] = "false",
+                ["tv"] = "-1",
+                ["lv"] = "-1",
+                ["rv"] = "-1",
+                ["kv"] = "-1",
+                ["yv"] = "-1",
+                ["ytv"] = "-1",
+                ["yrv"] = "-1"
+            },
+            cancellationToken);
+        if (document is null
+            || document.RootElement.ValueKind != JsonValueKind.Object
+            || !document.RootElement.TryGetProperty("yrc", out var yrc)
+            || !yrc.TryGetProperty("lyric", out var lyricValue)
+            || lyricValue.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        var lyric = lyricValue.GetString();
+        var parsed = string.IsNullOrWhiteSpace(lyric)
+            ? LyricsDocumentModel.Empty(OnlineSource)
+            : LyricsParser.Parse(lyric, candidate.DurationSeconds, OnlineSource, "netease-yrc");
+        if (parsed.IsEmpty || !parsed.HasTimedSegments)
+        {
+            return null;
+        }
+
+        return new LyricsSearchResultModel(
+            candidate.Id,
+            candidate.Title,
+            candidate.Artist,
+            candidate.Album,
+            candidate.DurationSeconds,
+            lyric,
+            null,
+            "netease-yrc");
+    }
+
+    private static NeteaseSongCandidate? ReadNeteaseCandidate(JsonElement item)
+    {
+        var id = item.TryGetProperty("id", out var idValue) ? idValue.ToString() : string.Empty;
+        var title = ReadString(item, "name") ?? string.Empty;
+        var artists = new List<string>();
+        var artistProperty = item.TryGetProperty("artists", out var legacyArtists)
+            ? legacyArtists
+            : item.TryGetProperty("ar", out var modernArtists) ? modernArtists : default;
+        if (artistProperty.ValueKind == JsonValueKind.Array)
+        {
+            artists.AddRange(artistProperty.EnumerateArray()
+                .Select(artist => ReadString(artist, "name") ?? string.Empty)
+                .Where(name => name.Length > 0));
+        }
+
+        var album = string.Empty;
+        if (item.TryGetProperty("album", out var legacyAlbum)
+            || item.TryGetProperty("al", out legacyAlbum))
+        {
+            album = ReadString(legacyAlbum, "name") ?? string.Empty;
+        }
+
+        var durationMilliseconds = ReadDouble(item, "duration");
+        if (durationMilliseconds <= 0)
+        {
+            durationMilliseconds = ReadDouble(item, "dt");
+        }
+
+        return id.Length == 0 || title.Length == 0 || artists.Count == 0
+            ? null
+            : new NeteaseSongCandidate(
+                id,
+                title,
+                string.Join(" / ", artists),
+                album,
+                durationMilliseconds / 1000d);
+    }
+
     private static async Task ObserveAsync(Task task)
     {
         try
@@ -444,7 +721,7 @@ public sealed class LyricsService : ILyricsService
         string query,
         CancellationToken cancellationToken)
     {
-        var candidates = await SearchQqSuggestionsAsync(query, cancellationToken);
+        var candidates = await SearchQqCandidatesAsync(query, cancellationToken);
         if (candidates.Count == 0)
         {
             return Array.Empty<LyricsSearchResultModel>();
@@ -460,6 +737,22 @@ public sealed class LyricsService : ILyricsService
             FetchQqLyricsAsync(candidate, cancellationToken)));
         var usable = resolved.Where(result => result is not null).Cast<LyricsSearchResultModel>();
         return ScoreResults(usable, track, query).Take(20).ToList();
+    }
+
+    private async Task<IReadOnlyList<QqSongCandidate>> SearchQqCandidatesAsync(
+        string query,
+        CancellationToken cancellationToken)
+    {
+        var suggestionsTask = SearchQqSuggestionsAsync(query, cancellationToken);
+        var searchTask = SearchQqCatalogAsync(query, cancellationToken);
+        await Task.WhenAll(suggestionsTask, searchTask);
+        return suggestionsTask.Result
+            .Concat(searchTask.Result)
+            .Where(candidate => candidate.Id.Length > 0
+                && candidate.Mid.Length > 0
+                && candidate.Title.Length > 0)
+            .DistinctBy(candidate => candidate.Mid, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private async Task<IReadOnlyList<QqSongCandidate>> SearchQqSuggestionsAsync(
@@ -500,54 +793,159 @@ public sealed class LyricsService : ILyricsService
         return candidates;
     }
 
+    private async Task<IReadOnlyList<QqSongCandidate>> SearchQqCatalogAsync(
+        string query,
+        CancellationToken cancellationToken)
+    {
+        using var document = await RequestJsonAsync(
+            "c.y.qq.com",
+            "/soso/fcgi-bin/client_search_cp",
+            new Dictionary<string, string>
+            {
+                ["w"] = query,
+                ["format"] = "json",
+                ["p"] = "1",
+                ["n"] = "12",
+                ["cr"] = "1",
+                ["new_json"] = "1"
+            },
+            cancellationToken);
+        if (document is null
+            || !document.RootElement.TryGetProperty("data", out var data)
+            || !data.TryGetProperty("song", out var song)
+            || !song.TryGetProperty("list", out var items)
+            || items.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<QqSongCandidate>();
+        }
+
+        var candidates = new List<QqSongCandidate>();
+        foreach (var item in items.EnumerateArray())
+        {
+            var id = ReadString(item, "songid") ?? ReadString(item, "id") ?? string.Empty;
+            if (id.Length == 0 && item.TryGetProperty("songid", out var numericId))
+            {
+                id = numericId.ToString();
+            }
+
+            var mid = ReadString(item, "songmid") ?? ReadString(item, "mid") ?? string.Empty;
+            var title = ReadString(item, "songname") ?? ReadString(item, "title") ?? string.Empty;
+            var artists = new List<string>();
+            if (item.TryGetProperty("singer", out var singers) && singers.ValueKind == JsonValueKind.Array)
+            {
+                artists.AddRange(singers.EnumerateArray()
+                    .Select(singer => ReadString(singer, "name") ?? string.Empty)
+                    .Where(name => name.Length > 0));
+            }
+
+            if (id.Length > 0 && mid.Length > 0 && title.Length > 0)
+            {
+                candidates.Add(new QqSongCandidate(id, mid, title, string.Join(" / ", artists)));
+            }
+        }
+
+        return candidates;
+    }
+
     private async Task<LyricsSearchResultModel?> FetchQqLyricsAsync(
         QqSongCandidate candidate,
         CancellationToken cancellationToken)
     {
-        using var raceCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var pending = new List<Task<LyricsSearchResultModel?>>
-        {
-            FetchQqQrcLyricsAsync(candidate, raceCancellation.Token),
-            FetchQqLineLyricsAsync(candidate, raceCancellation.Token)
-        };
-
-        while (pending.Count > 0)
-        {
-            var completed = await Task.WhenAny(pending);
-            pending.Remove(completed);
-            LyricsSearchResultModel? result;
-            try
-            {
-                result = await completed;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch
-            {
-                result = null;
-            }
-
-            if (result is null)
-            {
-                continue;
-            }
-
-            raceCancellation.Cancel();
-            foreach (var remaining in pending)
-            {
-                _ = ObserveAsync(remaining);
-            }
-
-            return result;
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        return null;
+        var wordSynced = await FetchQqQrcLyricsAsync(candidate, cancellationToken);
+        return wordSynced ?? await FetchQqLineLyricsAsync(candidate, cancellationToken);
     }
 
     private async Task<LyricsSearchResultModel?> FetchQqQrcLyricsAsync(
+        QqSongCandidate candidate,
+        CancellationToken cancellationToken)
+    {
+        return await FetchQqMusicUQrcLyricsAsync(candidate, cancellationToken)
+            ?? await FetchLegacyQqQrcLyricsAsync(candidate, cancellationToken);
+    }
+
+    private async Task<LyricsSearchResultModel?> FetchQqMusicUQrcLyricsAsync(
+        QqSongCandidate candidate,
+        CancellationToken cancellationToken)
+    {
+        if (!long.TryParse(candidate.Id, out var songId))
+        {
+            return null;
+        }
+
+        var payload = new
+        {
+            comm = new
+            {
+                ct = 24,
+                cv = 0,
+                format = "json",
+                inCharset = "utf-8",
+                outCharset = "utf-8"
+            },
+            req = new
+            {
+                module = "music.musichallSong.PlayLyricInfo",
+                method = "GetPlayLyricInfo",
+                param = new
+                {
+                    format = "json",
+                    crypt = 1,
+                    ct = 19,
+                    cv = 1873,
+                    interval = 0,
+                    lrc_t = 0,
+                    qrc = 1,
+                    qrc_t = 0,
+                    roma = 1,
+                    roma_t = 0,
+                    songID = songId,
+                    trans = 1,
+                    trans_t = 0,
+                    type = -1
+                }
+            }
+        };
+        using var document = await RequestJsonPostAsync(
+            "u.y.qq.com",
+            "/cgi-bin/musicu.fcg",
+            payload,
+            cancellationToken);
+        if (document is null
+            || !document.RootElement.TryGetProperty("req", out var requestResult)
+            || !requestResult.TryGetProperty("data", out var data))
+        {
+            return null;
+        }
+
+        var encrypted = ReadString(data, "lyric");
+        if (string.IsNullOrWhiteSpace(encrypted))
+        {
+            return null;
+        }
+
+        var resolved = HexLyricsPattern.IsMatch(encrypted) && encrypted.Length % 16 == 0
+            ? QqQrcDecoder.Decrypt(encrypted)
+            : encrypted;
+        var parsed = string.IsNullOrWhiteSpace(resolved)
+            ? LyricsDocumentModel.Empty(OnlineSource)
+            : LyricsParser.Parse(resolved, provider: "qqmusic-qrc");
+        if (parsed.IsEmpty || !parsed.HasTimedSegments)
+        {
+            return null;
+        }
+
+        return new LyricsSearchResultModel(
+            candidate.Id,
+            candidate.Title,
+            candidate.Artist,
+            string.Empty,
+            0,
+            resolved,
+            null,
+            "qqmusic-qrc");
+    }
+
+    private async Task<LyricsSearchResultModel?> FetchLegacyQqQrcLyricsAsync(
         QqSongCandidate candidate,
         CancellationToken cancellationToken)
     {
@@ -667,12 +1065,71 @@ public sealed class LyricsService : ILyricsService
             request.Headers.Referrer = new Uri("https://y.qq.com/");
             request.Headers.TryAddWithoutValidation("Origin", "https://y.qq.com");
         }
+        else if (host.EndsWith("music.163.com", StringComparison.OrdinalIgnoreCase))
+        {
+            request.Headers.Referrer = new Uri("https://music.163.com/");
+        }
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(DefaultRequestTimeout);
 
         try
         {
             using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
+            return await JsonDocument.ParseAsync(stream, cancellationToken: timeout.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            StartupLog.Write($"lyrics.online.timeout: host={host}, path={path}");
+            return null;
+        }
+        catch (HttpRequestException exception)
+        {
+            StartupLog.Write($"lyrics.online.network: {exception.Message}");
+            return null;
+        }
+        catch (JsonException exception)
+        {
+            StartupLog.Write($"lyrics.online.json: {exception.Message}");
+            return null;
+        }
+    }
+
+    private async Task<JsonDocument?> RequestJsonPostAsync(
+        string host,
+        string path,
+        object payload,
+        CancellationToken cancellationToken)
+    {
+        var uri = new Uri($"https://{host}{path}");
+        using var request = new HttpRequestMessage(HttpMethod.Post, uri)
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(payload, JsonOptions),
+                Encoding.UTF8,
+                "application/json")
+        };
+        request.Headers.Accept.ParseAdd("application/json");
+        request.Headers.UserAgent.ParseAdd("Mozilla/5.0 PrismWave/0.6");
+        if (host.EndsWith("y.qq.com", StringComparison.OrdinalIgnoreCase))
+        {
+            request.Headers.Referrer = new Uri("https://y.qq.com/");
+            request.Headers.TryAddWithoutValidation("Origin", "https://y.qq.com");
+        }
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(DefaultRequestTimeout);
+        try
+        {
+            using var response = await _httpClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                timeout.Token);
             if (!response.IsSuccessStatusCode)
             {
                 return null;
@@ -775,8 +1232,9 @@ public sealed class LyricsService : ILyricsService
     {
         return results
             .Where(result => !string.IsNullOrWhiteSpace(result.SyncedLyrics) || !string.IsNullOrWhiteSpace(result.PlainLyrics))
-            .DistinctBy(result => $"{result.Provider}|{result.Id}", StringComparer.OrdinalIgnoreCase)
-            .OrderByDescending(result => ScoreResult(result, track, query));
+            .DistinctBy(result => $"{result.Provider}|{result.Id}|{result.LyricsKind}", StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(result => result.LyricsQualityRank)
+            .ThenByDescending(result => ScoreResult(result, track, query));
     }
 
     private static int ScoreResult(LyricsSearchResultModel result, TrackModel track, string query)
@@ -1016,4 +1474,10 @@ public sealed class LyricsService : ILyricsService
     };
 
     private sealed record QqSongCandidate(string Id, string Mid, string Title, string Artist);
+    private sealed record NeteaseSongCandidate(
+        string Id,
+        string Title,
+        string Artist,
+        string Album,
+        double DurationSeconds);
 }

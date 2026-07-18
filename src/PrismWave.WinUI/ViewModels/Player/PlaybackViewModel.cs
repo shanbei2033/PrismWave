@@ -908,14 +908,6 @@ public sealed partial class PlaybackViewModel : ObservableObject
             }
 
             ApplyLyricsDocument(document);
-            if (!document.IsEmpty
-                && !document.HasTimedSegments
-                && document.Source.Equals("online", StringComparison.OrdinalIgnoreCase)
-                && document.SelectionKind == LyricsSelectionKind.Auto)
-            {
-                _ = TryUpgradeWordSyncedLyricsAsync(track, revision, cancellationToken);
-            }
-
             return !document.IsEmpty;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

@@ -37,9 +37,9 @@ public sealed class SettingsText
     public string SolidAppearance => T("经典纯色", "經典純色", "Classic solid");
     public string SolidAppearanceDescription => T("使用稳定的不透明深色背景。", "使用穩定的不透明深色背景。", "Use the stable opaque dark background.");
     public string MicaAppearance => T("Windows 11 云母", "Windows 11 雲母", "Windows 11 Mica");
-    public string MicaAppearanceDescription => T("使用 Windows 11 原生云母材质。", "使用 Windows 11 原生雲母材質。", "Use the native Windows 11 Mica material.");
+    public string MicaAppearanceDescription => T("使用浅色 Windows 11 云母材质和半透明表面。", "使用淺色 Windows 11 雲母材質和半透明表面。", "Use light Windows 11 Mica with translucent surfaces.");
     public string AcrylicAppearance => T("亚克力", "壓克力", "Acrylic");
-    public string AcrylicAppearanceDescription => T("使用更通透的桌面亚克力材质。", "使用更通透的桌面壓克力材質。", "Use the more translucent desktop Acrylic material.");
+    public string AcrylicAppearanceDescription => T("使用深色、高通透度的桌面亚克力材质。", "使用深色、高通透度的桌面壓克力材質。", "Use dark, highly translucent desktop Acrylic.");
     public string LowEffects => T("低特效模式", "低特效模式", "Low effects");
     public string On => T("开", "開", "On");
     public string Off => T("关", "關", "Off");

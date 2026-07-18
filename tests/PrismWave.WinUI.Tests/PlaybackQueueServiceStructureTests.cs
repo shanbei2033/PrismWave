@@ -36,6 +36,23 @@ public sealed class PlaybackQueueServiceStructureTests
         Assert.Contains("_queue.AddRange(tracks);", method, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void NewMpvLoad_DoesNotRepublishPreviousTrackPosition()
+    {
+        var source = ReadPlaybackService();
+        var load = ExtractMethod(source, "LoadMpvTrack");
+        var started = ExtractMethod(source, "HandlePlaybackStarted");
+        var refresh = ExtractMethod(source, "RefreshPosition");
+
+        Assert.Contains("PositionSeconds = 0;", load, StringComparison.Ordinal);
+        Assert.DoesNotContain("RefreshPosition();", load, StringComparison.Ordinal);
+        Assert.DoesNotContain("RefreshPosition();", started, StringComparison.Ordinal);
+        Assert.Contains(
+            "Status is PlaybackStatus.Resolving or PlaybackStatus.Buffering",
+            refresh,
+            StringComparison.Ordinal);
+    }
+
     private static string ReadPlaybackService() => File.ReadAllText(FindRepositoryFile(
         "src", "PrismWave.WinUI", "Services", "Implementations", "PlaybackService.cs"));
 

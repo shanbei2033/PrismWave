@@ -612,7 +612,11 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         {
             ArmLocalStartupWatchdog(track, loadContext, _mpvHost.Generation);
         }
-        RefreshPosition();
+        // libmpv can continue exposing the previous item's time-pos until the
+        // new file-loaded event is delivered. Publishing that value here makes
+        // a cache hit (and ordinary track changes) appear to retain the old
+        // seek position. Keep the explicit zero set above while buffering.
+        Notify();
     }
 
     private async Task ResolveAndLoadCurrentTrackAsync(
@@ -792,7 +796,11 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         }
         StartupLog.Write(
             $"playback.mpv.started: title=\"{CurrentTrack.Title}\", status={Status}, route={_mpvHost.ActiveRoute}, source={DescribeSource(CurrentTrack.PlaybackSource)}");
-        RefreshPosition();
+        // Do not sample time-pos in the same callback that acknowledges the
+        // new media. Some backends update it one message later, so the first
+        // regular timer sample is the earliest reliable position. A recovery
+        // seek was already applied above and must not be overwritten either.
+        Notify();
     }
 
     private void HandleMediaFailed(
@@ -1216,6 +1224,11 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         }
 
         if (CurrentTrack is null)
+        {
+            return;
+        }
+
+        if (Status is PlaybackStatus.Resolving or PlaybackStatus.Buffering)
         {
             return;
         }

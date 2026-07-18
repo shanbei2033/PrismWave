@@ -9,9 +9,24 @@
 
 [中文说明](./README_zh.md)
 
-PrismWave is a Windows music player built with Flutter, combining a local
-library with an online-first home page for recommendations, search, and
-queue-based playback.
+PrismWave WinUI is the native Windows 11 music player edition of PrismWave.
+It combines a real local library with online recommendations, search, queue
+playback, FullPlay lyrics, and configurable Windows materials.
+
+## Current WinUI Beta
+
+The default development branch is [`WinUI`](https://github.com/shanbei2033/PrismWave/tree/WinUI).
+This branch is the active native implementation and includes:
+
+- WinUI 3 desktop shell with immersive FullPlay
+- Real recursive local-library scanning with metadata and cover fallback
+- MPV, WASAPI shared, and WASAPI exclusive output paths
+- Online provider fallback with short-term disk audio cache
+- Automatic lyrics plus QQ QRC / NetEase YRC word timing when available
+- Playback queue, context actions, cover replacement, and state-preserving navigation
+- Classic solid, light Windows 11 Mica, and Acrylic appearance styles
+
+The Flutter application remains under `app/` as the legacy/reference client.
 
 > **WinUI beta branch**: the current native Windows UI is maintained on the
 > [`WinUI`](https://github.com/shanbei2033/PrismWave/tree/WinUI) branch. It
@@ -41,7 +56,12 @@ queue-based playback.
 
 ## Stack
 
-- Flutter (3.29.3)
+- WinUI 3 / Windows App SDK
+- C# / .NET 10
+- Win2D and Windows Composition
+- libmpv with WASAPI shared/exclusive routing
+- TagLib# local metadata reader
+- Flutter (3.29.3) legacy/reference client
 - Riverpod
 - just_audio + just_audio_media_kit (media_kit / MPV)
 - BASS / BASSDSD / BASSASIO (DSD playback)
@@ -52,12 +72,30 @@ queue-based playback.
 ```text
 PrismWave/
   app/                   Flutter application
+  src/PrismWave.WinUI/   Native WinUI application
+  tests/                 WinUI regression tests
   native/windows_dsd/    BASS/BASSDSD/BASSASIO native libraries
   installer/             Inno Setup installer script
   tools/flutter/         Bundled Flutter SDK 
 ```
 
-## Run
+## Run (WinUI Beta)
+
+```powershell
+git switch WinUI
+dotnet run --project src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64
+```
+
+## Build (WinUI Beta)
+
+```powershell
+dotnet build src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64 --no-restore
+dotnet test tests/PrismWave.WinUI.Tests/PrismWave.WinUI.Tests.csproj --no-restore
+```
+
+The native output is produced under `src/PrismWave.WinUI/bin/x64/`.
+
+## Run (Flutter legacy client)
 
 If Flutter is already available in your environment:
 
@@ -75,7 +113,7 @@ cd app
 ..\tools\flutter\bin\flutter.bat run -d windows
 ```
 
-## Build
+## Build (Flutter legacy client)
 
 ```powershell
 cd app
@@ -99,25 +137,6 @@ Installer output:
 ```text
 dist/PrismWave-Setup-R503.exe
 ```
-
-## Native WinUI build
-
-To run the current WinUI beta from the `WinUI` branch:
-
-```powershell
-git switch WinUI
-dotnet run --project src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64
-```
-
-To build the native x64 application without restoring packages:
-
-```powershell
-dotnet build src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64 --no-restore
-```
-
-The WinUI beta supports local folders, MPV/WASAPI playback routing, short-term
-online audio caching, QRC/YRC word lyrics when available, and light Windows 11
-Mica, Acrylic, and classic solid appearance styles from Settings.
 
 ## Audio notes
 

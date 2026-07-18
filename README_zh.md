@@ -9,7 +9,22 @@
 
 [English README](./README.md)
 
-PrismWave 是一个基于 Flutter 开发的 Windows 音乐播放器，结合了本地音乐库和在线优先的首页推荐、搜索与播放队列。
+PrismWave WinUI 是 PrismWave 的原生 Windows 11 音乐播放器版本，结合真实本地曲库、在线推荐、搜索、播放队列、FullPlay 歌词和可配置的 Windows 材质。
+
+## 当前 WinUI Beta
+
+默认开发分支是 [`WinUI`](https://github.com/shanbei2033/PrismWave/tree/WinUI)。
+该分支是当前主要的原生实现，包含：
+
+- WinUI 3 桌面外壳与沉浸式 FullPlay
+- 支持元数据和封面回退的真实递归本地曲库扫描
+- MPV、WASAPI 共享和 WASAPI 独占播放路径
+- 在线音源故障转移与短期磁盘音频缓存
+- 自动歌词，以及可用时的 QQ QRC / 网易云 YRC 逐字时间轴
+- 播放队列、右键操作、封面替换和返回状态保留
+- 经典纯色、浅色 Windows 11 云母和亚克力外观切换
+
+Flutter 应用仍保留在 `app/` 目录，作为旧版/对照客户端。
 
 > **WinUI Beta 分支**：当前原生 Windows 界面维护在
 > [`WinUI`](https://github.com/shanbei2033/PrismWave/tree/WinUI) 分支，包含
@@ -35,7 +50,12 @@ PrismWave 是一个基于 Flutter 开发的 Windows 音乐播放器，结合了�
 
 ## 技术栈
 
-- Flutter (3.29.3)
+- WinUI 3 / Windows App SDK
+- C# / .NET 10
+- Win2D 与 Windows Composition
+- libmpv，支持 WASAPI 共享 / 独占路由
+- TagLib# 本地元数据读取
+- Flutter (3.29.3) 旧版/对照客户端
 - Riverpod
 - just_audio + just_audio_media_kit (media_kit / MPV)
 - BASS / BASSDSD / BASSASIO（DSD 播放）
@@ -46,12 +66,30 @@ PrismWave 是一个基于 Flutter 开发的 Windows 音乐播放器，结合了�
 ```text
 PrismWave/
   app/                   Flutter 应用
+  src/PrismWave.WinUI/   原生 WinUI 应用
+  tests/                 WinUI 回归测试
   native/windows_dsd/    BASS/BASSDSD/BASSASIO 原生运行库
   installer/             Inno Setup 安装包脚本
   tools/flutter/         内置 Flutter SDK
 ```
 
-## 运行
+## 运行（WinUI Beta）
+
+```powershell
+git switch WinUI
+dotnet run --project src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64
+```
+
+## 构建（WinUI Beta）
+
+```powershell
+dotnet build src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64 --no-restore
+dotnet test tests/PrismWave.WinUI.Tests/PrismWave.WinUI.Tests.csproj --no-restore
+```
+
+原生 WinUI 输出位于 `src/PrismWave.WinUI/bin/x64/`。
+
+## 运行（Flutter 旧版客户端）
 
 如果你的环境中已经安装了 Flutter：
 
@@ -69,7 +107,7 @@ cd app
 ..\tools\flutter\bin\flutter.bat run -d windows
 ```
 
-## 构建
+## 构建（Flutter 旧版客户端）
 
 ```powershell
 cd app
@@ -93,25 +131,6 @@ app/build/windows/x64/runner/Release/prismwave_demo.exe
 ```text
 dist/PrismWave-Setup-R503.exe
 ```
-
-## 原生 WinUI 构建
-
-在 `WinUI` 分支运行当前 WinUI Beta：
-
-```powershell
-git switch WinUI
-dotnet run --project src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64
-```
-
-不还原依赖并构建原生 x64 应用：
-
-```powershell
-dotnet build src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64 --no-restore
-```
-
-WinUI Beta 支持本地音乐文件夹、MPV/WASAPI 播放路由、短期在线音频缓存、
-可用时的 QRC/YRC 逐字歌词，以及设置中的浅色 Windows 11 云母、亚克力和
-经典纯色外观切换。
 
 ## 音频说明
 

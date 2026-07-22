@@ -3,7 +3,7 @@
   <img src="assets/logo.png" alt="logo" width="128">
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
-  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.0-blue" alt="Release"></a>
+  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.1-blue" alt="Release"></a>
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.29.3-blue" alt="Flutter"></a>
 </div>
 
@@ -32,9 +32,15 @@ Flutter 应用仍保留在 `app/` 目录，作为旧版/对照客户端。
 > FullPlay，以及可切换的经典纯色 / 浅色云母 / 亚克力外观。Flutter 应用仍
 > 保留在 `app/` 目录中，用于对照和兼容。
 
-## 最新版本：v1.0.0
+## 最新版本：v1.0.1
 
-这是 PrismWave WinUI 的首个正式版本，包含：
+本次为 PrismWave WinUI 的维护更新：
+
+- 修复窗口可被无限缩小导致 UI 显示不全的问题：最小尺寸锁定为启动尺寸
+- 移除 Windows DSD 播放后端及相关设置项
+- 移除 Flutter 设置迁移面板与低特效模式
+
+v1.0.0 的主要特性依然适用：
 
 - 完整的原生 WinUI 3 桌面音乐播放器，采用现代 Windows 11 设计
 - 支持元数据和封面回退的真实递归本地曲库扫描
@@ -45,11 +51,10 @@ Flutter 应用仍保留在 `app/` 目录，作为旧版/对照客户端。
 - 沉浸式 FullPlay 页面，使用 Win2D 歌词画布
 - 播放队列，支持拖拽排序和在线音源按需恢复
 - HITS 广播模式，基于节目单的在线播放，10 个音源 provider
-- Windows DSD 后端（BASS/BASSDSD/BASSASIO），支持 .dsf/.dff 文件
 - 开发者模式，带实时播放日志
 - 可配置外观：经典纯色、浅色 Windows 11 云母和亚克力风格
 
-下载请前往 [v1.0.0 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.0)。
+下载请前往 [v1.0.1 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.1)。
 
 ## 功能
 
@@ -64,7 +69,6 @@ Flutter 应用仍保留在 `app/` 目录，作为旧版/对照客户端。
 - 歌词：本地歌词、在线自动匹配、在线搜索与缓存、逐字歌词、QQ QRC 解码
 - HITS 广播模式：基于节目单的在线播放，10 个音源 provider，封面与歌词缓存，预加载
   - HITS 节目单由 [prismwave-hits](https://github.com/shanbei2033/prismwave-hits) 仓库生成
-- Windows DSD 后端（BASS/BASSDSD/BASSASIO FFI）
 - 开发者模式：实时播放日志窗口与本地日志文件
 
 ## 技术栈
@@ -77,7 +81,6 @@ Flutter 应用仍保留在 `app/` 目录，作为旧版/对照客户端。
 - Flutter (3.29.3) 旧版/对照客户端
 - Riverpod
 - just_audio + just_audio_media_kit (media_kit / MPV)
-- BASS / BASSDSD / BASSASIO（DSD 播放）
 - Windows Desktop
 
 ## 项目结构
@@ -87,7 +90,6 @@ PrismWave/
   app/                   Flutter 应用
   src/PrismWave.WinUI/   原生 WinUI 应用
   tests/                 WinUI 回归测试
-  native/windows_dsd/    BASS/BASSDSD/BASSASIO 原生运行库
   installer/             Inno Setup 安装包脚本
   tools/flutter/         内置 Flutter SDK
 ```

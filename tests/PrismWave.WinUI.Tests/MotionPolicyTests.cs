@@ -12,15 +12,12 @@ public sealed class MotionPolicyTests
     }
 
     [Theory]
-    [InlineData(true, false, true)]
-    [InlineData(false, false, false)]
-    [InlineData(true, true, false)]
-    [InlineData(false, true, false)]
-    public void ShouldAnimate_RespectsSystemAndApplicationPreferences(
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public void ShouldAnimate_RespectsSystemPreference(
         bool systemAnimationsEnabled,
-        bool lowEffects,
         bool expected)
     {
-        Assert.Equal(expected, MotionPolicy.ShouldAnimate(systemAnimationsEnabled, lowEffects));
+        Assert.Equal(expected, MotionPolicy.ShouldAnimate(systemAnimationsEnabled));
     }
 }

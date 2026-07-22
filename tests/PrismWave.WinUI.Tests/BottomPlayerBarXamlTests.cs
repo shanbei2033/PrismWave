@@ -93,7 +93,7 @@ public sealed class BottomPlayerBarXamlTests
 
         var volumeRegion = FindByAutomationId(document, "PlayerVolumeRegion");
         Assert.Equal("Right", volumeRegion.Attribute("HorizontalAlignment")?.Value);
-        Assert.Equal("{Binding Volume, Mode=TwoWay}", FindByAutomationId(document, "PlayerVolumeSlider")
+        Assert.Equal("{Binding Volume, Mode=OneWay}", FindByAutomationId(document, "PlayerVolumeSlider")
             .Attribute("Value")?.Value);
     }
 

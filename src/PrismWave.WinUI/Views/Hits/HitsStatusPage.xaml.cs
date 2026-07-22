@@ -47,7 +47,7 @@ public sealed partial class HitsStatusPage : Page
 
     private async void HitsStatusPage_Loaded(object sender, RoutedEventArgs e)
     {
-        _animationsEnabled = MotionPolicy.ShouldAnimateInteraction() && !App.Services.SettingsService.Current.LowEffects;
+        _animationsEnabled = MotionPolicy.ShouldAnimateInteraction();
         if (App.Window is MainWindow mainWindow)
         {
             mainWindow.SetImmersiveTitleBar(true, HitsDragRegion);
@@ -198,7 +198,7 @@ public sealed partial class HitsStatusPage : Page
         var blur = new GaussianBlurEffect
         {
             Name = "HitsBlur",
-            BlurAmount = App.Services.SettingsService.Current.LowEffects ? 12f : 30f,
+            BlurAmount = 30f,
             BorderMode = EffectBorderMode.Hard,
             Optimization = EffectOptimization.Balanced,
             Source = new CompositionEffectSourceParameter("BackdropSource")

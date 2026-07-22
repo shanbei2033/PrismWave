@@ -800,11 +800,6 @@ public sealed class PlaybackViewModelLyricsTests
         public bool IsLoading => false;
         public bool IsPlaying => true;
         public string? Error => null;
-        public IReadOnlyList<WindowsDsdDeviceModel> WindowsDsdDevices => Array.Empty<WindowsDsdDeviceModel>();
-        public bool WindowsDsdAvailable => false;
-        public string? WindowsDsdOutputModeLabel => null;
-        public string? WindowsDsdActiveDeviceName => null;
-        public string? WindowsDsdFallbackReason => null;
         public event EventHandler? StateChanged;
 
         public void RaiseStateChanged() => StateChanged?.Invoke(this, EventArgs.Empty);
@@ -820,7 +815,6 @@ public sealed class PlaybackViewModelLyricsTests
         public void ReorderQueue(IReadOnlyList<TrackModel> tracks) { }
         public void RemoveFromQueue(TrackModel value) { }
         public void ClearQueue() { }
-        public Task RefreshWindowsDsdDevicesAsync() => Task.CompletedTask;
     }
 
     private sealed class FakeCoverService : ICoverService
@@ -912,9 +906,7 @@ public sealed class PlaybackViewModelLyricsTests
             "zh-CN",
             true,
             true,
-            false,
             "wasapi_shared",
-            "auto",
             "auto",
             true,
             220,

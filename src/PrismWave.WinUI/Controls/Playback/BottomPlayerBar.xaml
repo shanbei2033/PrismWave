@@ -316,7 +316,8 @@
                     Width="130"
                     Minimum="0"
                     Maximum="1"
-                    Value="{Binding Volume, Mode=TwoWay}"
+                    StepFrequency="0.01"
+                    Value="{Binding Volume, Mode=OneWay}"
                     ValueChanged="VolumeSlider_ValueChanged"
                     AutomationProperties.AutomationId="PlayerVolumeSlider" />
             </StackPanel>

@@ -14,6 +14,7 @@ import '../state/hits_state.dart';
 import '../state/library_state.dart';
 import 'glass_panel.dart';
 import 'hits_ui_shared.dart';
+import 'prismwave_theme.dart';
 import 'window_top_bar.dart';
 
 class HitsFullPlayPage extends ConsumerStatefulWidget {
@@ -374,12 +375,12 @@ class _HitsPageBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
+    return const DecoratedBox(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0x24090F1D), Color(0x240C1323), Color(0x240E1526)],
+          colors: [Color(0xFF05070B), Color(0xFF09101A), Color(0xFF040508)],
         ),
       ),
     );
@@ -508,16 +509,43 @@ class _HitsPlaybackToggleButton extends StatelessWidget {
         ? 'assets/icons/player_pause.svg'
         : 'assets/icons/player_play.svg';
 
-    return IconButton(
-      onPressed: onPressed,
-      iconSize: 34,
-      icon: SvgPicture.asset(
-        iconPath,
-        width: 34,
-        height: 34,
-        colorFilter: ColorFilter.mode(
-          Colors.white.withValues(alpha: onPressed == null ? 0.42 : 0.96),
-          BlendMode.srcIn,
+    return SizedBox(
+      width: 62,
+      height: 62,
+      child: TextButton(
+        onPressed: onPressed,
+        style: ButtonStyle(
+          padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+          backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+          ),
+          overlayColor: WidgetStatePropertyAll(
+            Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Ink(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: onPressed == null ? null : PrismWaveTheme.accentGradient,
+            color: onPressed == null
+                ? Colors.white.withValues(alpha: 0.045)
+                : null,
+            boxShadow: onPressed == null
+                ? null
+                : PrismWaveTheme.accentShadow(alpha: 0.32),
+          ),
+          child: Center(
+            child: SvgPicture.asset(
+              iconPath,
+              width: 32,
+              height: 32,
+              colorFilter: ColorFilter.mode(
+                Colors.white.withValues(alpha: onPressed == null ? 0.42 : 0.96),
+                BlendMode.srcIn,
+              ),
+            ),
+          ),
         ),
       ),
     );

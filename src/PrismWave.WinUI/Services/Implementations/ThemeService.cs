@@ -10,9 +10,7 @@ public sealed class ThemeService : IThemeService
     public ThemeService(ISettingsService settingsService)
     {
         _settingsService = settingsService;
-        LowEffects = settingsService.Current.LowEffects;
     }
 
-    public bool LowEffects { get; }
     public string ThemeName => AppearanceStyleIds.Normalize(_settingsService.Current.AppearanceStyle);
 }

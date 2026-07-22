@@ -145,11 +145,6 @@ public sealed class PlaybackViewModelFavoriteTests
         public bool IsLoading => false;
         public bool IsPlaying => false;
         public string? Error => null;
-        public IReadOnlyList<WindowsDsdDeviceModel> WindowsDsdDevices => Array.Empty<WindowsDsdDeviceModel>();
-        public bool WindowsDsdAvailable => false;
-        public string? WindowsDsdOutputModeLabel => null;
-        public string? WindowsDsdActiveDeviceName => null;
-        public string? WindowsDsdFallbackReason => null;
 
         public event EventHandler? StateChanged;
 
@@ -167,7 +162,6 @@ public sealed class PlaybackViewModelFavoriteTests
         public void ReorderQueue(IReadOnlyList<TrackModel> tracks) { }
         public void RemoveFromQueue(TrackModel value) { }
         public void ClearQueue() { }
-        public Task RefreshWindowsDsdDevicesAsync() => Task.CompletedTask;
     }
 
     private sealed class EmptyLyricsService : ILyricsService

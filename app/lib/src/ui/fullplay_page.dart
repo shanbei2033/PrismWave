@@ -20,6 +20,7 @@ import '../state/library_state.dart';
 import '../state/playback_state.dart';
 import 'middle_click_autoscroll.dart';
 import 'online_home_panel.dart';
+import 'prismwave_theme.dart';
 import 'window_top_bar.dart';
 
 class FullPlayPage extends ConsumerStatefulWidget {
@@ -118,9 +119,9 @@ class _EmptyFullPlay extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.black.withValues(alpha: 0.52),
-                const Color(0xFF0B1324).withValues(alpha: 0.72),
-                const Color(0xFF0D1629).withValues(alpha: 0.82),
+                Colors.black.withValues(alpha: 0.58),
+                PrismWaveTheme.surface.withValues(alpha: 0.76),
+                PrismWaveTheme.surfaceInk.withValues(alpha: 0.86),
               ],
             ),
           ),
@@ -196,8 +197,8 @@ class _FullPlayBody extends ConsumerWidget {
               end: Alignment.bottomRight,
               colors: [
                 Colors.black.withValues(alpha: 0.58),
-                const Color(0xFF0B1324).withValues(alpha: 0.72),
-                const Color(0xFF0D1629).withValues(alpha: 0.80),
+                PrismWaveTheme.surface.withValues(alpha: 0.72),
+                PrismWaveTheme.surfaceInk.withValues(alpha: 0.86),
               ],
             ),
           ),
@@ -1576,8 +1577,11 @@ class _CoverSearchDialogState extends ConsumerState<_CoverSearchDialog> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      FilledButton(
+                      TextButton(
                         onPressed: _loading || _applying ? null : _search,
+                        style: PrismWaveTheme.rectangularButtonStyle(
+                          selected: true,
+                        ),
                         child: Text(t.searchAction),
                       ),
                     ],
@@ -1933,8 +1937,11 @@ class _OnlineLyricsSearchDialogState
                         ),
                       ),
                       const SizedBox(width: 10),
-                      FilledButton(
+                      TextButton(
                         onPressed: _loading ? null : _search,
+                        style: PrismWaveTheme.rectangularButtonStyle(
+                          selected: true,
+                        ),
                         child: Text(t.searchAction),
                       ),
                     ],
@@ -2329,16 +2336,43 @@ class _PlaybackToggleButton extends StatelessWidget {
         ? 'assets/icons/player_pause.svg'
         : 'assets/icons/player_play.svg';
 
-    return IconButton(
-      onPressed: onPressed,
-      iconSize: 30,
-      icon: SvgPicture.asset(
-        iconPath,
-        width: 30,
-        height: 30,
-        colorFilter: ColorFilter.mode(
-          Colors.white.withValues(alpha: onPressed == null ? 0.42 : 0.94),
-          BlendMode.srcIn,
+    return SizedBox(
+      width: 58,
+      height: 58,
+      child: TextButton(
+        onPressed: onPressed,
+        style: ButtonStyle(
+          padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+          backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+          ),
+          overlayColor: WidgetStatePropertyAll(
+            Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Ink(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: onPressed == null ? null : PrismWaveTheme.accentGradient,
+            color: onPressed == null
+                ? Colors.white.withValues(alpha: 0.045)
+                : null,
+            boxShadow: onPressed == null
+                ? null
+                : PrismWaveTheme.accentShadow(alpha: 0.32),
+          ),
+          child: Center(
+            child: SvgPicture.asset(
+              iconPath,
+              width: 28,
+              height: 28,
+              colorFilter: ColorFilter.mode(
+                Colors.white.withValues(alpha: onPressed == null ? 0.42 : 0.96),
+                BlendMode.srcIn,
+              ),
+            ),
+          ),
         ),
       ),
     );

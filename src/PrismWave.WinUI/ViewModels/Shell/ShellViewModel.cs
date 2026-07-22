@@ -24,7 +24,6 @@ public sealed partial class ShellViewModel : ObservableObject
     private string _searchQuery = string.Empty;
     private bool _isQueuePaneOpen;
     private bool _isOnlineNavigationVisible;
-    private string _migrationSummary = string.Empty;
 
     public ShellViewModel(
         ISettingsService settingsService,
@@ -39,9 +38,6 @@ public sealed partial class ShellViewModel : ObservableObject
         Playback = playback;
         IsOnlineNavigationVisible = settings.ExperimentalFeaturesEnabled && settings.OnlineModeEnabled;
         SelectedRoute = IsOnlineNavigationVisible ? "Home" : "Library";
-        MigrationSummary = settings.Migration.SourceFound
-            ? $"Migrated {settings.Migration.MigratedKeyCount} Flutter settings"
-            : "No Flutter settings file found";
     }
 
     public PlaybackViewModel Playback { get; }
@@ -78,12 +74,6 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         get => _isOnlineNavigationVisible;
         private set => SetProperty(ref _isOnlineNavigationVisible, value);
-    }
-
-    public string MigrationSummary
-    {
-        get => _migrationSummary;
-        private set => SetProperty(ref _migrationSummary, value);
     }
 
     public bool CanGoBack => _backStack.Count > 0;

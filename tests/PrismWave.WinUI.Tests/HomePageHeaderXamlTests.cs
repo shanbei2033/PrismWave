@@ -18,7 +18,7 @@ public sealed class HomePageHeaderXamlTests
 
         Assert.Equal("0", header.Attribute("Grid.Row")?.Value);
         Assert.Equal("40", header.Attribute("Height")?.Value);
-        Assert.Equal("0,18,24,12", header.Attribute("Margin")?.Value);
+        Assert.Equal("0,0,0,12", header.Attribute("Margin")?.Value);
         Assert.Equal("40", refresh.Attribute("Width")?.Value);
         Assert.Equal("40", refresh.Attribute("Height")?.Value);
         Assert.Equal("{Binding RefreshHomeCommand}", refresh.Attribute("Command")?.Value);

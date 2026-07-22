@@ -42,6 +42,5 @@ public interface IUpdateService
 
 public interface IThemeService
 {
-    bool LowEffects { get; }
     string ThemeName { get; }
 }

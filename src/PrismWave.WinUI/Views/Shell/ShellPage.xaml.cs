@@ -684,7 +684,10 @@ public sealed partial class ShellPage : Page
 
         var incomingVisual = ElementCompositionPreview.GetElementVisual(_incomingContentFrame);
         incomingVisual.StopAnimation("Offset.X");
-        incomingVisual.Offset = new Vector3(GetCoverTransitionOffset(intent), 0, 0);
+        incomingVisual.Offset = new Vector3(
+            GetCoverTransitionOffset(intent with { HostWidth = PageTransitionHost.ActualWidth }),
+            0,
+            0);
 
         var incomingContentVisual = ElementCompositionPreview.GetElementVisual(incomingContent);
         incomingContentVisual.StopAnimation("Opacity");

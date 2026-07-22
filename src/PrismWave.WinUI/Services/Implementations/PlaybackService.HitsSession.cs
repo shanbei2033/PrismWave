@@ -16,9 +16,6 @@ public sealed partial class PlaybackService
     private double _hitsPositionSeconds;
     private double _hitsDurationSeconds;
     private string? _hitsError;
-    private string? _primaryWindowsDsdOutputModeLabelDuringHits;
-    private string? _primaryWindowsDsdActiveDeviceNameDuringHits;
-    private string? _primaryWindowsDsdFallbackReasonDuringHits;
     private string _primaryAudioOutputModeLabelDuringHits = string.Empty;
     private string? _primaryAudioOutputFallbackReasonDuringHits;
 
@@ -62,7 +59,6 @@ public sealed partial class PlaybackService
 
         CancelPendingLoad();
         _mpvHost.Engine.Stop();
-        _dsdEngine.Stop();
 
         var settings = _settingsService.Current;
         _mpvHost.ResetPreference(
@@ -210,16 +206,8 @@ public sealed partial class PlaybackService
         var duration = DurationSeconds;
         if (CurrentTrack is not null)
         {
-            if (_usingDsdBackend)
-            {
-                position = Math.Max(position, _dsdEngine.PositionSeconds);
-                duration = Math.Max(duration, _dsdEngine.DurationSeconds);
-            }
-            else
-            {
-                position = Math.Max(position, _mpvHost.Engine.PositionSeconds);
-                duration = Math.Max(duration, _mpvHost.Engine.DurationSeconds);
-            }
+            position = Math.Max(position, _mpvHost.Engine.PositionSeconds);
+            duration = Math.Max(duration, _mpvHost.Engine.DurationSeconds);
         }
 
         return new PlaybackSessionSnapshot(
@@ -233,14 +221,6 @@ public sealed partial class PlaybackService
 
     private void CapturePrimaryOutputPresentation()
     {
-        _primaryWindowsDsdOutputModeLabelDuringHits = _usingDsdBackend
-            ? _dsdEngine.OutputModeLabel
-            : null;
-        _primaryWindowsDsdActiveDeviceNameDuringHits = _usingDsdBackend
-            ? _dsdEngine.ActiveDeviceName
-            : null;
-        _primaryWindowsDsdFallbackReasonDuringHits =
-            _windowsDsdFallbackReason ?? _dsdEngine.FallbackReason;
         _primaryAudioOutputModeLabelDuringHits = _mpvHost.ActiveRouteLabel;
         _primaryAudioOutputFallbackReasonDuringHits = _mpvHost.FallbackReason;
     }
@@ -259,8 +239,6 @@ public sealed partial class PlaybackService
         {
             CancelPendingLoad();
             _mpvHost.Engine.Stop();
-            _dsdEngine.Stop();
-            _usingDsdBackend = false;
             IsLoading = false;
             IsPlaying = false;
             Status = PlaybackStatus.Idle;

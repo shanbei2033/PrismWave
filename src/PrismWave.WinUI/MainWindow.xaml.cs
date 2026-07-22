@@ -33,6 +33,7 @@ public sealed partial class MainWindow : Window
         AppWindow.TitleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
         AppWindow.TitleBar.ButtonForegroundColor = Microsoft.UI.Colors.White;
         AppWindow.MoveAndResize(new Windows.Graphics.RectInt32(60, 48, launchSize.Width, launchSize.Height));
+        WindowMinSizeGuard.Apply(this, minWidth: launchSize.Width, minHeight: launchSize.Height);
         ApplyAppearanceStyle(_settingsService.Current.AppearanceStyle);
         StartupLog.Write($"Window launch size: {launchSize.Width}x{launchSize.Height}");
 

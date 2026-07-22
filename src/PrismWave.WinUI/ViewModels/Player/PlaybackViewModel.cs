@@ -281,9 +281,6 @@ public sealed partial class PlaybackViewModel : ObservableObject
         ? "0.0 s"
         : $"{LyricsOffsetSeconds:+0.0;-0.0} s";
     public double EffectiveLyricsPositionSeconds => Math.Max(0, PositionSeconds - LyricsOffsetSeconds);
-    public string? WindowsDsdOutputModeLabel => _playbackService.WindowsDsdOutputModeLabel;
-    public string? WindowsDsdActiveDeviceName => _playbackService.WindowsDsdActiveDeviceName;
-    public string? WindowsDsdFallbackReason => _playbackService.WindowsDsdFallbackReason;
 
     [RelayCommand]
     private void TogglePlayPause()
@@ -655,9 +652,6 @@ public sealed partial class PlaybackViewModel : ObservableObject
         OnPropertyChanged(nameof(HasTrack));
         OnPropertyChanged(nameof(ToggleGlyph));
         OnPropertyChanged(nameof(DurationLabel));
-        OnPropertyChanged(nameof(WindowsDsdOutputModeLabel));
-        OnPropertyChanged(nameof(WindowsDsdActiveDeviceName));
-        OnPropertyChanged(nameof(WindowsDsdFallbackReason));
     }
 
     private void CoverService_CoverChanged(object? sender, CoverChangedEventArgs e)

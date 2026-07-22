@@ -14,17 +14,13 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
     private readonly MpvPlaybackEngineHost _mpvHost;
     private readonly RemotePlaybackRecoveryPolicy _remoteRecoveryPolicy = new();
     private readonly PlaybackLoadEventGuard _mpvLoadEventGuard = new();
-    private readonly WindowsDsdPlaybackEngine _dsdEngine = new();
     private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcherQueue;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _positionTimer;
     private readonly Random _random = new();
-    private IReadOnlyList<WindowsDsdDeviceModel> _windowsDsdDevices = new[] { WindowsDsdDeviceModel.Automatic };
     private int _loadRevision;
     private CancellationTokenSource? _loadCancellationSource;
     private CancellationTokenSource? _localStartupCancellationSource;
     private double? _pendingRecoverySeekSeconds;
-    private bool _usingDsdBackend;
-    private string? _windowsDsdFallbackReason;
 
     public TrackModel? CurrentTrack { get; private set; }
     public IReadOnlyList<TrackModel> Queue => _queue;
@@ -37,17 +33,6 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
     public bool IsLoading { get; private set; }
     public bool IsPlaying { get; private set; }
     public string? Error { get; private set; }
-    public IReadOnlyList<WindowsDsdDeviceModel> WindowsDsdDevices => _windowsDsdDevices;
-    public bool WindowsDsdAvailable => _dsdEngine.IsAvailable;
-    public string? WindowsDsdOutputModeLabel => IsHitsSessionActive
-        ? _primaryWindowsDsdOutputModeLabelDuringHits
-        : _usingDsdBackend ? _dsdEngine.OutputModeLabel : null;
-    public string? WindowsDsdActiveDeviceName => IsHitsSessionActive
-        ? _primaryWindowsDsdActiveDeviceNameDuringHits
-        : _usingDsdBackend ? _dsdEngine.ActiveDeviceName : null;
-    public string? WindowsDsdFallbackReason => IsHitsSessionActive
-        ? _primaryWindowsDsdFallbackReasonDuringHits
-        : _windowsDsdFallbackReason ?? _dsdEngine.FallbackReason;
     public string ActiveAudioOutputModeLabel => IsHitsSessionActive
         ? _primaryAudioOutputModeLabelDuringHits
         : _mpvHost.ActiveRouteLabel;
@@ -96,11 +81,6 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
             Dispatch(() => RefreshHostStateWhenReady(hitsRevision));
         };
         _settingsService.SettingsChanged += (_, _) => Dispatch(ApplyAudioSettings);
-        _dsdEngine.PlaybackEnded += (_, _) =>
-        {
-            var hitsRevision = CaptureHitsCallbackRevision();
-            Dispatch(() => HandleMediaEnded(hitsRevision));
-        };
 
         _positionTimer = _dispatcherQueue.CreateTimer();
         _positionTimer.Interval = TimeSpan.FromMilliseconds(500);
@@ -122,7 +102,7 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
             return;
         }
 
-        StartupLog.Write($"playback.play: title=\"{track.Title}\", provider={track.Provider}, remote={track.IsRemote}, dsd={track.IsDsd}");
+        StartupLog.Write($"playback.play: title=\"{track.Title}\", provider={track.Provider}, remote={track.IsRemote}");
         CurrentTrack = track;
         _remoteRecoveryPolicy.BeginTrack(track.Id);
         Error = null;
@@ -146,8 +126,6 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
 
         CancelPendingLoad();
         _mpvHost.Engine.Stop();
-        _dsdEngine.Stop();
-        _usingDsdBackend = false;
         CurrentTrack = null;
         if (_queue.Count > 0)
         {
@@ -179,29 +157,11 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         if (IsPlaying)
         {
             StartupLog.Write($"playback.pause: title=\"{CurrentTrack.Title}\"");
-            if (_usingDsdBackend)
-            {
-                _dsdEngine.Pause();
-                IsPlaying = false;
-                Status = PlaybackStatus.Paused;
-                Notify();
-                return;
-            }
-
             _mpvHost.Engine.Pause();
         }
         else
         {
             StartupLog.Write($"playback.resume: title=\"{CurrentTrack.Title}\"");
-            if (_usingDsdBackend)
-            {
-                _dsdEngine.Resume();
-                IsPlaying = true;
-                Status = PlaybackStatus.Playing;
-                Notify();
-                return;
-            }
-
             _mpvHost.Engine.Play();
         }
 
@@ -255,7 +215,6 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
 
         Volume = Math.Clamp(volume, 0, 1);
         _mpvHost.Engine.SetVolume(Volume);
-        _dsdEngine.SetVolume(Volume);
         Notify();
     }
 
@@ -273,14 +232,7 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
 
         var duration = DurationSeconds > 0 ? DurationSeconds : _mpvHost.Engine.DurationSeconds;
         var clamped = duration > 0 ? Math.Clamp(seconds, 0, duration) : Math.Max(0, seconds);
-        if (_usingDsdBackend)
-        {
-            _dsdEngine.Seek(clamped);
-        }
-        else
-        {
-            _mpvHost.Engine.Seek(clamped);
-        }
+        _mpvHost.Engine.Seek(clamped);
 
         PositionSeconds = clamped;
         Notify();
@@ -401,8 +353,6 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
             if (CurrentTrack is null)
             {
                 _mpvHost.Engine.Stop();
-                _dsdEngine.Stop();
-                _usingDsdBackend = false;
                 IsPlaying = false;
                 IsLoading = false;
                 Status = PlaybackStatus.Idle;
@@ -435,8 +385,6 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         CurrentTrack = null;
         CancelPendingLoad();
         _mpvHost.Engine.Stop();
-        _dsdEngine.Stop();
-        _usingDsdBackend = false;
         IsPlaying = false;
         IsLoading = false;
         Error = null;
@@ -489,53 +437,10 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         {
             _pendingRecoverySeekSeconds = recoverySeek;
         }
-        if (!CurrentTrack.IsDsd)
-        {
-            ResetPreferredAudioRouteForNewTrack();
-        }
+        ResetPreferredAudioRouteForNewTrack();
         _loadCancellationSource = new CancellationTokenSource();
         var cancellationToken = _loadCancellationSource.Token;
         var revision = _loadRevision;
-        if (CurrentTrack.IsDsd)
-        {
-            _mpvHost.Engine.Stop();
-            if (_dsdEngine.Play(
-                CurrentTrack.Path,
-                Volume,
-                _settingsService.Current.WindowsDsdDevice,
-                out var dsdError))
-            {
-                _usingDsdBackend = true;
-                _windowsDsdFallbackReason = _dsdEngine.FallbackReason;
-                if (_pendingRecoverySeekSeconds is double resumePosition)
-                {
-                    _pendingRecoverySeekSeconds = null;
-                    _dsdEngine.Seek(resumePosition);
-                    PositionSeconds = resumePosition;
-                }
-                if (!autoplay)
-                {
-                    _dsdEngine.Pause();
-                }
-                StartupLog.Write($"playback.dsd.loaded: {CurrentTrack.Path}");
-                Error = null;
-                IsLoading = false;
-                IsPlaying = autoplay;
-                Status = autoplay ? PlaybackStatus.Playing : PlaybackStatus.Paused;
-                DurationSeconds = _dsdEngine.DurationSeconds;
-                Notify();
-                return;
-            }
-
-            _usingDsdBackend = false;
-            _windowsDsdFallbackReason = DescribeDsdFallback(dsdError);
-            StartupLog.Write($"playback.dsd.fallback: {CurrentTrack.Path}: {dsdError}");
-            LoadMpvTrack(CurrentTrack, autoplay);
-            return;
-        }
-
-        _usingDsdBackend = false;
-        _windowsDsdFallbackReason = null;
 
         if (CurrentTrack.IsRemote)
         {
@@ -575,8 +480,6 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
     private void LoadMpvTrack(TrackModel track, bool autoplay)
     {
         CancelLocalStartupWatchdog();
-        _dsdEngine.Stop();
-        _usingDsdBackend = false;
         IsLoading = true;
         IsPlaying = false;
         Status = PlaybackStatus.Buffering;
@@ -736,14 +639,7 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         if (Mode == PlaybackMode.Single)
         {
             Seek(0);
-            if (_usingDsdBackend)
-            {
-                _dsdEngine.Resume();
-            }
-            else
-            {
-                _mpvHost.Engine.Play();
-            }
+            _mpvHost.Engine.Play();
             return;
         }
 
@@ -762,7 +658,7 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
             return;
         }
 
-        if (CurrentTrack is null || _usingDsdBackend)
+        if (CurrentTrack is null)
         {
             return;
         }
@@ -823,7 +719,7 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
             return;
         }
 
-        if (CurrentTrack is null || _usingDsdBackend)
+        if (CurrentTrack is null)
         {
             return;
         }
@@ -1094,8 +990,6 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
     private MpvPlaybackSnapshot? CaptureMpvPlaybackSnapshot()
     {
         if (CurrentTrack is null
-            || _usingDsdBackend
-            || CurrentTrack.IsDsd
             || NeedsOnlineResolution(CurrentTrack))
         {
             return null;
@@ -1208,7 +1102,6 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         }
 
         if (CurrentTrack is not null
-            && !_usingDsdBackend
             && Status is not PlaybackStatus.Resolving and not PlaybackStatus.Buffering)
         {
             RefreshPlayerState();
@@ -1233,18 +1126,6 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
             return;
         }
 
-        if (_usingDsdBackend)
-        {
-            PositionSeconds = Math.Max(0, _dsdEngine.PositionSeconds);
-            if (_dsdEngine.DurationSeconds > 0)
-            {
-                DurationSeconds = _dsdEngine.DurationSeconds;
-            }
-
-            Notify();
-            return;
-        }
-
         PositionSeconds = Math.Max(0, _mpvHost.Engine.PositionSeconds);
         var naturalDuration = _mpvHost.Engine.DurationSeconds;
         if (naturalDuration > 0)
@@ -1253,54 +1134,6 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         }
 
         Notify();
-    }
-
-    public async Task RefreshWindowsDsdDevicesAsync()
-    {
-        if (IsHitsSessionActive)
-        {
-            return;
-        }
-
-        try
-        {
-            var devices = await Task.Run(_dsdEngine.ListAvailableDevices);
-            if (IsHitsSessionActive)
-            {
-                return;
-            }
-
-            _windowsDsdDevices = devices;
-        }
-        catch (Exception exception)
-        {
-            if (IsHitsSessionActive)
-            {
-                return;
-            }
-
-            _windowsDsdDevices = new[] { WindowsDsdDeviceModel.Automatic };
-            StartupLog.Write("windows.dsd.deviceEnumerationFailed", exception);
-        }
-
-        Notify();
-    }
-
-    private string DescribeDsdFallback(string? error)
-    {
-        if (!WindowsDsdAvailable)
-        {
-            return "BASS/BASSDSD/BASSASIO runtime is unavailable; using mpv fallback.";
-        }
-
-        if (_windowsDsdDevices.Count <= 1)
-        {
-            return "No ASIO output device is available; using mpv fallback.";
-        }
-
-        return string.IsNullOrWhiteSpace(error)
-            ? "The Windows DSD backend could not start; using mpv fallback."
-            : $"{error} Using mpv fallback.";
     }
 
     private void CancelPendingLoad()
@@ -1325,7 +1158,6 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         _positionTimer.Stop();
         CancelPendingLoad();
         _mpvHost.Dispose();
-        _dsdEngine.Dispose();
     }
 
     private static string DescribeSource(string source)

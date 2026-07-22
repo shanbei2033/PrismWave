@@ -35,7 +35,6 @@
     <Compile Include="../../src/PrismWave.WinUI/Models/SettingsModels.cs" Link="Models/SettingsModels.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/TrackModel.cs" Link="Models/TrackModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/LibraryModels.cs" Link="Models/LibraryModels.cs" />
-    <Compile Include="../../src/PrismWave.WinUI/Models/WindowsDsdDeviceModel.cs" Link="Models/WindowsDsdDeviceModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/StartupLog.cs" Link="Infrastructure/StartupLog.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/WindowLaunchSize.cs" Link="Infrastructure/WindowLaunchSize.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/Audio/PlaybackHeaderLogSanitizer.cs" Link="Infrastructure/PlaybackHeaderLogSanitizer.cs" />

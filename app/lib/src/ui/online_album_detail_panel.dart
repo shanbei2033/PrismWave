@@ -6,7 +6,9 @@ import '../models/online_recommendation.dart';
 import '../providers.dart';
 import '../services/online_media_cache_service.dart';
 import '../state/online_state.dart';
+import 'components/prism_components.dart';
 import 'online_home_panel.dart' show OnlineCoverImage;
+import 'prismwave_theme.dart';
 
 class OnlineAlbumDetailPanel extends ConsumerStatefulWidget {
   const OnlineAlbumDetailPanel({
@@ -113,8 +115,8 @@ class _BackBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+        IconGlassButton(
+          icon: Icons.arrow_back_rounded,
           onPressed: onBack,
           tooltip: label,
         ),
@@ -188,9 +190,12 @@ class _Header extends StatelessWidget {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  FilledButton.icon(
+                  TextButton.icon(
                     icon: const Icon(Icons.play_arrow_rounded),
                     label: Text(t.onlinePlayAlbumAll),
+                    style: PrismWaveTheme.rectangularButtonStyle(
+                      selected: true,
+                    ),
                     onPressed: onPlayAll,
                   ),
                   const SizedBox(width: 12),
@@ -269,8 +274,9 @@ class _Body extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 14),
-            FilledButton.tonal(
+            TextButton(
               onPressed: onRetry,
+              style: PrismWaveTheme.rectangularButtonStyle(selected: true),
               child: Text(t.onlineHomeRetry),
             ),
           ],
@@ -309,14 +315,11 @@ class _TrackRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
+    return HoverGlassCard(
+      onTap: onTap,
+      radius: 14,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Row(
             children: [
               SizedBox(
                 width: 28,
@@ -369,8 +372,6 @@ class _TrackRow extends StatelessWidget {
               const Icon(Icons.play_arrow_rounded, size: 22),
             ],
           ),
-        ),
-      ),
     );
   }
 }

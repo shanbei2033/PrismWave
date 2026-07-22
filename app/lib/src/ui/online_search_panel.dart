@@ -10,7 +10,9 @@ import '../providers.dart';
 import '../services/online_search_service.dart';
 import '../state/library_state.dart';
 import '../state/online_state.dart';
+import 'components/prism_components.dart';
 import 'online_home_panel.dart';
+import 'prismwave_theme.dart';
 
 class OnlineSearchPanel extends ConsumerStatefulWidget {
   const OnlineSearchPanel({super.key, required this.t});
@@ -71,10 +73,7 @@ class _OnlineSearchPanelState extends ConsumerState<OnlineSearchPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            t.navSearch,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-          ),
+          SectionHeader(title: t.navSearch),
           const SizedBox(height: 14),
           _SearchTextField(
             controller: _controller,
@@ -155,36 +154,13 @@ class _SearchTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<TextEditingValue>(
-      valueListenable: controller,
-      builder: (context, value, _) {
-        final showClear = value.text.isNotEmpty;
-        return TextField(
-          controller: controller,
-          focusNode: focusNode,
-          onChanged: onChanged,
-          onSubmitted: onSubmitted,
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            hintText: placeholder,
-            prefixIcon: const Icon(Icons.search_rounded),
-            suffixIcon: showClear
-                ? IconButton(
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: onClear,
-                    tooltip: 'Clear',
-                  )
-                : null,
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.06),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: const EdgeInsets.symmetric(vertical: 14),
-          ),
-        );
-      },
+    return PrismSearchBox(
+      controller: controller,
+      focusNode: focusNode,
+      hintText: placeholder,
+      onChanged: onChanged,
+      onSubmitted: onSubmitted,
+      onClear: onClear,
     );
   }
 }
@@ -217,14 +193,7 @@ class _SearchHistoryList extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            t.onlineSearchHistory,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          SectionHeader(title: t.onlineSearchHistory),
           const SizedBox(height: 14),
           Column(
             children: [
@@ -260,60 +229,49 @@ class _SearchHistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.055),
-      borderRadius: BorderRadius.circular(14),
-      child: Ink(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: InkWell(
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(14),
-                ),
-                onTap: onTap,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.history_rounded,
-                        size: 17,
-                        color: Colors.white.withValues(alpha: 0.48),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          value,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.82),
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
+    return HoverGlassCard(
+      onTap: onTap,
+      radius: 14,
+      padding: EdgeInsets.zero,
+      child: Row(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 11, 10, 11),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.history_rounded,
+                    size: 17,
+                    color: PrismWaveTheme.textMuted.withValues(alpha: 0.76),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: PrismWaveTheme.textSecondary,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            Tooltip(
-              message: removeTooltip,
-              child: IconButton(
-                onPressed: onRemove,
-                icon: const Icon(Icons.close_rounded, size: 17),
-                color: Colors.white.withValues(alpha: 0.54),
-                splashRadius: 18,
-              ),
+          ),
+          Tooltip(
+            message: removeTooltip,
+            child: IconButton(
+              onPressed: onRemove,
+              icon: const Icon(Icons.close_rounded, size: 17),
+              color: PrismWaveTheme.textMuted.withValues(alpha: 0.74),
+              splashRadius: 18,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -367,8 +325,9 @@ class _SearchResults extends StatelessWidget {
       );
     }
     return ListView.separated(
+      padding: const EdgeInsets.only(right: 4, bottom: 18),
       itemCount: state.results.length,
-      separatorBuilder: (_, _) => const Divider(height: 1, thickness: 0.4),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final row = state.results[index];
         return _SearchResultTile(
@@ -416,47 +375,51 @@ class _SearchResultTile extends ConsumerWidget {
       if ((duration?.inMilliseconds ?? 0) > 0) _formatDuration(duration!),
     ].join(' - ');
 
-    return SizedBox(
-      height: 72,
-      child: ListTile(
-        minVerticalPadding: 8,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 2),
-        leading: _SearchResultCover(
-          isLocal: isLocal,
-          coverPathOrUrl: result.displayCoverUrl,
-          coverBytes: coverBytes,
-          fallbackIcon: isLocal
-              ? Icons.sd_storage_rounded
-              : Icons.cloud_rounded,
-        ),
-        title: Text(
-          result.displayTitle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              artistAlbum.isEmpty ? 'Unknown Artist' : artistAlbum,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
+    return HoverGlassCard(
+      onTap: onTap,
+      radius: 14,
+      padding: const EdgeInsets.fromLTRB(10, 9, 12, 9),
+      child: Row(
+        children: [
+          _SearchResultCover(
+            isLocal: isLocal,
+            coverPathOrUrl: result.displayCoverUrl,
+            coverBytes: coverBytes,
+            fallbackIcon: isLocal ? Icons.sd_storage_rounded : Icons.cloud_rounded,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  result.displayTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: PrismWaveTheme.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  artistAlbum.isEmpty ? 'Unknown Artist' : artistAlbum,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: PrismWaveTheme.captionStyle(fontSize: 13),
+                ),
+              ],
             ),
-            const SizedBox(height: 2),
-            Text(
-              meta,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.45),
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-        onTap: onTap,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            meta,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: PrismWaveTheme.captionStyle(fontSize: 12, alpha: 0.62),
+          ),
+        ],
       ),
     );
   }

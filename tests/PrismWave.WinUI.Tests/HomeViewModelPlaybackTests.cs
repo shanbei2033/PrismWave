@@ -247,11 +247,6 @@ public sealed class HomeViewModelPlaybackTests
         public bool IsLoading => false;
         public bool IsPlaying { get; set; }
         public string? Error => null;
-        public IReadOnlyList<WindowsDsdDeviceModel> WindowsDsdDevices => Array.Empty<WindowsDsdDeviceModel>();
-        public bool WindowsDsdAvailable => false;
-        public string? WindowsDsdOutputModeLabel => null;
-        public string? WindowsDsdActiveDeviceName => null;
-        public string? WindowsDsdFallbackReason => null;
         public event EventHandler? StateChanged;
 
         public void Play(TrackModel track, IReadOnlyList<TrackModel>? queue = null)
@@ -284,7 +279,6 @@ public sealed class HomeViewModelPlaybackTests
         public void ReorderQueue(IReadOnlyList<TrackModel> tracks) => Queue = tracks;
         public void RemoveFromQueue(TrackModel track) { }
         public void ClearQueue() => Queue = Array.Empty<TrackModel>();
-        public Task RefreshWindowsDsdDevicesAsync() => Task.CompletedTask;
     }
 
     private sealed class FakeCoverService(string? resolvedCoverPath) : ICoverService

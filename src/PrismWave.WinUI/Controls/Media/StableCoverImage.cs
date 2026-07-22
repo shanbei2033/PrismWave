@@ -182,8 +182,6 @@ public sealed class StableCoverImage : Grid
         {
         }
 
-        return MotionPolicy.ShouldAnimate(
-            systemAnimationsEnabled,
-            App.Services.SettingsService.Current.LowEffects);
+        return MotionPolicy.ShouldAnimate(systemAnimationsEnabled);
     }
 }

@@ -59,14 +59,4 @@ public sealed record TrackModel(
                 : $"{megabytes:0.##} MB";
         }
     }
-
-    public bool IsDsd
-    {
-        get
-        {
-            var extension = System.IO.Path.GetExtension(Path);
-            return extension.Equals(".dsf", StringComparison.OrdinalIgnoreCase)
-                || extension.Equals(".dff", StringComparison.OrdinalIgnoreCase);
-        }
-    }
 }

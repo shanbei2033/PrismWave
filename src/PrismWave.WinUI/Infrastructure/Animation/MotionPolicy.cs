@@ -7,8 +7,8 @@ public static class MotionPolicy
         return true;
     }
 
-    public static bool ShouldAnimate(bool systemAnimationsEnabled, bool lowEffects)
+    public static bool ShouldAnimate(bool systemAnimationsEnabled)
     {
-        return systemAnimationsEnabled && !lowEffects;
+        return systemAnimationsEnabled;
     }
 }

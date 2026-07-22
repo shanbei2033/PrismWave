@@ -92,6 +92,25 @@ class AppStrings {
 
   String get navHome => _tr('\u9996\u9875', '\u9996\u9801', 'Home');
   String get navSearch => _tr('\u641c\u7d22', '\u641c\u5c0b', 'Search');
+  String get navRecentPlays => _tr(
+    '\u6700\u8fd1\u64ad\u653e',
+    '\u6700\u8fd1\u64ad\u653e',
+    'Recent Plays',
+  );
+  String get navPlaylists =>
+      _tr('\u64ad\u653e\u5217\u8868', '\u64ad\u653e\u5217\u8868', 'Playlists');
+  String get navDownloaded =>
+      _tr('\u5df2\u4e0b\u8f7d', '\u5df2\u4e0b\u8f09', 'Downloaded');
+  String get navLocalMusic => _tr(
+    '\u672c\u5730\u97f3\u4e50',
+    '\u672c\u6a5f\u97f3\u6a02',
+    'Local Music',
+  );
+  String get navDownloadedPending => _tr(
+    '\u4e0b\u8f7d\u7ba1\u7406\u5c06\u5728\u540e\u7eed\u7248\u672c\u63a5\u5165',
+    '\u4e0b\u8f09\u7ba1\u7406\u5c07\u5728\u5f8c\u7e8c\u7248\u672c\u63a5\u5165',
+    'Download management will be connected later',
+  );
   String get onlineHomeLoading => _tr(
     '\u6b63\u5728\u52a0\u8f7d\u63a8\u8350',
     '\u6b63\u5728\u8f09\u5165\u63a8\u85a6',
@@ -103,6 +122,25 @@ class AppStrings {
     'Failed to load recommendations',
   );
   String get onlineHomeRetry => _tr('\u91cd\u8bd5', '\u91cd\u8a66', 'Retry');
+  String get onlineHomePrivateRadarTitle => _tr(
+    '\u79c1\u4eba\u96f7\u8fbe',
+    '\u79c1\u4eba\u96f7\u9054',
+    'Private Radar',
+  );
+  String get onlineHomePrivateRadarSubtitle => _tr(
+    '\u6839\u636e\u4f60\u7684\u6536\u542c\u4e60\u60ef\u751f\u6210',
+    '\u6839\u64da\u4f60\u7684\u6536\u807d\u7fd2\u6163\u751f\u6210',
+    'Generated from your listening habits',
+  );
+  String get onlineHomeRecommendedArtists => _tr(
+    '\u4e3a\u4f60\u63a8\u8350\u7684\u827a\u672f\u5bb6',
+    '\u70ba\u4f60\u63a8\u85a6\u7684\u85dd\u8853\u5bb6',
+    'Recommended Artists',
+  );
+  String get onlineHomeForYou =>
+      _tr('\u4e3a\u4f60\u7cbe\u9009', '\u70ba\u4f60\u7cbe\u9078', 'For You');
+  String get viewAll =>
+      _tr('\u67e5\u770b\u5168\u90e8', '\u67e5\u770b\u5168\u90e8', 'View All');
   String get onlineRecommendationsUnavailableTooltip => _tr(
     '\u63a8\u8350\u4e0d\u53ef\u7528\uff0c\u8bf7\u68c0\u67e5\u7f51\u7edc\u73af\u5883\u3002',
     '\u63a8\u85a6\u4e0d\u53ef\u7528\uff0c\u8acb\u6aa2\u67e5\u7db2\u8def\u74b0\u5883\u3002',
@@ -325,6 +363,11 @@ class AppStrings {
   String get folders => _tr('文件夹', '資料夾', 'Folders');
   String get tracks => _tr('歌曲', '歌曲', 'Tracks');
   String get favoriteCountLabel => _tr('收藏', '收藏', 'Favorites');
+  String get playbackMode => _tr(
+    '\u64ad\u653e\u6a21\u5f0f',
+    '\u64ad\u653e\u6a21\u5f0f',
+    'Playback Mode',
+  );
   String get folderSection => _tr('歌曲文件夹', '歌曲資料夾', 'Music Folders');
   String get addMusicFolder => _tr('添加歌曲文件夹', '新增歌曲資料夾', 'Add Music Folder');
   String get rescanAll => _tr('重新刷新', '重新整理', 'Rescan');

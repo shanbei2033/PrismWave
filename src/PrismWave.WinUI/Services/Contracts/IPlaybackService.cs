@@ -15,11 +15,6 @@ public interface IPlaybackService
     bool IsLoading { get; }
     bool IsPlaying { get; }
     string? Error { get; }
-    IReadOnlyList<WindowsDsdDeviceModel> WindowsDsdDevices { get; }
-    bool WindowsDsdAvailable { get; }
-    string? WindowsDsdOutputModeLabel { get; }
-    string? WindowsDsdActiveDeviceName { get; }
-    string? WindowsDsdFallbackReason { get; }
     string ActiveAudioOutputModeLabel => string.Empty;
     string? AudioOutputFallbackReason => null;
     event EventHandler? StateChanged;
@@ -37,5 +32,4 @@ public interface IPlaybackService
     void ReorderQueue(IReadOnlyList<TrackModel> tracks);
     void RemoveFromQueue(TrackModel track);
     void ClearQueue();
-    Task RefreshWindowsDsdDevicesAsync();
 }

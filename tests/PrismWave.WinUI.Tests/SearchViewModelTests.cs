@@ -123,7 +123,7 @@ public sealed class SearchViewModelTests
         new(search, new FakePlaybackService(), settings, accounts ?? new FakeAccountService());
 
     private static SettingsSnapshot CreateSettings(IReadOnlyList<string>? history = null) => new(
-        "zh-CN", true, true, false, "WasapiShared", string.Empty, string.Empty, true, 180,
+        "zh-CN", true, true, "WasapiShared", string.Empty, true, 180,
         [], [], [], [], [], history ?? [],
         new FlutterPreferencesMigrationResult(string.Empty, false, 0, DateTimeOffset.MinValue,
             new Dictionary<string, object?>()));
@@ -244,11 +244,6 @@ public sealed class SearchViewModelTests
         public bool IsLoading => false;
         public bool IsPlaying => false;
         public string? Error => null;
-        public IReadOnlyList<WindowsDsdDeviceModel> WindowsDsdDevices => [];
-        public bool WindowsDsdAvailable => false;
-        public string? WindowsDsdOutputModeLabel => null;
-        public string? WindowsDsdActiveDeviceName => null;
-        public string? WindowsDsdFallbackReason => null;
         public event EventHandler? StateChanged
         {
             add { }
@@ -270,6 +265,5 @@ public sealed class SearchViewModelTests
         public void ReorderQueue(IReadOnlyList<TrackModel> tracks) { }
         public void RemoveFromQueue(TrackModel track) { }
         public void ClearQueue() { }
-        public Task RefreshWindowsDsdDevicesAsync() => Task.CompletedTask;
     }
 }

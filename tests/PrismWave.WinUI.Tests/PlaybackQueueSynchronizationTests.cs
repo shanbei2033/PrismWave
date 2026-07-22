@@ -125,11 +125,6 @@ public sealed class PlaybackQueueSynchronizationTests
         public bool IsLoading => false;
         public bool IsPlaying => true;
         public string? Error => null;
-        public IReadOnlyList<WindowsDsdDeviceModel> WindowsDsdDevices => [];
-        public bool WindowsDsdAvailable => false;
-        public string? WindowsDsdOutputModeLabel => null;
-        public string? WindowsDsdActiveDeviceName => null;
-        public string? WindowsDsdFallbackReason => null;
 
         public event EventHandler? StateChanged;
 
@@ -167,7 +162,6 @@ public sealed class PlaybackQueueSynchronizationTests
         public void PlayFromQueue(TrackModel track) { }
         public void RemoveFromQueue(TrackModel track) { }
         public void ClearQueue() { }
-        public Task RefreshWindowsDsdDevicesAsync() => Task.CompletedTask;
     }
 
     private sealed class FakeCoverService : ICoverService

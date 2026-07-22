@@ -7,7 +7,9 @@ import '../models/online_recommendation.dart';
 import '../providers.dart';
 import '../services/online_media_cache_service.dart';
 import '../state/app_settings_state.dart';
+import 'components/prism_components.dart';
 import 'online_home_panel.dart' show OnlineCoverImage;
+import 'prismwave_theme.dart';
 
 /// Detail page for the home banner's "Today's Top 10" playlist. Renders the
 /// 10 tracks as a flat list with play-track / play-all controls. Sources its
@@ -131,8 +133,8 @@ class _BackBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+        IconGlassButton(
+          icon: Icons.arrow_back_rounded,
           onPressed: onBack,
           tooltip: label,
         ),
@@ -230,9 +232,10 @@ class _Header extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              FilledButton.icon(
+              TextButton.icon(
                 onPressed: onPlayAll,
                 icon: const Icon(Icons.play_arrow_rounded),
+                style: PrismWaveTheme.rectangularButtonStyle(selected: true),
                 label: Text(t.playAll),
               ),
             ],
@@ -283,14 +286,11 @@ class _TrackRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-          child: Row(
+    return HoverGlassCard(
+      onTap: onTap,
+      radius: 14,
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      child: Row(
             children: [
               SizedBox(
                 width: 32,
@@ -346,8 +346,6 @@ class _TrackRow extends StatelessWidget {
               const Icon(Icons.play_arrow_rounded, size: 22),
             ],
           ),
-        ),
-      ),
     );
   }
 }

@@ -172,6 +172,51 @@ public sealed class CoverServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ApplyOnlineCoverAsync_SecondReplacementWithSameExtensionProducesDifferentPath()
+    {
+        var firstImage = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4 };
+        var secondImage = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 9, 8, 7, 6 };
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri?.ToString() ?? string.Empty;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(url.Contains("first") ? firstImage : secondImage)
+                {
+                    Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png") }
+                }
+            };
+        });
+        var settings = new FakeSettingsService(CreateSettings());
+        var service = new CoverService(settings, new HttpClient(handler), Path.Combine(_tempDirectory, "cache"));
+        var track = CreateTrack();
+
+        var firstPath = await service.ApplyOnlineCoverAsync(
+            track,
+            new CoverSearchResultModel(
+                "apple:1", "Song", "Artist", "Album",
+                "https://example.com/first-thumb.png",
+                "https://example.com/first-full.png",
+                "apple", 100));
+
+        var secondPath = await service.ApplyOnlineCoverAsync(
+            track,
+            new CoverSearchResultModel(
+                "apple:2", "Song", "Artist", "Album",
+                "https://example.com/second-thumb.png",
+                "https://example.com/second-full.png",
+                "apple", 100));
+
+        Assert.NotEqual(firstPath, secondPath);
+        Assert.True(File.Exists(firstPath));
+        Assert.True(File.Exists(secondPath));
+        Assert.Equal(firstImage, await File.ReadAllBytesAsync(firstPath));
+        Assert.Equal(secondImage, await File.ReadAllBytesAsync(secondPath));
+        Assert.Equal(secondPath, service.ResolveCoverPath(track));
+        Assert.Equal(secondPath, settings.Current.CustomCoverPaths!.Values.Single());
+    }
+
+    [Fact]
     public async Task ApplyOnlineCoverAsync_RejectsNonImageResponse()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
@@ -232,9 +277,7 @@ public sealed class CoverServiceTests : IDisposable
             "zh-CN",
             true,
             true,
-            false,
             "wasapi_shared",
-            "auto",
             "auto",
             true,
             220,

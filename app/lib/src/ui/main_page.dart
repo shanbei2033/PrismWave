@@ -31,6 +31,7 @@ import 'glass_panel.dart';
 import 'hits_availability.dart';
 import 'hits_transition_page.dart';
 import 'middle_click_autoscroll.dart';
+import 'components/prism_components.dart';
 import 'online_album_detail_panel.dart';
 import 'online_home_panel.dart';
 import 'online_search_panel.dart';
@@ -80,18 +81,62 @@ class _MainPageLayoutScale {
     )).toDouble();
     return _MainPageLayoutScale(
       scale: scale,
-      contentPadding: (16 * scale).toDouble(),
-      sidebarWidth: ((260 * scale).clamp(220, 360)).toDouble(),
-      columnGap: (14 * scale).toDouble(),
-      sectionTopInset: (32 * scale).toDouble(),
+      contentPadding: (18 * scale).toDouble(),
+      sidebarWidth: ((PrismWaveTheme.sidebarWidth * scale).clamp(
+        220,
+        310,
+      )).toDouble(),
+      columnGap: (18 * scale).toDouble(),
+      sectionTopInset: (54 * scale).toDouble(),
       bottomGap: (14 * scale).toDouble(),
-      brandFontSize: (23 * scale).toDouble(),
+      brandFontSize: (21 * scale).toDouble(),
       navFontSize: (14 * scale).toDouble(),
       sidebarStatsFontSize: (12 * scale).toDouble(),
       sectionTitleFontSize: (22 * scale).toDouble(),
       playerInfoWidth: ((280 * scale).clamp(220, 360)).toDouble(),
       playerCenterWidth: ((700 * scale).clamp(420, 920)).toDouble(),
       playerRightWidth: ((190 * scale).clamp(150, 260)).toDouble(),
+    );
+  }
+}
+
+class _LibraryPageHeader extends StatelessWidget {
+  const _LibraryPageHeader({
+    required this.title,
+    required this.subtitle,
+    required this.metrics,
+    this.trailing,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<Widget> metrics;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: PrismWaveTheme.pageTitleStyle()),
+              const SizedBox(height: 7),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: PrismWaveTheme.captionStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 14),
+              Wrap(spacing: 10, runSpacing: 10, children: metrics),
+            ],
+          ),
+        ),
+        if (trailing != null) ...[const SizedBox(width: 16), trailing!],
+      ],
     );
   }
 }
@@ -349,91 +394,88 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
             backgroundColor: Colors.transparent,
             body: Stack(
               children: [
-                Positioned.fill(
+                const Positioned.fill(
                   child: DecoratedBox(
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: PrismWaveTheme.appGradient,
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        _layoutScale.contentPadding,
-                        _layoutScale.contentPadding * 0.875,
-                        _layoutScale.contentPadding,
-                        _layoutScale.contentPadding * 0.875,
-                      ),
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: _layoutScale.sidebarWidth,
-                                  child: _buildSidebar(
-                                    library: library,
-                                    playback: playback,
-                                    t: t,
-                                  ),
-                                ),
-                                SizedBox(width: _layoutScale.columnGap),
-                                Expanded(
-                                  child: Padding(
-                                    padding: EdgeInsets.only(
-                                      top: _layoutScale.sectionTopInset,
-                                    ),
-                                    child: AnimatedSwitcher(
-                                      duration: const Duration(
-                                        milliseconds: 280,
-                                      ),
-                                      switchInCurve: Curves.easeOutCubic,
-                                      switchOutCurve: Curves.easeInCubic,
-                                      transitionBuilder: (child, animation) {
-                                        return FadeTransition(
-                                          opacity: animation,
-                                          child: SlideTransition(
-                                            position: Tween<Offset>(
-                                              begin: const Offset(0.08, 0),
-                                              end: Offset.zero,
-                                            ).animate(animation),
-                                            child: child,
-                                          ),
-                                        );
-                                      },
-                                      child: KeyedSubtree(
-                                        key: ValueKey(
-                                          '${_section.name}'
-                                          '|${_topPlaylistOpen ? 'top' : 'root'}'
-                                          '|${_openAlbumCard?.canonicalKey ?? ''}'
-                                          '|${_selectedAlbum ?? ''}'
-                                          '|${_selectedArtist ?? ''}',
-                                        ),
-                                        child: _buildSectionPanel(
-                                          library: library,
-                                          playback: playback,
-                                          t: t,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: _layoutScale.bottomGap),
-                          _buildPlayerBar(
-                            playback: playback,
-                            library: library,
-                            t: t,
-                          ),
-                        ],
-                      ),
                     ),
                   ),
                 ),
-                const Positioned(
+                Positioned.fill(
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: _layoutScale.sidebarWidth,
+                        child: _buildSidebar(
+                          library: library,
+                          playback: playback,
+                          t: t,
+                        ),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            _layoutScale.columnGap,
+                            PrismWaveTheme.topCommandHeight + 18,
+                            _layoutScale.contentPadding,
+                            PrismWaveTheme.playerDockHeight + 22,
+                          ),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 280),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            transitionBuilder: (child, animation) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(0.04, 0),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: KeyedSubtree(
+                              key: ValueKey(
+                                '${_section.name}'
+                                '|${_topPlaylistOpen ? 'top' : 'root'}'
+                                '|${_openAlbumCard?.canonicalKey ?? ''}'
+                                '|${_selectedAlbum ?? ''}'
+                                '|${_selectedArtist ?? ''}',
+                              ),
+                              child: _buildSectionPanel(
+                                library: library,
+                                playback: playback,
+                                t: t,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
                   left: 0,
                   top: 0,
                   right: 0,
-                  child: WindowTopBar(),
+                  child: WindowTopBar(
+                    showCommandBar: true,
+                    searchPlaceholder: t.onlineSearchPlaceholder,
+                    onSearchSubmitted: _submitGlobalSearch,
+                    onBack: _handleTopBarBack,
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _buildPlayerBar(
+                    playback: playback,
+                    library: library,
+                    t: t,
+                  ),
                 ),
               ],
             ),
@@ -450,10 +492,26 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
   }) {
     final showingQueue = _showPlaybackQueue;
 
-    return GlassPanel(
-      lowEffects: library.lowEffects,
-      radius: PrismWaveTheme.panelRadius,
-      padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: PrismWaveTheme.sidebarGradient,
+        border: Border(
+          right: BorderSide(color: Colors.white.withValues(alpha: 0.09)),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 32,
+            offset: const Offset(14, 0),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.fromLTRB(
+        18,
+        PrismWaveTheme.topCommandHeight + 14,
+        18,
+        PrismWaveTheme.playerDockHeight + 16,
+      ),
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 220),
         switchInCurve: Curves.easeOutCubic,
@@ -481,7 +539,11 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
               )
             : KeyedSubtree(
                 key: const ValueKey('sidebar-navigation'),
-                child: _buildNavigationSidebar(library: library, t: t),
+                child: _buildNavigationSidebar(
+                  library: library,
+                  playback: playback,
+                  t: t,
+                ),
               ),
       ),
     );
@@ -489,6 +551,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
 
   Widget _buildNavigationSidebar({
     required LibraryState library,
+    required PlaybackState playback,
     required AppStrings t,
   }) {
     final onlineEnabled = ref.watch(
@@ -501,6 +564,22 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
       children: [
         Row(
           children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white.withValues(alpha: 0.40)),
+                gradient: PrismWaveTheme.accentGradient,
+                boxShadow: PrismWaveTheme.accentShadow(alpha: 0.18),
+              ),
+              child: const Icon(
+                Icons.graphic_eq_rounded,
+                size: 19,
+                color: PrismWaveTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(width: 11),
             Expanded(
               child: Text(
                 'PrismWave',
@@ -514,11 +593,12 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
             ),
           ],
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 22),
         if (onlineEnabled) ...[
+          _sidebarGroupLabel('ONLINE'),
           _navButton(
             section: MainSection.home,
-            icon: Icons.explore_rounded,
+            icon: Icons.home_rounded,
             label: t.navHome,
           ),
           const SizedBox(height: 8),
@@ -527,12 +607,48 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
             icon: Icons.search_rounded,
             label: t.navSearch,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 18),
         ],
+        _sidebarGroupLabel('LIBRARY'),
+        _sidebarActionButton(
+          icon: Icons.history_rounded,
+          label: t.navRecentPlays,
+          onPressed: () {
+            setState(() {
+              _showPlaybackQueue = false;
+              _section = MainSection.library;
+              _selectedAlbum = null;
+              _selectedArtist = null;
+              _topPlaylistOpen = false;
+              _openAlbumCard = null;
+            });
+          },
+        ),
+        const SizedBox(height: 8),
+        _sidebarActionButton(
+          icon: Icons.queue_music_rounded,
+          label: t.navPlaylists,
+          selected: _showPlaybackQueue,
+          onPressed: () {
+            setState(() {
+              _showPlaybackQueue = true;
+            });
+          },
+        ),
+        const SizedBox(height: 8),
+        Tooltip(
+          message: t.navDownloadedPending,
+          child: _sidebarActionButton(
+            icon: Icons.download_done_rounded,
+            label: t.navDownloaded,
+            onPressed: null,
+          ),
+        ),
+        const SizedBox(height: 8),
         _navButton(
           section: MainSection.library,
           icon: Icons.library_music_rounded,
-          label: t.library,
+          label: t.navLocalMusic,
         ),
         const SizedBox(height: 8),
         _navButton(
@@ -552,9 +668,11 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
           icon: Icons.favorite_rounded,
           label: t.favorites,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 18),
+        _sidebarGroupLabel('RADIO'),
         _buildHitsNavButton(t),
         const Spacer(),
+        _sidebarGroupLabel('STATUS'),
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -600,11 +718,31 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     );
   }
 
+  Widget _sidebarGroupLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 9),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: PrismWaveTheme.textMuted.withValues(alpha: 0.78),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+
   Widget _buildHitsNavButton(AppStrings t) {
     return SizedBox(
       width: double.infinity,
       child: TextButton.icon(
-        onPressed: _openHitsTransition,
+        onPressed: () {
+          setState(() {
+            _showPlaybackQueue = false;
+          });
+          _openHitsTransition();
+        },
         style: PrismWaveTheme.rectangularButtonStyle(),
         icon: SvgPicture.asset(
           'assets/icons/hits.svg',
@@ -636,7 +774,12 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
         width: 46,
         height: 42,
         child: TextButton(
-          onPressed: _openSettings,
+          onPressed: () {
+            setState(() {
+              _showPlaybackQueue = false;
+            });
+            _openSettings();
+          },
           style: PrismWaveTheme.rectangularButtonStyle(
             selected: _section == MainSection.settings,
             padding: EdgeInsets.zero,
@@ -774,6 +917,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
       child: TextButton.icon(
         onPressed: () {
           setState(() {
+            _showPlaybackQueue = false;
             _section = section;
             _selectedAlbum = null;
             _selectedArtist = null;
@@ -789,7 +933,7 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
             label,
             style: TextStyle(
               fontSize: _layoutScale.navFontSize,
-              fontWeight: FontWeight.w600,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -797,6 +941,93 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
         ),
       ),
     );
+  }
+
+  Widget _sidebarActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+    bool selected = false,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton.icon(
+        onPressed: onPressed,
+        style: PrismWaveTheme.rectangularButtonStyle(selected: selected),
+        icon: Icon(icon, size: 19),
+        label: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: _layoutScale.navFontSize,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleTopBarBack() {
+    if (_openAlbumCard != null) {
+      setState(() {
+        _openAlbumCard = null;
+      });
+      return;
+    }
+    if (_topPlaylistOpen) {
+      setState(() {
+        _topPlaylistOpen = false;
+      });
+      return;
+    }
+    if (_selectedAlbum != null || _selectedArtist != null) {
+      setState(() {
+        _selectedAlbum = null;
+        _selectedArtist = null;
+      });
+      return;
+    }
+    if (_section != MainSection.home) {
+      setState(() {
+        _section = MainSection.home;
+      });
+    }
+  }
+
+  void _submitGlobalSearch(String value) {
+    final query = value.trim();
+    if (query.isEmpty) return;
+    final onlineEnabled = ref.read(
+      appSettingsProvider.select(
+        (s) => s.experimentalFeaturesEnabled && s.onlineModeEnabled,
+      ),
+    );
+    if (onlineEnabled) {
+      final controller = ref.read(onlineProvider.notifier);
+      controller.setSearchQuery(query);
+      unawaited(controller.commitSearchHistory(query));
+      setState(() {
+        _section = MainSection.search;
+        _selectedAlbum = null;
+        _selectedArtist = null;
+        _topPlaylistOpen = false;
+        _openAlbumCard = null;
+      });
+      return;
+    }
+    _searchController.text = query;
+    ref.read(libraryProvider.notifier).setSearchQuery(query);
+    setState(() {
+      _section = MainSection.library;
+      _selectedAlbum = null;
+      _selectedArtist = null;
+      _topPlaylistOpen = false;
+      _openAlbumCard = null;
+    });
   }
 
   Widget _buildSectionPanel({
@@ -923,124 +1154,147 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
         forceLibraryContext && playbackContextTracks != null;
     final canReorder = tracks.length > 1;
 
-    return GlassPanel(
-      lowEffects: library.lowEffects,
-      child: Column(
-        children: [
-          Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _LibraryPageHeader(
+          title: title,
+          subtitle: forceLibraryContext
+              ? t.trackCountText(library.tracks.length)
+              : t.trackCountText(tracks.length),
+          metrics: [
+            PrismMetricPill(
+              icon: Icons.library_music_rounded,
+              label: t.tracks,
+              value: '${tracks.length}',
+            ),
+            PrismMetricPill(
+              icon: Icons.folder_rounded,
+              label: t.folders,
+              value: '${library.libraryFolders.length}',
+            ),
+            PrismMetricPill(
+              icon: Icons.favorite_rounded,
+              label: t.favoriteCountLabel,
+              value: '${library.favoritePaths.length}',
+            ),
+          ],
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                t.trackCountText(tracks.length),
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
-              ),
-              const Spacer(),
-              if (showPlayAllButton) ...[
+              if (showPlayAllButton)
                 _GlassPlayAllButton(
                   label: t.playAll,
                   enabled: tracks.isNotEmpty,
                   onPressed: tracks.isEmpty ? null : onPlayAll,
                 ),
-                if (library.isScanning) const SizedBox(width: 12),
-              ],
-              if (library.isScanning)
+              if (library.isScanning) ...[
+                const SizedBox(width: 12),
                 const SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
+              ],
             ],
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: t.searchTrackArtistAlbum,
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: library.searchQuery.isEmpty
-                  ? null
-                  : IconButton(
-                      onPressed: _searchController.clear,
-                      icon: const Icon(Icons.clear_rounded),
-                    ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: PrismSearchBox(
+                controller: _searchController,
+                hintText: t.searchTrackArtistAlbum,
+                onClear: _searchController.clear,
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          _buildTrackHeader(t: t),
-          const SizedBox(height: 8),
-          Expanded(
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 220,
+              child: PrismFeatureTile(
+                icon: Icons.shuffle_rounded,
+                title: switch (playback.playbackMode) {
+                  PlaybackMode.loop => t.listLoop,
+                  PlaybackMode.single => t.singleLoop,
+                  PlaybackMode.shuffle => t.shuffle,
+                },
+                subtitle: t.playbackMode,
+                onTap: ref.read(playbackProvider.notifier).cycleMode,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: GlassPanel(
+            lowEffects: library.lowEffects,
+            radius: PrismWaveTheme.panelRadius,
+            alpha: 0.58,
+            borderAlpha: 0.08,
+            padding: const EdgeInsets.all(12),
             child: tracks.isEmpty
-                ? Center(
-                    child: Text(
-                      emptyMessage,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.68),
-                      ),
-                    ),
+                ? PrismEmptyState(
+                    icon: Icons.search_off_rounded,
+                    title: emptyMessage,
+                    subtitle: t.searchTrackArtistAlbum,
                   )
                 : MiddleClickAutoScrollView(
-                    builder: (context, controller) => ReorderableListView.builder(
-                      buildDefaultDragHandles: false,
-                      padding: EdgeInsets.zero,
-                      scrollController: controller,
-                      proxyDecorator: (child, _, animation) =>
-                          _buildReorderProxy(child, animation, radius: 10),
-                      onReorder: (oldIndex, newIndex) {
-                        if (forceLibraryContext) {
-                          libraryCtrl.reorderLibraryTracks(
-                            visibleTracks: tracks,
-                            oldIndex: oldIndex,
-                            newIndex: newIndex,
-                          );
-                          return;
-                        }
-                        libraryCtrl.reorderFavoriteTracks(
-                          visibleTracks: tracks,
-                          oldIndex: oldIndex,
-                          newIndex: newIndex,
-                        );
-                      },
-                      itemCount: tracks.length,
-                      itemBuilder: (_, index) {
-                        final track = tracks[index];
-                        final active = playback.currentTrack?.id == track.id;
-                        final isFavorite = libraryCtrl.isFavorite(track);
-                        final duration = library.durationOf(track);
-                        final coverBytes = library.coverBytesOf(track);
+                    builder: (context, controller) =>
+                        ReorderableListView.builder(
+                          buildDefaultDragHandles: false,
+                          padding: EdgeInsets.zero,
+                          scrollController: controller,
+                          proxyDecorator: (child, _, animation) =>
+                              _buildReorderProxy(child, animation, radius: 14),
+                          onReorder: (oldIndex, newIndex) {
+                            if (forceLibraryContext) {
+                              libraryCtrl.reorderLibraryTracks(
+                                visibleTracks: tracks,
+                                oldIndex: oldIndex,
+                                newIndex: newIndex,
+                              );
+                              return;
+                            }
+                            libraryCtrl.reorderFavoriteTracks(
+                              visibleTracks: tracks,
+                              oldIndex: oldIndex,
+                              newIndex: newIndex,
+                            );
+                          },
+                          itemCount: tracks.length,
+                          itemBuilder: (_, index) {
+                            final track = tracks[index];
+                            final active =
+                                playback.currentTrack?.id == track.id;
+                            final isFavorite = libraryCtrl.isFavorite(track);
+                            final duration = library.durationOf(track);
+                            final coverBytes = library.coverBytesOf(track);
 
-                        return ReorderableDelayedDragStartListener(
-                          key: ValueKey('track-list-row-${track.path}'),
-                          index: index,
-                          enabled: canReorder,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onSecondaryTapDown: (_) => _openTrackDetails(
-                                context: context,
-                                track: track,
-                                duration: duration,
-                                coverBytes: coverBytes,
-                              ),
-                              child: Material(
-                                color: active
-                                    ? const Color(
-                                        0xFF39C0FF,
-                                      ).withValues(alpha: 0.16)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(10),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(10),
+                            return ReorderableDelayedDragStartListener(
+                              key: ValueKey('track-list-row-${track.path}'),
+                              index: index,
+                              enabled: canReorder,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: PrismMediaListTile(
+                                  selected: active,
+                                  leadingMeta: '${index + 1}',
+                                  cover: PrismMiniCover(
+                                    coverBytes: coverBytes,
+                                    coverPath: track.coverPath,
+                                    size: 48,
+                                    radius: 12,
+                                  ),
+                                  title: track.title,
+                                  subtitle: '${track.artist} · ${track.album}',
+                                  meta: _formatDuration(duration),
+                                  onSecondaryTapDown: (_) => _openTrackDetails(
+                                    context: context,
+                                    track: track,
+                                    duration: duration,
+                                    coverBytes: coverBytes,
+                                  ),
                                   onTap: () => useLibraryContext
                                       ? playbackCtrl.playFromLibrary(
                                           track,
@@ -1050,148 +1304,31 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                                           track,
                                           playbackContext,
                                         ),
-                                  child: SizedBox(
-                                    height: 56,
-                                    child: Row(
-                                      children: [
-                                        const SizedBox(width: 10),
-                                        SizedBox(
-                                          width: 52,
-                                          child: _TrackCover(
-                                            track: track,
-                                            isActive: active,
-                                            coverBytes: coverBytes,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          flex: 5,
-                                          child: Text(
-                                            track.title,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 3,
-                                          child: Text(
-                                            track.artist,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: Colors.white.withValues(
-                                                alpha: 0.75,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        SizedBox(
-                                          width: 84,
-                                          child: Text(
-                                            _formatDuration(duration),
-                                            textAlign: TextAlign.right,
-                                            style: TextStyle(
-                                              color: Colors.white.withValues(
-                                                alpha: 0.82,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        IconButton(
-                                          tooltip: isFavorite
-                                              ? t.uncollect
-                                              : t.collect,
-                                          onPressed: () =>
-                                              libraryCtrl.toggleFavorite(track),
-                                          icon: Icon(
-                                            isFavorite
-                                                ? Icons.favorite_rounded
-                                                : Icons.favorite_border_rounded,
-                                            color: isFavorite
-                                                ? const Color(0xFF39C0FF)
-                                                : Colors.white.withValues(
-                                                    alpha: 0.78,
-                                                  ),
-                                            size: 18,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                      ],
+                                  trailing: IconButton(
+                                    tooltip: isFavorite
+                                        ? t.uncollect
+                                        : t.collect,
+                                    onPressed: () =>
+                                        libraryCtrl.toggleFavorite(track),
+                                    icon: Icon(
+                                      isFavorite
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_border_rounded,
+                                      color: isFavorite
+                                          ? PrismWaveTheme.accentSoft
+                                          : PrismWaveTheme.textSecondary,
+                                      size: 18,
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                            );
+                          },
+                        ),
                   ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTrackHeader({required AppStrings t}) {
-    return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        color: Colors.white.withValues(alpha: 0.06),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 52,
-            child: Text(
-              t.cover,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.62),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 5,
-            child: Text(
-              t.trackName,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.62),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              t.singer,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.62),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 84,
-            child: Text(
-              t.duration,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.62),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 38),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1206,115 +1343,105 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     final albums = groups.entries.toList(growable: false)
       ..sort((a, b) => a.key.compareTo(b.key));
 
-    return GlassPanel(
-      lowEffects: library.lowEffects,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            t.albums,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: t.searchAlbumArtistTrack,
-              prefixIcon: const Icon(Icons.search_rounded),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _LibraryPageHeader(
+          title: t.albums,
+          subtitle: t.trackCountText(library.filteredTracks.length),
+          metrics: [
+            PrismMetricPill(
+              icon: Icons.album_rounded,
+              label: t.albums,
+              value: '${albums.length}',
             ),
-          ),
-          const SizedBox(height: 14),
-          Expanded(
-            child: albums.isEmpty
-                ? Center(
-                    child: Text(
-                      t.noAlbumMatch,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.68),
-                      ),
-                    ),
-                  )
-                : MiddleClickAutoScrollView(
-                    builder: (context, controller) => GridView.builder(
-                      controller: controller,
-                      itemCount: albums.length,
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 220,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            childAspectRatio: 0.80,
-                          ),
-                      itemBuilder: (_, index) {
-                        final album = albums[index];
-                        final representativeTrack = _representativeCoverTrack(
-                          library,
-                          album.value,
-                        );
-                        final coverBytes = library.coverBytesOf(
-                          representativeTrack,
-                        );
+            PrismMetricPill(
+              icon: Icons.music_note_rounded,
+              label: t.tracks,
+              value: '${library.filteredTracks.length}',
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        PrismSearchBox(
+          controller: _searchController,
+          hintText: t.searchAlbumArtistTrack,
+          onClear: _searchController.clear,
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: albums.isEmpty
+              ? PrismEmptyState(
+                  icon: Icons.album_rounded,
+                  title: t.noAlbumMatch,
+                )
+              : MiddleClickAutoScrollView(
+                  builder: (context, controller) => GridView.builder(
+                    controller: controller,
+                    padding: const EdgeInsets.only(right: 8, bottom: 4),
+                    itemCount: albums.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 246,
+                          mainAxisSpacing: 14,
+                          crossAxisSpacing: 14,
+                          childAspectRatio: 0.78,
+                        ),
+                    itemBuilder: (_, index) {
+                      final album = albums[index];
+                      final representativeTrack = _representativeCoverTrack(
+                        library,
+                        album.value,
+                      );
+                      final coverBytes = library.coverBytesOf(
+                        representativeTrack,
+                      );
 
-                        return Material(
-                          color: Colors.white.withValues(alpha: 0.04),
-                          borderRadius: BorderRadius.circular(14),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(14),
-                            onTap: () {
-                              setState(() {
-                                _selectedAlbum = album.key;
-                              });
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(10),
-                                      child: _CoverImage(
-                                        coverPath:
-                                            representativeTrack.coverPath,
-                                        coverBytes: coverBytes,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    album.key,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    t.albumTrackCountText(album.value.length),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.white.withValues(
-                                        alpha: 0.66,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                      return HoverGlassCard(
+                        onTap: () {
+                          setState(() {
+                            _selectedAlbum = album.key;
+                          });
+                        },
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: _CoverImage(
+                                  coverPath: representativeTrack.coverPath,
+                                  coverBytes: coverBytes,
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                            const SizedBox(height: 10),
+                            Text(
+                              album.key,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: PrismWaveTheme.mediaTitleStyle(
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              t.albumTrackCountText(album.value.length),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: PrismWaveTheme.captionStyle(
+                                fontSize: 12.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-          ),
-        ],
-      ),
+                ),
+        ),
+      ],
     );
   }
 
@@ -1322,92 +1449,128 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     required LibraryState library,
     required AppStrings t,
   }) {
-    final artists =
-        library.filteredTracks
-            .map((track) => track.artist)
-            .toSet()
-            .toList(growable: false)
-          ..sort((a, b) => a.compareTo(b));
+    final groups = <String, List<Track>>{};
+    for (final track in library.filteredTracks) {
+      groups.putIfAbsent(track.artist, () => <Track>[]).add(track);
+    }
+    final artists = groups.entries.toList(growable: false)
+      ..sort((a, b) => a.key.compareTo(b.key));
 
-    return GlassPanel(
-      lowEffects: library.lowEffects,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            t.artists,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: t.searchArtist,
-              prefixIcon: const Icon(Icons.search_rounded),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _LibraryPageHeader(
+          title: t.artists,
+          subtitle: t.trackCountText(library.filteredTracks.length),
+          metrics: [
+            PrismMetricPill(
+              icon: Icons.mic_rounded,
+              label: t.artists,
+              value: '${artists.length}',
             ),
-          ),
-          const SizedBox(height: 14),
-          Expanded(
-            child: artists.isEmpty
-                ? Center(
-                    child: Text(
-                      t.noArtistMatch,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.68),
-                      ),
-                    ),
-                  )
-                : MiddleClickAutoScrollView(
-                    builder: (context, controller) => ListView.separated(
-                      controller: controller,
-                      itemCount: artists.length,
-                      separatorBuilder: (_, _) => Divider(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        height: 1,
-                      ),
-                      itemBuilder: (_, index) {
-                        final artist = artists[index];
-                        return Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              setState(() {
-                                _selectedArtist = artist;
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(8),
-                            child: SizedBox(
-                              height: 56,
-                              child: Row(
+            PrismMetricPill(
+              icon: Icons.music_note_rounded,
+              label: t.tracks,
+              value: '${library.filteredTracks.length}',
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        PrismSearchBox(
+          controller: _searchController,
+          hintText: t.searchArtist,
+          onClear: _searchController.clear,
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: artists.isEmpty
+              ? PrismEmptyState(icon: Icons.mic_rounded, title: t.noArtistMatch)
+              : MiddleClickAutoScrollView(
+                  builder: (context, controller) => GridView.builder(
+                    controller: controller,
+                    padding: const EdgeInsets.only(right: 8, bottom: 4),
+                    itemCount: artists.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 300,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 3.25,
+                        ),
+                    itemBuilder: (_, index) {
+                      final artist = artists[index];
+                      final initial = artist.key.trim().isEmpty
+                          ? '?'
+                          : artist.key.trim().characters.first.toUpperCase();
+                      return HoverGlassCard(
+                        onTap: () {
+                          setState(() {
+                            _selectedArtist = artist.key;
+                          });
+                        },
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: PrismWaveTheme.accentGradient,
+                                boxShadow: PrismWaveTheme.accentShadow(
+                                  alpha: 0.14,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                initial,
+                                style: const TextStyle(
+                                  color: PrismWaveTheme.textPrimary,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const SizedBox(width: 8),
                                   Text(
-                                    artist,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
+                                    artist.key,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: PrismWaveTheme.mediaTitleStyle(
+                                      fontSize: 15,
                                     ),
                                   ),
-                                  const Spacer(),
-                                  Icon(
-                                    Icons.chevron_right_rounded,
-                                    color: Colors.white.withValues(alpha: 0.65),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    t.albumTrackCountText(artist.value.length),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: PrismWaveTheme.captionStyle(
+                                      fontSize: 12,
+                                    ),
                                   ),
-                                  const SizedBox(width: 8),
                                 ],
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: PrismWaveTheme.textMuted.withValues(
+                                alpha: 0.74,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-          ),
-        ],
-      ),
+                ),
+        ),
+      ],
     );
   }
 
@@ -1471,66 +1634,69 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     final libraryCtrl = ref.read(libraryProvider.notifier);
     final playbackCtrl = ref.read(playbackProvider.notifier);
 
-    return GlassPanel(
-      lowEffects: library.lowEffects,
-      child: Column(
-        children: [
-          Row(
-            children: [
-              IconButton(
-                onPressed: onBack,
-                icon: const Icon(Icons.arrow_back_rounded),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            IconGlassButton(
+              icon: Icons.arrow_back_rounded,
+              tooltip: 'Back',
+              onPressed: onBack,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _LibraryPageHeader(
+                title: title,
+                subtitle: subtitle,
+                metrics: [
+                  PrismMetricPill(
+                    icon: Icons.music_note_rounded,
+                    label: t.tracks,
+                    value: '${tracks.length}',
+                  ),
+                  PrismMetricPill(
+                    icon: Icons.timer_rounded,
+                    label: t.duration,
+                    value: _formatDuration(
+                      tracks.fold<Duration>(
+                        Duration.zero,
+                        (sum, track) =>
+                            sum + (library.durationOf(track) ?? Duration.zero),
                       ),
                     ),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.68),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              _GlassPlayAllButton(
-                label: t.playAll,
-                enabled: tracks.isNotEmpty,
-                onPressed: tracks.isEmpty
-                    ? null
-                    : () => playbackCtrl.playFromPlaylist(tracks.first, tracks),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _buildTrackHeader(t: t),
-          const SizedBox(height: 8),
-          Expanded(
+            ),
+            const SizedBox(width: 16),
+            _GlassPlayAllButton(
+              label: t.playAll,
+              enabled: tracks.isNotEmpty,
+              onPressed: tracks.isEmpty
+                  ? null
+                  : () => playbackCtrl.playFromPlaylist(tracks.first, tracks),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: GlassPanel(
+            lowEffects: library.lowEffects,
+            radius: PrismWaveTheme.panelRadius,
+            alpha: 0.58,
+            borderAlpha: 0.08,
+            padding: const EdgeInsets.all(12),
             child: tracks.isEmpty
-                ? Center(
-                    child: Text(
-                      t.noTracks,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.68),
-                      ),
-                    ),
+                ? PrismEmptyState(
+                    icon: Icons.queue_music_rounded,
+                    title: t.noTracks,
                   )
                 : MiddleClickAutoScrollView(
                     builder: (context, controller) => ListView.builder(
                       controller: controller,
+                      padding: EdgeInsets.zero,
                       itemCount: tracks.length,
                       itemBuilder: (_, index) {
                         final track = tracks[index];
@@ -1540,101 +1706,39 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                         final coverBytes = library.coverBytesOf(track);
 
                         return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: PrismMediaListTile(
+                            selected: active,
+                            leadingMeta: '${index + 1}',
+                            cover: PrismMiniCover(
+                              coverBytes: coverBytes,
+                              coverPath: track.coverPath,
+                              size: 48,
+                              radius: 12,
+                            ),
+                            title: track.title,
+                            subtitle: '${track.artist} · ${track.album}',
+                            meta: _formatDuration(duration),
                             onSecondaryTapDown: (_) => _openTrackDetails(
                               context: context,
                               track: track,
                               duration: duration,
                               coverBytes: coverBytes,
                             ),
-                            child: Material(
-                              color: active
-                                  ? const Color(
-                                      0xFF39C0FF,
-                                    ).withValues(alpha: 0.16)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(10),
-                                onTap: () => playbackCtrl.playFromPlaylist(
-                                  track,
-                                  tracks,
-                                ),
-                                child: SizedBox(
-                                  height: 56,
-                                  child: Row(
-                                    children: [
-                                      const SizedBox(width: 10),
-                                      SizedBox(
-                                        width: 52,
-                                        child: _TrackCover(
-                                          track: track,
-                                          isActive: active,
-                                          coverBytes: coverBytes,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        flex: 5,
-                                        child: Text(
-                                          track.title,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 3,
-                                        child: Text(
-                                          track.artist,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.75,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        width: 84,
-                                        child: Text(
-                                          _formatDuration(duration),
-                                          textAlign: TextAlign.right,
-                                          style: TextStyle(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.82,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      IconButton(
-                                        tooltip: isFavorite
-                                            ? t.uncollect
-                                            : t.collect,
-                                        onPressed: () =>
-                                            libraryCtrl.toggleFavorite(track),
-                                        icon: Icon(
-                                          isFavorite
-                                              ? Icons.favorite_rounded
-                                              : Icons.favorite_border_rounded,
-                                          color: isFavorite
-                                              ? const Color(0xFF39C0FF)
-                                              : Colors.white.withValues(
-                                                  alpha: 0.78,
-                                                ),
-                                          size: 18,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                    ],
-                                  ),
-                                ),
+                            onTap: () =>
+                                playbackCtrl.playFromPlaylist(track, tracks),
+                            trailing: IconButton(
+                              tooltip: isFavorite ? t.uncollect : t.collect,
+                              onPressed: () =>
+                                  libraryCtrl.toggleFavorite(track),
+                              icon: Icon(
+                                isFavorite
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                color: isFavorite
+                                    ? PrismWaveTheme.accentSoft
+                                    : PrismWaveTheme.textSecondary,
+                                size: 18,
                               ),
                             ),
                           ),
@@ -1643,8 +1747,8 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
                     ),
                   ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1660,164 +1764,173 @@ class _PrismWaveHomePageState extends ConsumerState<PrismWaveHomePage> {
     final safeDuration = duration > 0 ? duration : 1.0;
     final safePosition = position.clamp(0.0, safeDuration);
 
-    return GlassPanel(
-      lowEffects: library.lowEffects,
-      radius: PrismWaveTheme.panelRadius,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      child: Row(
-        children: [
-          SizedBox(
-            width: _layoutScale.playerInfoWidth,
-            child: _NowPlayingInfo(
-              track: playback.currentTrack,
-              t: t,
-              duration: playback.duration > Duration.zero
-                  ? playback.duration
-                  : (playback.currentTrack == null
-                        ? null
-                        : library.durationOf(playback.currentTrack!)),
-              coverBytes: playback.currentTrack == null
-                  ? null
-                  : library.coverBytesOf(playback.currentTrack!),
-              onTap: playback.currentTrack == null
-                  ? null
-                  : () => _openFullPlay(playback.currentTrack!),
+    return SizedBox(
+      height: PrismWaveTheme.playerDockHeight,
+      child: GlassPanel(
+        lowEffects: library.lowEffects,
+        radius: 0,
+        dock: true,
+        alpha: 0.90,
+        borderAlpha: 0.12,
+        shadowAlpha: 0.20,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+        child: Row(
+          children: [
+            SizedBox(
+              width: _layoutScale.playerInfoWidth,
+              child: _NowPlayingInfo(
+                track: playback.currentTrack,
+                t: t,
+                duration: playback.duration > Duration.zero
+                    ? playback.duration
+                    : (playback.currentTrack == null
+                          ? null
+                          : library.durationOf(playback.currentTrack!)),
+                coverBytes: playback.currentTrack == null
+                    ? null
+                    : library.coverBytesOf(playback.currentTrack!),
+                onTap: playback.currentTrack == null
+                    ? null
+                    : () => _openFullPlay(playback.currentTrack!),
+              ),
             ),
-          ),
-          Expanded(
-            child: Align(
-              alignment: Alignment.center,
-              child: SizedBox(
-                width: _layoutScale.playerCenterWidth,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _PlayerTransportButton(
-                          tooltip: 'Previous',
-                          onPressed: playback.hasTrack ? ctrl.previous : null,
-                          icon: const Icon(Icons.skip_previous_rounded),
-                        ),
-                        const SizedBox(width: 10),
-                        _PlaybackToggleButton(
-                          onPressed: playback.hasTrack
-                              ? ctrl.togglePlayPause
-                              : null,
-                          isPlaying: playback.isPlaying,
-                        ),
-                        const SizedBox(width: 10),
-                        _PlayerTransportButton(
-                          tooltip: 'Next',
-                          onPressed: playback.hasTrack ? ctrl.next : null,
-                          icon: const Icon(Icons.skip_next_rounded),
-                        ),
-                        const SizedBox(width: 10),
-                        _PlaybackModeButton(
-                          t: t,
-                          mode: playback.playbackMode,
-                          onPressed: ctrl.cycleMode,
-                        ),
-                        const SizedBox(width: 10),
-                        _PlaybackQueueButton(
-                          tooltip: t.playbackQueue,
-                          onPressed: canToggleQueue
-                              ? () => _togglePlaybackQueue(playback)
-                              : null,
-                          isActive: _showPlaybackQueue,
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 52,
-                          child: Text(
-                            _formatDuration(playback.currentTime),
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              color: PrismWaveTheme.textSecondary.withValues(
-                                alpha: 0.78,
+            Expanded(
+              child: Align(
+                alignment: Alignment.center,
+                child: SizedBox(
+                  width: _layoutScale.playerCenterWidth,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _PlaybackModeButton(
+                            t: t,
+                            mode: playback.playbackMode,
+                            onPressed: ctrl.cycleMode,
+                          ),
+                          const SizedBox(width: 10),
+                          _PlayerTransportButton(
+                            tooltip: 'Previous',
+                            onPressed: playback.hasTrack ? ctrl.previous : null,
+                            icon: const Icon(Icons.skip_previous_rounded),
+                          ),
+                          const SizedBox(width: 10),
+                          _PlaybackToggleButton(
+                            onPressed: playback.hasTrack
+                                ? ctrl.togglePlayPause
+                                : null,
+                            isPlaying: playback.isPlaying,
+                          ),
+                          const SizedBox(width: 10),
+                          _PlayerTransportButton(
+                            tooltip: 'Next',
+                            onPressed: playback.hasTrack ? ctrl.next : null,
+                            icon: const Icon(Icons.skip_next_rounded),
+                          ),
+                          const SizedBox(width: 10),
+                          _PlaybackQueueButton(
+                            tooltip: t.playbackQueue,
+                            onPressed: canToggleQueue
+                                ? () => _togglePlaybackQueue(playback)
+                                : null,
+                            isActive: _showPlaybackQueue,
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 52,
+                            child: Text(
+                              _formatDuration(playback.currentTime),
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                color: PrismWaveTheme.textSecondary.withValues(
+                                  alpha: 0.78,
+                                ),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
                               ),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              activeTrackColor: Colors.white,
-                              inactiveTrackColor: Colors.white.withValues(
-                                alpha: 0.16,
+                          Expanded(
+                            child: SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                activeTrackColor: Colors.white,
+                                inactiveTrackColor: Colors.white.withValues(
+                                  alpha: 0.12,
+                                ),
+                                thumbColor: Colors.white,
+                                overlayColor: Colors.white.withValues(
+                                  alpha: 0.12,
+                                ),
+                                trackHeight: 3.2,
                               ),
-                              thumbColor: Colors.white,
-                              overlayColor: Colors.white.withValues(
-                                alpha: 0.14,
+                              child: Slider(
+                                value: safePosition,
+                                min: 0,
+                                max: safeDuration,
+                                onChanged: playback.hasTrack
+                                    ? (value) => ctrl.seekTo(
+                                        Duration(milliseconds: value.round()),
+                                      )
+                                    : null,
                               ),
-                              trackHeight: 3.2,
-                            ),
-                            child: Slider(
-                              value: safePosition,
-                              min: 0,
-                              max: safeDuration,
-                              onChanged: playback.hasTrack
-                                  ? (value) => ctrl.seekTo(
-                                      Duration(milliseconds: value.round()),
-                                    )
-                                  : null,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 52,
-                          child: Text(
-                            _formatDuration(playback.duration),
-                            style: TextStyle(
-                              color: PrismWaveTheme.textSecondary.withValues(
-                                alpha: 0.78,
-                              ),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          SizedBox(
+                            width: 52,
+                            child: Text(
+                              _formatDuration(playback.duration),
+                              style: TextStyle(
+                                color: PrismWaveTheme.textSecondary.withValues(
+                                  alpha: 0.78,
+                                ),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          SizedBox(
-            width: _layoutScale.playerRightWidth,
-            child: Row(
-              children: [
-                Icon(
-                  Icons.volume_up_rounded,
-                  size: 18,
-                  color: PrismWaveTheme.textSecondary,
-                ),
-                Expanded(
-                  child: SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: PrismWaveTheme.textPrimary,
-                      inactiveTrackColor: Colors.white.withValues(alpha: 0.15),
-                      thumbColor: PrismWaveTheme.textPrimary,
-                      overlayColor: Colors.white.withValues(alpha: 0.10),
-                      trackHeight: 3,
-                    ),
-                    child: Slider(
-                      value: playback.volume,
-                      onChanged: ctrl.setVolume,
+            SizedBox(
+              width: _layoutScale.playerRightWidth,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.volume_up_rounded,
+                    size: 18,
+                    color: PrismWaveTheme.textSecondary,
+                  ),
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: PrismWaveTheme.textPrimary,
+                        inactiveTrackColor: Colors.white.withValues(
+                          alpha: 0.15,
+                        ),
+                        thumbColor: PrismWaveTheme.textPrimary,
+                        overlayColor: Colors.white.withValues(alpha: 0.10),
+                        trackHeight: 3,
+                      ),
+                      child: Slider(
+                        value: playback.volume,
+                        onChanged: ctrl.setVolume,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -3951,7 +4064,7 @@ class _PlaybackQueueTrackTileState extends State<_PlaybackQueueTrackTile> {
       onExit: (_) => setState(() => _hovering = false),
       child: Material(
         color: active
-            ? const Color(0xFF39C0FF).withValues(alpha: 0.18)
+            ? PrismWaveTheme.accent.withValues(alpha: 0.18)
             : Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
@@ -4023,7 +4136,7 @@ class _PlaybackQueueTrackTileState extends State<_PlaybackQueueTrackTile> {
                         icon: Icon(
                           Icons.close_rounded,
                           size: 18,
-                          color: Colors.redAccent.withValues(alpha: 0.92),
+                          color: PrismWaveTheme.danger.withValues(alpha: 0.92),
                         ),
                       ),
                     ),
@@ -4526,15 +4639,9 @@ class _ExperimentalFeaturesWarningDialog extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
+                        child: TextButton(
                           onPressed: () => Navigator.of(context).pop(false),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white.withValues(
-                              alpha: 0.86,
-                            ),
-                            side: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.18),
-                            ),
+                          style: PrismWaveTheme.rectangularButtonStyle(
                             padding: const EdgeInsets.symmetric(vertical: 13),
                           ),
                           child: Text(t.experimentalFeaturesDisagree),
@@ -4542,11 +4649,9 @@ class _ExperimentalFeaturesWarningDialog extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: FilledButton(
+                        child: TextButton(
                           onPressed: () => Navigator.of(context).pop(true),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFFD74B4B),
-                            foregroundColor: Colors.white,
+                          style: PrismWaveTheme.dangerButtonStyle(
                             padding: const EdgeInsets.symmetric(vertical: 13),
                           ),
                           child: Text(t.experimentalFeaturesAgree),
@@ -4668,15 +4773,9 @@ class _TrackDeleteDialogState extends State<_TrackDeleteDialog> {
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
+                        child: TextButton(
                           onPressed: () => Navigator.of(context).pop(),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white.withValues(
-                              alpha: 0.84,
-                            ),
-                            side: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.18),
-                            ),
+                          style: PrismWaveTheme.rectangularButtonStyle(
                             padding: const EdgeInsets.symmetric(vertical: 13),
                           ),
                           child: Text(widget.t.confirmNo),
@@ -4684,15 +4783,13 @@ class _TrackDeleteDialogState extends State<_TrackDeleteDialog> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: FilledButton(
+                        child: TextButton(
                           onPressed: () => Navigator.of(context).pop(
                             _TrackDeleteDecision(
                               deleteSourceFile: _deleteSourceFile,
                             ),
                           ),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFFD74B4B),
-                            foregroundColor: Colors.white,
+                          style: PrismWaveTheme.dangerButtonStyle(
                             padding: const EdgeInsets.symmetric(vertical: 13),
                           ),
                           child: Text(widget.t.confirmYes),
@@ -4811,13 +4908,11 @@ class _PlaybackModeButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: SizedBox(
-        width: 46,
-        height: 38,
+        width: 40,
+        height: 40,
         child: TextButton(
           onPressed: onPressed,
-          style: PrismWaveTheme.rectangularButtonStyle(
-            padding: EdgeInsets.zero,
-          ),
+          style: PrismWaveTheme.iconButtonStyle(),
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
             switchInCurve: Curves.easeOutCubic,
@@ -4869,13 +4964,11 @@ class _PlayerTransportButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: SizedBox(
-        width: 46,
-        height: 38,
+        width: 40,
+        height: 40,
         child: TextButton(
           onPressed: onPressed,
-          style: PrismWaveTheme.rectangularButtonStyle(
-            padding: EdgeInsets.zero,
-          ),
+          style: PrismWaveTheme.iconButtonStyle(),
           child: Icon(icon.icon, size: 22, color: iconColor),
         ),
       ),
@@ -4899,14 +4992,11 @@ class _PlaybackQueueButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: SizedBox(
-        width: 46,
-        height: 38,
+        width: 40,
+        height: 40,
         child: TextButton(
           onPressed: onPressed,
-          style: PrismWaveTheme.rectangularButtonStyle(
-            selected: isActive,
-            padding: EdgeInsets.zero,
-          ),
+          style: PrismWaveTheme.iconButtonStyle(selected: isActive),
           child: SvgPicture.asset(
             'assets/icons/player_queue.svg',
             width: 18,
@@ -4943,50 +5033,52 @@ class _PlaybackToggleButton extends StatelessWidget {
         : 'assets/icons/player_play.svg';
 
     return SizedBox(
-      width: 58,
-      height: 42,
+      width: 54,
+      height: 54,
       child: TextButton(
         onPressed: onPressed,
         style: ButtonStyle(
-          minimumSize: const WidgetStatePropertyAll(ui.Size(58, 42)),
+          minimumSize: const WidgetStatePropertyAll(ui.Size(54, 54)),
+          fixedSize: const WidgetStatePropertyAll(ui.Size(54, 54)),
           padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-          backgroundColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.disabled)) {
-              return Colors.white.withValues(alpha: 0.045);
-            }
-            if (states.contains(WidgetState.pressed)) {
-              return Colors.white.withValues(alpha: 0.20);
-            }
-            if (states.contains(WidgetState.hovered)) {
-              return Colors.white.withValues(alpha: 0.16);
-            }
-            return Colors.white.withValues(alpha: 0.12);
-          }),
+          backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
           side: WidgetStateProperty.resolveWith((states) {
             return BorderSide(
               color: Colors.white.withValues(
-                alpha: states.contains(WidgetState.hovered) ? 0.26 : 0.18,
+                alpha: states.contains(WidgetState.hovered) ? 0.32 : 0.20,
               ),
             );
           }),
           shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(PrismWaveTheme.controlRadius),
-            ),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
           ),
           overlayColor: WidgetStatePropertyAll(
             Colors.white.withValues(alpha: 0.08),
           ),
         ),
-        child: SvgPicture.asset(
-          iconPath,
-          width: 24,
-          height: 24,
-          colorFilter: ColorFilter.mode(
-            onPressed == null
-                ? PrismWaveTheme.textMuted.withValues(alpha: 0.56)
-                : PrismWaveTheme.textPrimary,
-            BlendMode.srcIn,
+        child: Ink(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: onPressed == null ? null : PrismWaveTheme.accentGradient,
+            color: onPressed == null
+                ? Colors.white.withValues(alpha: 0.045)
+                : null,
+            boxShadow: onPressed == null
+                ? null
+                : PrismWaveTheme.accentShadow(alpha: 0.30),
+          ),
+          child: Center(
+            child: SvgPicture.asset(
+              iconPath,
+              width: 23,
+              height: 23,
+              colorFilter: ColorFilter.mode(
+                onPressed == null
+                    ? PrismWaveTheme.textMuted.withValues(alpha: 0.56)
+                    : PrismWaveTheme.textPrimary,
+                BlendMode.srcIn,
+              ),
+            ),
           ),
         ),
       ),

@@ -16,7 +16,7 @@
             IsOpen="True"
             Severity="Warning"
             Title="Read this notice before enabling experimental features"
-            Message="Online providers and DSD support are experimental and may stop working without notice." />
+            Message="Online providers are experimental and may stop working without notice." />
         <ScrollViewer Grid.Row="1" MaxHeight="430" VerticalScrollBarVisibility="Auto">
             <StackPanel Spacing="12" Padding="2,0,10,0">
                 <TextBlock Text="PrismWave is an independently developed local music player. BETA features may retrieve music metadata, lyrics, artwork, charts, search results or media addresses from third-party services." TextWrapping="Wrap" />

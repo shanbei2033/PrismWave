@@ -49,7 +49,7 @@ public sealed class HomeFinalLayoutAuditTests
 
         Assert.Equal(new[] { "Auto", "*" }, rows);
         Assert.Equal("0", header.Attribute("Grid.Row")?.Value ?? "0");
-        Assert.Equal("0,18,24,12", header.Attribute("Margin")?.Value);
+        Assert.Equal("0,0,0,12", header.Attribute("Margin")?.Value);
         Assert.Equal("40", refresh.Attribute("Width")?.Value);
         Assert.Equal("40", refresh.Attribute("Height")?.Value);
         Assert.Equal("1", scroll.Attribute("Grid.Row")?.Value);

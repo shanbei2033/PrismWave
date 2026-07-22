@@ -40,11 +40,9 @@ public sealed class SettingsText
     public string MicaAppearanceDescription => T("使用浅色 Windows 11 云母材质和半透明表面。", "使用淺色 Windows 11 雲母材質和半透明表面。", "Use light Windows 11 Mica with translucent surfaces.");
     public string AcrylicAppearance => T("亚克力", "壓克力", "Acrylic");
     public string AcrylicAppearanceDescription => T("使用深色、高通透度的桌面亚克力材质。", "使用深色、高通透度的桌面壓克力材質。", "Use dark, highly translucent desktop Acrylic.");
-    public string LowEffects => T("低特效模式", "低特效模式", "Low effects");
     public string On => T("开", "開", "On");
     public string Off => T("关", "關", "Off");
     public string ThemeName => T("Fluent 深色", "Fluent 深色", "Fluent Dark");
-    public string PreferenceMigration => T("Flutter 设置迁移", "Flutter 設定移轉", "Flutter preference migration");
     public string StreamingAccounts => T("流媒体账号", "串流媒體帳號", "Streaming accounts");
     public string StreamingAccountsDescription => T(
         "使用网易云音乐或 QQ 音乐扫码登录，以使用账号已有的播放权限。",
@@ -74,7 +72,6 @@ public sealed class SettingsText
     public string OutputMode => T("输出模式", "輸出模式", "Output mode");
     public string ActiveOutput => T("当前输出", "目前輸出", "Active output");
     public string OutputDeviceId => T("输出设备 ID", "輸出裝置 ID", "Output device id");
-    public string WindowsDsdDevice => T("Windows DSD / ASIO 设备", "Windows DSD / ASIO 裝置", "Windows DSD / ASIO device");
     public string FadeInOut => T("淡入 / 淡出", "淡入 / 淡出", "Fade in / out");
     public string FadeDuration => T("淡化时长", "淡化時間", "Fade duration");
     public string DeveloperLogs => T("开发者日志", "開發者日誌", "Developer logs");

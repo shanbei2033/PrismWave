@@ -155,9 +155,11 @@ public sealed class CoverService : ICoverService
         {
             key = TrackKey(track);
         }
+        var contentHash = Convert.ToHexString(
+            SHA256.HashData(downloaded.Bytes)).ToLowerInvariant();
         var destination = Path.Combine(
             _imageCacheDirectory,
-            $"{StableHash(key.ToLowerInvariant())}{downloaded.Extension}");
+            $"{StableHash(key.ToLowerInvariant() + ":" + contentHash)}{downloaded.Extension}");
         await WriteAtomicAsync(destination, downloaded.Bytes, cancellationToken);
 
         var customCovers = new Dictionary<string, string>(

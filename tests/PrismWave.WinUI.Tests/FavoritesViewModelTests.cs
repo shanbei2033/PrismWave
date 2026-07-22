@@ -133,11 +133,6 @@ public sealed class FavoritesViewModelTests
         public bool IsLoading => false;
         public bool IsPlaying => false;
         public string? Error => null;
-        public IReadOnlyList<WindowsDsdDeviceModel> WindowsDsdDevices => [];
-        public bool WindowsDsdAvailable => false;
-        public string? WindowsDsdOutputModeLabel => null;
-        public string? WindowsDsdActiveDeviceName => null;
-        public string? WindowsDsdFallbackReason => null;
         public event EventHandler? StateChanged;
         public void RaiseStateChanged() => StateChanged?.Invoke(this, EventArgs.Empty);
         public void Play(TrackModel track, IReadOnlyList<TrackModel>? queue = null) { }
@@ -154,6 +149,5 @@ public sealed class FavoritesViewModelTests
         public void ReorderQueue(IReadOnlyList<TrackModel> tracks) { }
         public void RemoveFromQueue(TrackModel track) { }
         public void ClearQueue() { }
-        public Task RefreshWindowsDsdDevicesAsync() => Task.CompletedTask;
     }
 }

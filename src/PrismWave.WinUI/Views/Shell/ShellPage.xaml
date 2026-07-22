@@ -97,7 +97,7 @@
                 </NavigationViewItem>
             </NavigationView.MenuItems>
 
-            <Grid Margin="24,0,30,0">
+            <Grid>
                 <Grid
                     x:Name="PageTransitionHost"
                     SizeChanged="PageTransitionHost_SizeChanged">

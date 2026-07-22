@@ -16,10 +16,18 @@ class WindowTopBar extends ConsumerStatefulWidget {
     super.key,
     this.showBrand = false,
     this.showLyricBox = true,
+    this.showCommandBar = false,
+    this.searchPlaceholder = '',
+    this.onSearchSubmitted,
+    this.onBack,
   });
 
   final bool showBrand;
   final bool showLyricBox;
+  final bool showCommandBar;
+  final String searchPlaceholder;
+  final ValueChanged<String>? onSearchSubmitted;
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<WindowTopBar> createState() => _WindowTopBarState();
@@ -110,12 +118,18 @@ class _WindowTopBarState extends ConsumerState<WindowTopBar>
     _syncQuoteTimer(shouldRotateQuote);
 
     return Container(
-      height: 44,
-      padding: const EdgeInsets.only(left: 14),
+      height: widget.showCommandBar ? 58 : 44,
+      padding: EdgeInsets.only(left: widget.showCommandBar ? 286 : 14),
       color: Colors.transparent,
       child: Row(
         children: [
-          if (widget.showBrand) ...[
+          if (widget.showCommandBar)
+            _TopCommandCluster(
+              placeholder: widget.searchPlaceholder,
+              onSubmitted: widget.onSearchSubmitted,
+              onBack: widget.onBack,
+            )
+          else if (widget.showBrand) ...[
             Text(
               'PrismWave',
               style: const TextStyle(
@@ -153,7 +167,9 @@ class _WindowTopBarState extends ConsumerState<WindowTopBar>
                           // window padding 16 + sidebar 260 + gutter 14,
                           // while the drag area itself already starts after
                           // top bar left padding 14 + placeholder 10.
-                          const contentStartInset = 266.0;
+                          final contentStartInset = widget.showCommandBar
+                              ? 26.0
+                              : 266.0;
                           const trailingGap = 8.0;
                           final boxWidth = math.max(
                             0.0,
@@ -163,7 +179,7 @@ class _WindowTopBarState extends ConsumerState<WindowTopBar>
                           );
 
                           return Padding(
-                            padding: const EdgeInsets.only(
+                            padding: EdgeInsets.only(
                               left: contentStartInset,
                               right: trailingGap,
                             ),
@@ -248,6 +264,157 @@ class _WindowTopBarState extends ConsumerState<WindowTopBar>
             .ensureTopBarQuote(forceRefresh: true),
       );
     });
+  }
+}
+
+class _TopCommandCluster extends StatefulWidget {
+  const _TopCommandCluster({
+    required this.placeholder,
+    required this.onSubmitted,
+    required this.onBack,
+  });
+
+  final String placeholder;
+  final ValueChanged<String>? onSubmitted;
+  final VoidCallback? onBack;
+
+  @override
+  State<_TopCommandCluster> createState() => _TopCommandClusterState();
+}
+
+class _TopCommandClusterState extends State<_TopCommandCluster> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+        width: 500,
+        child: Row(
+          children: [
+            _TopRoundButton(
+              icon: Icons.chevron_left_rounded,
+              tooltip: 'Back',
+              onTap: widget.onBack,
+            ),
+            const SizedBox(width: 8),
+            _TopRoundButton(
+              icon: Icons.chevron_right_rounded,
+              tooltip: 'Forward',
+              onTap: null,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Container(
+                height: 40,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: const Color(0xFF111722).withValues(alpha: 0.74),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.16),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _controller,
+                  onSubmitted: (value) {
+                    widget.onSubmitted?.call(value);
+                    _controller.clear();
+                  },
+                  style: const TextStyle(fontSize: 13.5),
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    hintText: widget.placeholder,
+                    hintStyle: TextStyle(
+                      color: PrismWaveTheme.textMuted.withValues(alpha: 0.78),
+                      fontSize: 13,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      size: 19,
+                      color: PrismWaveTheme.textSecondary.withValues(
+                        alpha: 0.82,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+    );
+  }
+}
+
+class _TopRoundButton extends StatefulWidget {
+  const _TopRoundButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+
+  @override
+  State<_TopRoundButton> createState() => _TopRoundButtonState();
+}
+
+class _TopRoundButtonState extends State<_TopRoundButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: PrismWaveTheme.fastMotion,
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _hovered && enabled
+                  ? Colors.white.withValues(alpha: 0.09)
+                  : Colors.transparent,
+            ),
+            child: Icon(
+              widget.icon,
+              size: 24,
+              color: enabled
+                  ? PrismWaveTheme.textSecondary
+                  : PrismWaveTheme.textMuted.withValues(alpha: 0.45),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

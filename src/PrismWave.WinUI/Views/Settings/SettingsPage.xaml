@@ -77,14 +77,6 @@
                                     Width="280"
                                     HorizontalAlignment="Left" />
                                 <TextBlock Text="{Binding AppearanceStyleDescription}" Style="{StaticResource PrismCaptionTextStyle}" TextWrapping="Wrap" />
-                                <ToggleSwitch Header="{Binding Text.LowEffects}" IsOn="{Binding LowEffects, Mode=TwoWay}" OnContent="{Binding Text.On}" OffContent="{Binding Text.Off}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource PrismPanelBorderStyle}">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="{Binding Text.PreferenceMigration}" Style="{StaticResource PrismSectionTitleTextStyle}" />
-                                <TextBlock Text="{Binding MigrationStatus}" Style="{StaticResource PrismCaptionTextStyle}" />
-                                <TextBlock Text="{Binding MigrationSource}" Style="{StaticResource PrismCaptionTextStyle}" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -198,27 +190,6 @@
                                     <TextBlock Text="{Binding AudioOutputFallbackReason}" TextWrapping="Wrap" Foreground="#FFFFB4B4" FontSize="12" />
                                 </StackPanel>
                                 <TextBox Header="{Binding Text.OutputDeviceId}" Text="{Binding AudioOutputDevice, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                <Grid ColumnSpacing="10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <ComboBox
-                                        Header="{Binding Text.WindowsDsdDevice}"
-                                        ItemsSource="{Binding WindowsDsdDevices}"
-                                        DisplayMemberPath="DisplayName"
-                                        SelectedValuePath="Id"
-                                        SelectedValue="{Binding WindowsDsdDevice, Mode=TwoWay}"
-                                        IsEnabled="{Binding ExperimentalFeaturesEnabled}"
-                                        HorizontalAlignment="Stretch" />
-                                    <Button Grid.Column="1" Command="{Binding RefreshWindowsDsdDevicesCommand}" VerticalAlignment="Bottom">
-                                        <FontIcon Glyph="&#xE895;" FontSize="14" />
-                                    </Button>
-                                </Grid>
-                                <TextBlock Text="{Binding WindowsDsdStatus}" Style="{StaticResource PrismCaptionTextStyle}" />
-                                <TextBlock Text="{Binding WindowsDsdOutputStatus}" Style="{StaticResource PrismCaptionTextStyle}" />
-                                <TextBlock Text="{Binding WindowsDsdActiveDevice}" Style="{StaticResource PrismCaptionTextStyle}" />
-                                <TextBlock Text="{Binding WindowsDsdFallbackReason}" TextWrapping="Wrap" Foreground="#FFFFB4B4" FontSize="12" />
                                 <ToggleSwitch Header="{Binding Text.FadeInOut}" IsOn="{Binding FadeEnabled, Mode=TwoWay}" OnContent="{Binding Text.On}" OffContent="{Binding Text.Off}" />
                                 <Slider Header="{Binding Text.FadeDuration}" Minimum="0" Maximum="2000" StepFrequency="10" Value="{Binding FadeDurationMs, Mode=TwoWay}" />
                                 <TextBlock Text="{Binding FadeDuration}" Style="{StaticResource PrismCaptionTextStyle}" />

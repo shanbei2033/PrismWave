@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PrismWave_WinUI.Models;
@@ -18,14 +17,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     private bool _experimentalFeaturesEnabled;
     private bool _onlineModeEnabled = true;
     private OnlineQualityPreference _onlineQualityPreference = OnlineQualityPreference.Lossless;
-    private bool _lowEffects;
     private string _appearanceStyle = AppearanceStyleIds.Mica;
     private string _audioOutputMode = AudioOutputPolicy.WasapiSharedId;
     private string _audioOutputDevice = "auto";
-    private string _windowsDsdDevice = "auto";
     private bool _fadeEnabled = true;
     private int _fadeDurationMs = 220;
-    private bool _isRefreshingDsdDevices;
     private string _developerLogText = string.Empty;
     private string _developerLogCount = "0 entries";
 
@@ -57,21 +53,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         // Account sign-in is managed from the Online tab and must remain discoverable
         // even before experimental playback is enabled.
         OnlineAccounts.IsLoginEnabled = true;
-        _lowEffects = settings.LowEffects;
         _appearanceStyle = AppearanceStyleIds.Normalize(settings.AppearanceStyle);
         _ = themeService;
         _audioOutputMode = settings.AudioOutputMode;
         _audioOutputDevice = settings.AudioOutputDevice;
-        _windowsDsdDevice = settings.WindowsDsdDevice;
         _fadeEnabled = settings.FadeEnabled;
         _fadeDurationMs = settings.FadeDurationMs;
-        MigrationSource = settings.Migration.SourceFile;
-        MigrationStatus = settings.Migration.SourceFound
-            ? $"Migrated {settings.Migration.MigratedKeyCount} keys"
-            : "No previous Flutter preference file found";
 
         RefreshLogs();
-        _ = RefreshWindowsDsdDevicesAsync();
     }
 
     public IReadOnlyList<string> LanguageOptions { get; } = new[] { "zh-CN", "zh-TW", "en-US" };
@@ -166,18 +155,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
-    public bool LowEffects
-    {
-        get => _lowEffects;
-        set
-        {
-            if (SetProperty(ref _lowEffects, value))
-            {
-                Save();
-            }
-        }
-    }
-
     public string AppearanceStyle
     {
         get => _appearanceStyle;
@@ -247,18 +224,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
-    public string WindowsDsdDevice
-    {
-        get => _windowsDsdDevice;
-        set
-        {
-            if (SetProperty(ref _windowsDsdDevice, value))
-            {
-                Save();
-            }
-        }
-    }
-
     public bool FadeEnabled
     {
         get => _fadeEnabled;
@@ -295,9 +260,6 @@ public sealed partial class SettingsViewModel : ObservableObject
                 AudioOutputPolicy.BuildFallbackChain(AudioOutputMode)[0])
             : _playbackService.ActiveAudioOutputModeLabel;
     public string? AudioOutputFallbackReason => _playbackService.AudioOutputFallbackReason;
-    public string MigrationSource { get; }
-    public string MigrationStatus { get; }
-    public ObservableCollection<WindowsDsdDeviceModel> WindowsDsdDevices { get; } = new();
     public string DeveloperLogPath => _developerLogService.FilePath;
     public string DeveloperLogText
     {
@@ -310,21 +272,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         get => _developerLogCount;
         private set => SetProperty(ref _developerLogCount, value);
     }
-    public bool IsRefreshingDsdDevices
-    {
-        get => _isRefreshingDsdDevices;
-        private set => SetProperty(ref _isRefreshingDsdDevices, value);
-    }
-
-    public string WindowsDsdStatus => !_playbackService.WindowsDsdAvailable
-        ? "BASS DSD runtime unavailable"
-        : WindowsDsdDevices.Count <= 1
-            ? "Runtime ready · no ASIO device detected"
-            : $"Runtime ready · {WindowsDsdDevices.Count - 1} ASIO device(s)";
-
-    public string? WindowsDsdOutputStatus => _playbackService.WindowsDsdOutputModeLabel;
-    public string? WindowsDsdActiveDevice => _playbackService.WindowsDsdActiveDeviceName;
-    public string? WindowsDsdFallbackReason => _playbackService.WindowsDsdFallbackReason;
 
     [RelayCommand]
     private void ClearDeveloperLogs()
@@ -357,37 +304,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private Task ClearOnlineCacheAsync() => _onlineAudioCache.ClearAsync();
 
-    [RelayCommand]
-    private async Task RefreshWindowsDsdDevicesAsync()
-    {
-        if (IsRefreshingDsdDevices)
-        {
-            return;
-        }
-
-        IsRefreshingDsdDevices = true;
-        try
-        {
-            await _playbackService.RefreshWindowsDsdDevicesAsync();
-            WindowsDsdDevices.Clear();
-            foreach (var device in _playbackService.WindowsDsdDevices)
-            {
-                WindowsDsdDevices.Add(device);
-            }
-
-            if (!WindowsDsdDevices.Any(device => device.Id == WindowsDsdDevice))
-            {
-                WindowsDsdDevice = "auto";
-            }
-
-            RefreshPlaybackStatus();
-        }
-        finally
-        {
-            IsRefreshingDsdDevices = false;
-        }
-    }
-
     private void Save()
     {
         _ = SaveAsync();
@@ -402,11 +318,9 @@ public sealed partial class SettingsViewModel : ObservableObject
             ExperimentalFeaturesEnabled = ExperimentalFeaturesEnabled,
             OnlineModeEnabled = OnlineModeEnabled,
             OnlineQualityPreference = OnlineQualityPreference,
-            LowEffects = LowEffects,
             AppearanceStyle = AppearanceStyle,
             AudioOutputMode = AudioOutputMode,
             AudioOutputDevice = AudioOutputDevice,
-            WindowsDsdDevice = WindowsDsdDevice,
             FadeEnabled = FadeEnabled,
             FadeDurationMs = FadeDurationMs,
             OnlineCacheMaximumBytes = (long)Math.Round(OnlineCacheMaximumGigabytes * 1024 * 1024 * 1024),
@@ -430,10 +344,6 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private void RefreshPlaybackStatus()
     {
-        OnPropertyChanged(nameof(WindowsDsdStatus));
-        OnPropertyChanged(nameof(WindowsDsdOutputStatus));
-        OnPropertyChanged(nameof(WindowsDsdActiveDevice));
-        OnPropertyChanged(nameof(WindowsDsdFallbackReason));
         OnPropertyChanged(nameof(ActiveAudioOutputMode));
         OnPropertyChanged(nameof(AudioOutputFallbackReason));
     }

@@ -86,6 +86,10 @@
     <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
     <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
-    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
+    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">False</PublishTrimmed>
+    <!--
+      WinUI 3 / Windows App SDK 不支持 trimming：会裁剪掉 WinRT、XAML、Win2D
+      所依赖的反射元数据，导致解压式发布启动即崩溃（无窗口）。保持 False。
+    -->
   </PropertyGroup>
 </Project>

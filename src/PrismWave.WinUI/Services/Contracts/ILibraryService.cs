@@ -24,6 +24,8 @@ public interface ILibraryService
     Task RescanAsync();
     Task RescanAsync(CancellationToken cancellationToken) => RescanAsync();
     Task ToggleFavoriteAsync(TrackModel track);
+    Task AddOnlineTrackAsync(TrackModel track) => Task.CompletedTask;
+    bool IsOnlineTrackInLibrary(string descriptor) => false;
     Task PersistTrackOrderAsync(IReadOnlyList<TrackModel> visibleTracks);
     Task PersistFavoriteOrderAsync(IReadOnlyList<TrackModel> visibleTracks);
     Task RemoveTrackAsync(TrackModel track, bool deleteSourceFile);

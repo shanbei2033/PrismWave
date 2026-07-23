@@ -94,7 +94,11 @@ public sealed partial class FullPlayPage : Page
         }
         else if (e.PropertyName == nameof(PlaybackViewModel.CurrentTrack))
         {
-            DispatcherQueue.TryEnqueue(() => RefreshLyricsStage(LyricsPositionUpdateKind.TrackChanged));
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                FullPlaySeekSlider.Value = 0;
+                RefreshLyricsStage(LyricsPositionUpdateKind.TrackChanged);
+            });
         }
         else if (e.PropertyName == nameof(PlaybackViewModel.IsPlaying))
         {
@@ -105,6 +109,10 @@ public sealed partial class FullPlayPage : Page
         }
         else if (e.PropertyName == nameof(PlaybackViewModel.PositionSeconds))
         {
+            if (ViewModel.PositionSeconds == 0)
+            {
+                DispatcherQueue.TryEnqueue(() => FullPlaySeekSlider.Value = 0);
+            }
             LyricsStage.UpdatePlaybackSample(
                 EffectiveLyricsPosition,
                 ViewModel.IsPlaying,

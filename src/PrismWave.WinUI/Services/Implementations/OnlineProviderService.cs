@@ -1429,22 +1429,29 @@ public sealed class OnlineProviderService : IOnlineProviderService
         var uri = new Uri(
             $"https://m.music.migu.cn/migu/remoting/cms_audio_play?copyrightId={Uri.EscapeDataString(trackId)}");
         using var document = await GetJsonAsync(uri, MiguHeaders, cancellationToken);
-        if (document is null
-            || !document.RootElement.TryGetProperty("data", out var data))
+        if (document is not null
+            && document.RootElement.TryGetProperty("data", out var data))
         {
-            return null;
+            var url = NormalizeUrl(ReadString(data, "playUrl"));
+            if (IsDirectPlayableUrl(url))
+            {
+                return new OnlinePlaybackResolution(
+                    url!,
+                    "migu",
+                    trackId,
+                    PlaybackHeaders("migu"),
+                    coverUrl,
+                    durationSeconds);
+            }
         }
 
-        var url = NormalizeUrl(ReadString(data, "playUrl"));
-        return IsDirectPlayableUrl(url)
-            ? new OnlinePlaybackResolution(
-                url!,
-                "migu",
-                trackId,
-                PlaybackHeaders("migu"),
-                coverUrl,
-                durationSeconds)
-            : null;
+        return await ResolveGdStudioAsync(
+            "migu",
+            "migu",
+            trackId,
+            coverUrl,
+            durationSeconds,
+            cancellationToken);
     }
 
     private async Task<OnlinePlaybackResolution?> ResolveQqAsync(
@@ -1511,15 +1518,24 @@ public sealed class OnlineProviderService : IOnlineProviderService
             $"https://m.kugou.com/app/i/getSongInfo.php?cmd=playInfo&hash={Uri.EscapeDataString(trackId)}");
         using var document = await GetJsonAsync(uri, KugouHeaders, cancellationToken);
         var url = document is null ? null : NormalizeUrl(ReadString(document.RootElement, "url"));
-        return IsDirectPlayableUrl(url)
-            ? new OnlinePlaybackResolution(
+        if (IsDirectPlayableUrl(url))
+        {
+            return new OnlinePlaybackResolution(
                 url!,
                 "kugou",
                 trackId,
                 PlaybackHeaders("kugou"),
                 coverUrl,
-                durationSeconds)
-            : null;
+                durationSeconds);
+        }
+
+        return await ResolveGdStudioAsync(
+            "kugou",
+            "kugou",
+            trackId,
+            coverUrl,
+            durationSeconds,
+            cancellationToken);
     }
 
     private async Task<OnlinePlaybackResolution?> ResolveTaiheAsync(
@@ -1533,25 +1549,29 @@ public sealed class OnlineProviderService : IOnlineProviderService
             ["TSID"] = trackId
         });
         using var document = await GetJsonAsync(uri, TaiheHeaders, cancellationToken);
-        if (document is null
-            || !TryGetTaiheTrackLink(document.RootElement, out var data))
+        if (document is not null
+            && TryGetTaiheTrackLink(document.RootElement, out var data))
         {
-            return null;
+            var url = NormalizeUrl(ReadString(data, "path"));
+            if (IsDirectPlayableUrl(url))
+            {
+                return new OnlinePlaybackResolution(
+                    url!,
+                    "taihe",
+                    trackId,
+                    PlaybackHeaders("taihe"),
+                    coverUrl ?? NormalizeUrl(ReadString(data, "pic")),
+                    durationSeconds);
+            }
         }
 
-        var url = NormalizeUrl(ReadString(data, "path"));
-        if (!IsDirectPlayableUrl(url))
-        {
-            return null;
-        }
-
-        return new OnlinePlaybackResolution(
-            url!,
+        return await ResolveGdStudioAsync(
+            "taihe",
             "taihe",
             trackId,
-            PlaybackHeaders("taihe"),
-            coverUrl ?? NormalizeUrl(ReadString(data, "pic")),
-            durationSeconds);
+            coverUrl,
+            durationSeconds,
+            cancellationToken);
     }
 
     private async Task<OnlinePlaybackResolution?> ResolveGdStudioAsync(

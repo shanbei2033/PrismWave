@@ -36,13 +36,15 @@ public sealed class FavoritesViewModelTests
     }
 
     [Fact]
-    public async Task RemovingFavorite_RemovesRowWithoutWaitingForFullLibraryReload()
+    public async Task RemovingFavorite_RemovesRowWhenLibraryNotifiesChange()
     {
         var track = Track("first", "First", "Artist A", "Album A");
         var library = new FakeLibraryService([track]);
         var viewModel = new FavoritesViewModel(library, new FakePlaybackService());
 
         await viewModel.ToggleFavoriteCommand.ExecuteAsync(track);
+        library.SetFavorites([]);
+        library.RaiseChanged();
 
         Assert.Empty(viewModel.VisibleTracks);
         Assert.Same(track, library.ToggledTrack);

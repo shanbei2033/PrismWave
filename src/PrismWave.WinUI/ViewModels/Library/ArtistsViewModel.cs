@@ -56,7 +56,7 @@ public sealed partial class ArtistsViewModel : ObservableObject
     public bool IsEmpty => FilteredArtists.Count == 0;
     public string SelectedArtistMetadata => SelectedArtist is null
         ? string.Empty
-        : $"{SelectedArtist.TrackCount} 首本地歌曲";
+        : $"{SelectedArtist.TrackCount} 首歌曲";
     public string? CurrentTrackId
     {
         get => _currentTrackId;

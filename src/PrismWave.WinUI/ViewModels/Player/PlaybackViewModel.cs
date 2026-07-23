@@ -251,8 +251,8 @@ public sealed partial class PlaybackViewModel : ObservableObject
     public string CurrentSubtitle => CurrentTrack is null ? "--" : $"{CurrentTrack.Artist} - {CurrentTrack.Album}";
     public string? CurrentCoverPath => _currentCoverPath;
     public bool CanFavoriteCurrentTrack => _libraryService is not null &&
-                                           CurrentTrack is { IsRemote: false } track &&
-                                           !string.IsNullOrWhiteSpace(track.Path);
+                                           CurrentTrack is not null &&
+                                           (CurrentTrack.IsRemote || !string.IsNullOrWhiteSpace(CurrentTrack.Path));
     public string CurrentFavoriteGlyph => IsCurrentTrackFavorite ? "\uEB52" : "\uEB51";
     public bool HasTrack => CurrentTrack is not null;
     public bool HasQueue => QueueItems.Count > 0;
@@ -604,6 +604,11 @@ public sealed partial class PlaybackViewModel : ObservableObject
         IsLoading = _playbackService.IsLoading;
         Status = _playbackService.Status;
         Volume = _playbackService.Volume;
+        if (trackChanged)
+        {
+            _positionSeconds = double.NaN;
+            _durationSeconds = double.NaN;
+        }
         PositionSeconds = _playbackService.PositionSeconds;
         DurationSeconds = _playbackService.DurationSeconds;
         Error = _playbackService.Error;

@@ -60,9 +60,6 @@ public sealed partial class FavoritesViewModel : ObservableObject
     private async Task ToggleFavoriteAsync(TrackModel track)
     {
         await _libraryService.ToggleFavoriteAsync(track);
-        _favorites.RemoveAll(item => string.Equals(item.Id, track.Id, StringComparison.Ordinal));
-        RemoveVisibleTrack(track.Id);
-        OnPropertyChanged(nameof(IsEmpty));
     }
 
     public Task PersistOrderAsync() =>
@@ -132,15 +129,6 @@ public sealed partial class FavoritesViewModel : ObservableObject
         if (!string.Equals(CurrentTrackId, trackId, StringComparison.Ordinal))
         {
             CurrentTrackId = trackId;
-        }
-    }
-
-    private void RemoveVisibleTrack(string trackId)
-    {
-        var index = IndexOfVisibleTrack(trackId, 0);
-        if (index >= 0)
-        {
-            VisibleTracks.RemoveAt(index);
         }
     }
 

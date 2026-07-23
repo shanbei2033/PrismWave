@@ -140,7 +140,9 @@ public sealed class LibraryService : ILibraryService
                 if (IsCurrentScan(revision))
                 {
                     _folderStatuses.Clear();
-                    ReplaceTracks([], []);
+                    var onlineTracks = new List<TrackModel>();
+                    MergeOnlineTracks(onlineTracks, _settingsService.Current.OnlineLibraryTracks);
+                    ReplaceTracks(onlineTracks, []);
                     IsScanning = false;
                     ScanProgress = new LibraryScanProgress(revision, LibraryScanPhase.Completed, 0, 0, null);
                     Notify();
@@ -202,6 +204,7 @@ public sealed class LibraryService : ILibraryService
                 .Select(track => track with { IsFavorite = favoriteSet.Contains(track.Path) })
                 .ToList();
 
+            MergeOnlineTracks(tracks, settings.OnlineLibraryTracks);
             ReplaceTracks(tracks, favoriteOrder);
             Error = scanResult.Warnings.FirstOrDefault();
             ScanProgress = new LibraryScanProgress(
@@ -260,6 +263,12 @@ public sealed class LibraryService : ILibraryService
 
     public async Task ToggleFavoriteAsync(TrackModel track)
     {
+        if (track.IsRemote)
+        {
+            await ToggleOnlineFavoriteAsync(track);
+            return;
+        }
+
         var favorites = _settingsService.Current.FavoritePaths
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -288,6 +297,82 @@ public sealed class LibraryService : ILibraryService
         });
         ApplyFavoriteFlags(favorites, favoriteOrder);
         StartupLog.Write($"library.favorite: path={track.Path}, favorite={favorites.Contains(track.Path, StringComparer.OrdinalIgnoreCase)}");
+        Notify();
+    }
+
+    public async Task AddOnlineTrackAsync(TrackModel track)
+    {
+        if (!track.IsRemote || string.IsNullOrWhiteSpace(track.Path))
+        {
+            return;
+        }
+
+        var descriptor = track.Path;
+        var entries = (_settingsService.Current.OnlineLibraryTracks ?? [])
+            .Where(e => !PathsEqual(e.Path, descriptor))
+            .ToList();
+        entries.Add(ToEntry(track));
+
+        await SaveSettingsAsync(_settingsService.Current with { OnlineLibraryTracks = entries });
+
+        var existingIndex = _tracks.FindIndex(t => PathsEqual(t.Path, descriptor));
+        if (existingIndex >= 0)
+        {
+            _tracks[existingIndex] = track;
+        }
+        else
+        {
+            _tracks.Add(track);
+        }
+
+        RebuildDerivedCollections(_settingsService.Current.FavoriteOrderPaths);
+        StartupLog.Write($"library.online.add: provider={track.Provider}, title=\"{track.Title}\"");
+        Notify();
+    }
+
+    public bool IsOnlineTrackInLibrary(string descriptor)
+    {
+        return _tracks.Any(t => t.IsRemote && PathsEqual(t.Path, descriptor));
+    }
+
+    private async Task ToggleOnlineFavoriteAsync(TrackModel track)
+    {
+        var descriptor = track.Path;
+        var entries = (_settingsService.Current.OnlineLibraryTracks ?? []).ToList();
+        var index = entries.FindIndex(e => PathsEqual(e.Path, descriptor));
+
+        if (index < 0)
+        {
+            var entry = ToEntry(track) with { IsFavorite = true };
+            entries.Add(entry);
+            await SaveSettingsAsync(_settingsService.Current with { OnlineLibraryTracks = entries });
+
+            var trackWithFavorite = track with { IsFavorite = true };
+            var existingIndex = _tracks.FindIndex(t => PathsEqual(t.Path, descriptor));
+            if (existingIndex >= 0)
+            {
+                _tracks[existingIndex] = trackWithFavorite;
+            }
+            else
+            {
+                _tracks.Add(trackWithFavorite);
+            }
+        }
+        else
+        {
+            var existing = entries[index];
+            entries[index] = existing with { IsFavorite = !existing.IsFavorite };
+            await SaveSettingsAsync(_settingsService.Current with { OnlineLibraryTracks = entries });
+
+            var trackIndex = _tracks.FindIndex(t => PathsEqual(t.Path, descriptor));
+            if (trackIndex >= 0)
+            {
+                _tracks[trackIndex] = _tracks[trackIndex] with { IsFavorite = !_tracks[trackIndex].IsFavorite };
+            }
+        }
+
+        RebuildDerivedCollections(_settingsService.Current.FavoriteOrderPaths);
+        StartupLog.Write($"library.online.favorite: descriptor={descriptor}");
         Notify();
     }
 
@@ -325,7 +410,21 @@ public sealed class LibraryService : ILibraryService
 
     public async Task RemoveTrackAsync(TrackModel track, bool deleteSourceFile)
     {
-        if (track.IsRemote || string.IsNullOrWhiteSpace(track.Path))
+        if (track.IsRemote)
+        {
+            var descriptor = track.Path;
+            var entries = (_settingsService.Current.OnlineLibraryTracks ?? [])
+                .Where(e => !PathsEqual(e.Path, descriptor))
+                .ToList();
+            await SaveSettingsAsync(_settingsService.Current with { OnlineLibraryTracks = entries });
+            _tracks.RemoveAll(t => PathsEqual(t.Path, descriptor));
+            RebuildDerivedCollections(_settingsService.Current.FavoriteOrderPaths);
+            StartupLog.Write($"library.online.remove: descriptor={descriptor}");
+            Notify();
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(track.Path))
         {
             return;
         }
@@ -487,7 +586,9 @@ public sealed class LibraryService : ILibraryService
 
     private void ReorderTracksInMemory(IReadOnlyList<string> orderedPaths)
     {
-        var byPath = _tracks.ToDictionary(track => track.Path, StringComparer.OrdinalIgnoreCase);
+        var byPath = _tracks
+            .GroupBy(track => track.Path, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         var reordered = orderedPaths.Where(byPath.ContainsKey).Select(path => byPath[path]).ToList();
         foreach (var track in _tracks)
         {
@@ -521,7 +622,8 @@ public sealed class LibraryService : ILibraryService
             .ToList();
         var favoriteByPath = _tracks
             .Where(track => track.IsFavorite)
-            .ToDictionary(track => track.Path, StringComparer.OrdinalIgnoreCase);
+            .GroupBy(track => track.Path, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         var favorites = new List<TrackModel>();
         foreach (var path in favoriteOrder)
         {
@@ -571,7 +673,9 @@ public sealed class LibraryService : ILibraryService
     private Task CompleteEmptyInitializationAsync()
     {
         _folderStatuses.Clear();
-        ReplaceTracks([], []);
+        var onlineTracks = new List<TrackModel>();
+        MergeOnlineTracks(onlineTracks, _settingsService.Current.OnlineLibraryTracks);
+        ReplaceTracks(onlineTracks, []);
         Error = null;
         IsScanning = false;
         ScanProgress = LibraryScanProgress.Idle;
@@ -665,6 +769,71 @@ public sealed class LibraryService : ILibraryService
     private static bool PathsEqual(string left, string right)
     {
         return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static OnlineLibraryTrackEntry ToEntry(TrackModel track) => new(
+        track.Provider,
+        track.OnlineProviderTrackId ?? string.Empty,
+        track.Path,
+        track.Title,
+        track.Artist,
+        track.Album,
+        track.Duration,
+        track.CoverPath,
+        track.PlaybackUrl,
+        track.DurationSeconds,
+        track.IsFavorite);
+
+    private static TrackModel FromEntry(OnlineLibraryTrackEntry entry)
+    {
+        var path = !string.IsNullOrWhiteSpace(entry.Path)
+            ? entry.Path
+            : $"online://{entry.Provider.ToLowerInvariant()}/{Uri.EscapeDataString(entry.ProviderTrackId)}";
+        return new TrackModel(
+        $"{entry.Provider}:{entry.ProviderTrackId}",
+        path,
+        entry.Title,
+        entry.Artist,
+        entry.Album,
+        entry.Duration,
+        entry.CoverUrl,
+        IsRemote: true,
+        Provider: entry.Provider,
+        PlaybackUrl: entry.PlaybackUrl,
+        DurationSeconds: entry.DurationSeconds,
+        IsFavorite: entry.IsFavorite,
+        OnlineProviderTrackId: entry.ProviderTrackId);
+    }
+
+    private static void MergeOnlineTracks(
+        List<TrackModel> tracks,
+        IReadOnlyList<OnlineLibraryTrackEntry>? entries)
+    {
+        if (entries is null || entries.Count == 0)
+        {
+            return;
+        }
+
+        var existingPaths = tracks
+            .Select(track => track.Path)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entry in entries)
+        {
+            var path = !string.IsNullOrWhiteSpace(entry.Path)
+                ? entry.Path
+                : $"online://{entry.Provider.ToLowerInvariant()}/{Uri.EscapeDataString(entry.ProviderTrackId)}";
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                continue;
+            }
+
+            if (!existingPaths.Contains(path))
+            {
+                tracks.Add(FromEntry(entry));
+                existingPaths.Add(path);
+            }
+        }
     }
 
     private static string AlbumIdOf(TrackModel track)

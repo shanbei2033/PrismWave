@@ -29,7 +29,7 @@ public sealed class PlaybackViewModelFavoriteTests
     }
 
     [Fact]
-    public void RemoteCurrentTrack_DisablesFavoriteAction()
+    public void RemoteCurrentTrack_EnablesFavoriteAction()
     {
         var remoteTrack = CreateTrack() with
         {
@@ -42,8 +42,8 @@ public sealed class PlaybackViewModelFavoriteTests
             coverService: null,
             libraryService: new FakeLibraryService());
 
-        Assert.False(viewModel.CanFavoriteCurrentTrack);
-        Assert.False(viewModel.ToggleCurrentFavoriteCommand.CanExecute(null));
+        Assert.True(viewModel.CanFavoriteCurrentTrack);
+        Assert.True(viewModel.ToggleCurrentFavoriteCommand.CanExecute(null));
         Assert.Equal("\uEB51", viewModel.CurrentFavoriteGlyph);
     }
 

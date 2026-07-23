@@ -85,7 +85,6 @@
                 <ColumnDefinition x:Name="HeaderAlbumColumn" Width="1.15*" />
                 <ColumnDefinition Width="64" />
                 <ColumnDefinition Width="44" />
-                <ColumnDefinition Width="36" />
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="1" Text="Title" Style="{StaticResource PrismCaptionTextStyle}" />
             <TextBlock Grid.Column="2" Text="Artist" Style="{StaticResource PrismCaptionTextStyle}" />
@@ -125,7 +124,6 @@
                                 <ColumnDefinition x:Name="AlbumColumn" Width="1.15*" />
                                 <ColumnDefinition Width="64" />
                                 <ColumnDefinition Width="44" />
-                                <ColumnDefinition Width="36" />
                             </Grid.ColumnDefinitions>
                             <Border Width="44" Height="44" CornerRadius="6" Background="{StaticResource PrismSurfaceStrongBrush}">
                                 <media:StableCoverImage SourcePath="{Binding CoverPath}" Stretch="UniformToFill" />
@@ -139,22 +137,13 @@
                                 Width="40"
                                 Height="40"
                                 Padding="0"
+                                Background="Transparent"
+                                BorderThickness="0"
                                 HorizontalContentAlignment="Center"
                                 VerticalContentAlignment="Center"
                                 Tag="{Binding}"
                                 Click="Favorite_Click">
                                 <FontIcon Glyph="{Binding FavoriteGlyph}" FontSize="18" />
-                            </Button>
-                            <Button Grid.Column="6">
-                                <FontIcon Glyph="&#xE712;" FontSize="15" />
-                                <Button.Flyout>
-                                    <MenuFlyout>
-                                        <MenuFlyoutItem Text="Track details" Tag="{Binding}" Click="TrackDetails_Click" />
-                                        <MenuFlyoutItem Text="Open file location" Tag="{Binding}" Click="OpenLocation_Click" />
-                                        <MenuFlyoutSeparator />
-                                        <MenuFlyoutItem Text="Remove from library..." Tag="{Binding}" Click="RemoveTrack_Click" />
-                                    </MenuFlyout>
-                                </Button.Flyout>
                             </Button>
                         </Grid>
                     </DataTemplate>

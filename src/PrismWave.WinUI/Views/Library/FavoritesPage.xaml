@@ -39,7 +39,6 @@
                 <ColumnDefinition Width="1.1*" />
                 <ColumnDefinition Width="64" />
                 <ColumnDefinition Width="38" />
-                <ColumnDefinition Width="38" />
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="1" Text="歌曲" Style="{StaticResource PrismCaptionTextStyle}" />
             <TextBlock Grid.Column="2" Text="艺术家" Style="{StaticResource PrismCaptionTextStyle}" />
@@ -84,7 +83,6 @@
                                 <ColumnDefinition Width="1.1*" />
                                 <ColumnDefinition Width="64" />
                                 <ColumnDefinition Width="38" />
-                                <ColumnDefinition Width="38" />
                             </Grid.ColumnDefinitions>
                             <Border Width="48" Height="48" CornerRadius="7" Background="{StaticResource PrismSurfaceStrongBrush}">
                                 <media:StableCoverImage SourcePath="{Binding CoverPath}" Stretch="UniformToFill" />
@@ -93,18 +91,18 @@
                             <TextBlock Grid.Column="2" Text="{Binding Artist}" Style="{StaticResource PrismCaptionTextStyle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="3" Text="{Binding Album}" Style="{StaticResource PrismCaptionTextStyle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="4" Text="{Binding Duration}" Style="{StaticResource PrismCaptionTextStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                            <Button Grid.Column="5" Tag="{Binding}" Click="Favorite_Click">
+                            <Button
+                                Grid.Column="5"
+                                Width="38"
+                                Height="38"
+                                Padding="0"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Tag="{Binding}"
+                                Click="Favorite_Click">
                                 <FontIcon Glyph="&#xEB52;" FontSize="15" />
-                            </Button>
-                            <Button Grid.Column="6">
-                                <FontIcon Glyph="&#xE712;" FontSize="14" />
-                                <Button.Flyout>
-                                    <MenuFlyout>
-                                        <MenuFlyoutItem Text="添加到播放队列" Tag="{Binding}" Click="AddTrackToQueue_Click" />
-                                        <MenuFlyoutItem Text="下一首播放" Tag="{Binding}" Click="PlayTrackNext_Click" />
-                                        <MenuFlyoutItem Text="取消收藏" Tag="{Binding}" Click="Favorite_Click" />
-                                    </MenuFlyout>
-                                </Button.Flyout>
                             </Button>
                         </Grid>
                     </DataTemplate>

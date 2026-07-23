@@ -21,6 +21,7 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
     private CancellationTokenSource? _loadCancellationSource;
     private CancellationTokenSource? _localStartupCancellationSource;
     private double? _pendingRecoverySeekSeconds;
+    private bool _positionResetPending;
 
     public TrackModel? CurrentTrack { get; private set; }
     public IReadOnlyList<TrackModel> Queue => _queue;
@@ -255,6 +256,8 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         _remoteRecoveryPolicy.BeginTrack(queuedTrack.Id);
         StartupLog.Write($"queue.select: index={_queue.IndexOf(queuedTrack)}, title=\"{queuedTrack.Title}\"");
         Error = null;
+        PositionSeconds = 0;
+        IsPlaying = false;
         LoadCurrentTrack(autoplay: true);
         Notify();
     }
@@ -420,6 +423,8 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         _remoteRecoveryPolicy.BeginTrack(CurrentTrack.Id);
         StartupLog.Write($"queue.move: index={next}, title=\"{CurrentTrack.Title}\", mode={Mode}");
         Error = null;
+        PositionSeconds = 0;
+        IsPlaying = false;
         LoadCurrentTrack(autoplay: true);
         Notify();
     }
@@ -638,8 +643,10 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         StartupLog.Write($"playback.ended: title=\"{CurrentTrack?.Title}\", mode={Mode}");
         if (Mode == PlaybackMode.Single)
         {
-            Seek(0);
-            _mpvHost.Engine.Play();
+            PositionSeconds = 0;
+            IsPlaying = false;
+            LoadCurrentTrack(autoplay: true);
+            Notify();
             return;
         }
 
@@ -689,6 +696,11 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
             PositionSeconds = resumePosition;
             StartupLog.Write(
                 $"playback.remote.resume-seek: provider={CurrentTrack.Provider}, candidate={OnlinePlaybackCandidateKey.Create(CurrentTrack)}, attempt={_remoteRecoveryPolicy.SourceAttemptCount}, position={resumePosition:0.###}");
+        }
+        else
+        {
+            PositionSeconds = 0;
+            _positionResetPending = true;
         }
         StartupLog.Write(
             $"playback.mpv.started: title=\"{CurrentTrack.Title}\", status={Status}, route={_mpvHost.ActiveRoute}, source={DescribeSource(CurrentTrack.PlaybackSource)}");
@@ -1126,11 +1138,30 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
             return;
         }
 
-        PositionSeconds = Math.Max(0, _mpvHost.Engine.PositionSeconds);
+        if (_positionResetPending)
+        {
+            _positionResetPending = false;
+            PositionSeconds = 0;
+            Notify();
+            return;
+        }
+
+        var enginePosition = Math.Max(0, _mpvHost.Engine.PositionSeconds);
+        if (PositionSeconds < 1 && enginePosition > 5)
+        {
+            return;
+        }
+
+        PositionSeconds = enginePosition;
         var naturalDuration = _mpvHost.Engine.DurationSeconds;
         if (naturalDuration > 0)
         {
             DurationSeconds = naturalDuration;
+        }
+
+        if (DurationSeconds > 0 && PositionSeconds > DurationSeconds + 1)
+        {
+            PositionSeconds = 0;
         }
 
         Notify();
@@ -1141,6 +1172,7 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         CancelLocalStartupWatchdog();
         _loadRevision++;
         _pendingRecoverySeekSeconds = null;
+        _positionResetPending = false;
         _mpvLoadEventGuard.Invalidate();
         var cancellation = _loadCancellationSource;
         _loadCancellationSource = null;

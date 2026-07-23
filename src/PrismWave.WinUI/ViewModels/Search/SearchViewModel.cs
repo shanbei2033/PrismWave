@@ -198,6 +198,15 @@ public sealed partial class SearchViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    private async Task AddToLibraryAsync(SearchResultModel result)
+    {
+        if (_libraryService is not null)
+        {
+            await _libraryService.AddOnlineTrackAsync(CreateTrack(result));
+        }
+    }
+
     private async Task AddHistoryAsync(string value)
     {
         var existing = History.FirstOrDefault(item => string.Equals(item, value, StringComparison.OrdinalIgnoreCase));

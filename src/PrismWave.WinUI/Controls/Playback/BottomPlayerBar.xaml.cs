@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -8,9 +9,51 @@ namespace PrismWave_WinUI.Controls.Playback;
 
 public sealed partial class BottomPlayerBar : UserControl
 {
+    private PlaybackViewModel? _subscribedViewModel;
+
     public BottomPlayerBar()
     {
         InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
+        Unloaded += BottomPlayerBar_Unloaded;
+    }
+
+    private void OnDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
+    {
+        if (_subscribedViewModel is not null)
+        {
+            _subscribedViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+            _subscribedViewModel = null;
+        }
+
+        if (args.NewValue is PlaybackViewModel viewModel)
+        {
+            _subscribedViewModel = viewModel;
+            viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        }
+    }
+
+    private void BottomPlayerBar_Unloaded(object sender, RoutedEventArgs e)
+    {
+        if (_subscribedViewModel is not null)
+        {
+            _subscribedViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+            _subscribedViewModel = null;
+        }
+    }
+
+    private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PlaybackViewModel.CurrentTrack))
+        {
+            DispatcherQueue.TryEnqueue(() => SeekSlider.Value = 0);
+        }
+        else if (e.PropertyName == nameof(PlaybackViewModel.PositionSeconds)
+                 && _subscribedViewModel is not null
+                 && _subscribedViewModel.PositionSeconds == 0)
+        {
+            DispatcherQueue.TryEnqueue(() => SeekSlider.Value = 0);
+        }
     }
 
     public static readonly DependencyProperty QueueCommandProperty = DependencyProperty.Register(

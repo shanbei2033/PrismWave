@@ -127,6 +127,40 @@ public sealed partial class TrendingSongList : UserControl
         }
     }
 
+    private void AddToLibraryMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (_moreItem?.Track is { } track)
+        {
+            _ = App.Services.LibraryService.AddOnlineTrackAsync(ToTrackModel(track));
+        }
+    }
+
+    private void FavoriteMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (_moreItem?.Track is { } track)
+        {
+            _ = App.Services.LibraryService.ToggleFavoriteAsync(ToTrackModel(track));
+        }
+    }
+
+    private static TrackModel ToTrackModel(HomeTrackModel track)
+    {
+        var id = $"{track.Provider}:{track.ProviderTrackId ?? track.Title}";
+        var path = $"online://{track.Provider}/{Uri.EscapeDataString(track.ProviderTrackId ?? track.Title)}";
+        return new TrackModel(
+            id,
+            path,
+            track.Title,
+            track.Artist,
+            track.Album,
+            track.Duration,
+            track.CoverUrl,
+            IsRemote: true,
+            Provider: track.Provider,
+            PlaybackUrl: track.AudioUrl,
+            OnlineProviderTrackId: track.ProviderTrackId);
+    }
+
     public sealed class RankedTrackItem
     {
         public RankedTrackItem()

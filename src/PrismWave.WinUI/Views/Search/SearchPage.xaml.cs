@@ -90,6 +90,9 @@ public sealed partial class SearchPage : Page
     private void Favorite_Click(object sender, RoutedEventArgs e) =>
         ExecuteResultCommand(sender, App.Services.Search.ToggleFavoriteCommand);
 
+    private void AddToLibrary_Click(object sender, RoutedEventArgs e) =>
+        ExecuteResultCommand(sender, App.Services.Search.AddToLibraryCommand);
+
     private void ViewAlbum_Click(object sender, RoutedEventArgs e)
     {
         if (GetResult(sender) is not { } result)

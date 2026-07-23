@@ -114,6 +114,9 @@
                                     <FontIcon Glyph="&#xE768;" />
                                 </MenuFlyoutItem.Icon>
                             </MenuFlyoutItem>
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="添加到库" Click="AddToLibraryMenuItem_Click" />
+                            <MenuFlyoutItem Text="收藏" Click="FavoriteMenuItem_Click" />
                         </MenuFlyout>
                     </Button.Flyout>
                 </Button>

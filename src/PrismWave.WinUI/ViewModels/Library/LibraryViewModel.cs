@@ -84,23 +84,74 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     private void RefreshVisibleTracks()
     {
-        VisibleTracks.Clear();
         var query = SearchQuery.Trim();
-        var tracks = string.IsNullOrWhiteSpace(query)
-            ? _libraryService.Tracks
-            : _libraryService.Tracks.Where(track =>
-                track.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
-                || track.Artist.Contains(query, StringComparison.OrdinalIgnoreCase)
-                || track.Album.Contains(query, StringComparison.OrdinalIgnoreCase)
-                || track.Path.Contains(query, StringComparison.OrdinalIgnoreCase));
+        var target = (string.IsNullOrWhiteSpace(query)
+                ? _libraryService.Tracks
+                : _libraryService.Tracks.Where(track =>
+                    track.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
+                    || track.Artist.Contains(query, StringComparison.OrdinalIgnoreCase)
+                    || track.Album.Contains(query, StringComparison.OrdinalIgnoreCase)
+                    || track.Path.Contains(query, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        var targetIds = target.Select(track => track.Id).ToHashSet(StringComparer.Ordinal);
 
-        foreach (var track in tracks)
+        for (var index = VisibleTracks.Count - 1; index >= 0; index--)
         {
-            VisibleTracks.Add(track);
+            if (!targetIds.Contains(VisibleTracks[index].Id))
+            {
+                VisibleTracks.RemoveAt(index);
+            }
+        }
+
+        for (var targetIndex = 0; targetIndex < target.Count; targetIndex++)
+        {
+            var targetTrack = target[targetIndex];
+            if (targetIndex < VisibleTracks.Count
+                && string.Equals(VisibleTracks[targetIndex].Id, targetTrack.Id, StringComparison.Ordinal))
+            {
+                if (!ReferenceEquals(VisibleTracks[targetIndex], targetTrack))
+                {
+                    VisibleTracks[targetIndex] = targetTrack;
+                }
+
+                continue;
+            }
+
+            var existingIndex = IndexOfVisibleTrack(targetTrack.Id, targetIndex + 1);
+            if (existingIndex >= 0)
+            {
+                VisibleTracks.Move(existingIndex, targetIndex);
+                if (!ReferenceEquals(VisibleTracks[targetIndex], targetTrack))
+                {
+                    VisibleTracks[targetIndex] = targetTrack;
+                }
+            }
+            else
+            {
+                VisibleTracks.Insert(targetIndex, targetTrack);
+            }
+        }
+
+        while (VisibleTracks.Count > target.Count)
+        {
+            VisibleTracks.RemoveAt(VisibleTracks.Count - 1);
         }
 
         OnPropertyChanged(nameof(IsEmpty));
         RefreshDerivedState();
+    }
+
+    private int IndexOfVisibleTrack(string trackId, int startIndex)
+    {
+        for (var index = Math.Max(0, startIndex); index < VisibleTracks.Count; index++)
+        {
+            if (string.Equals(VisibleTracks[index].Id, trackId, StringComparison.Ordinal))
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     private void RefreshAll()

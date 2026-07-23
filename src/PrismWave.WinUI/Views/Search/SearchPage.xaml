@@ -123,6 +123,8 @@
                                             <MenuFlyoutItem Text="下一首播放" Tag="{Binding Result}" Click="PlayNext_Click" />
                                             <MenuFlyoutItem Text="收藏" Tag="{Binding Result}" Click="Favorite_Click" />
                                             <MenuFlyoutSeparator />
+                                            <MenuFlyoutItem Text="添加到库" Tag="{Binding Result}" Click="AddToLibrary_Click" />
+                                            <MenuFlyoutSeparator />
                                             <MenuFlyoutItem Text="查看专辑" Tag="{Binding Result}" Click="ViewAlbum_Click" />
                                             <MenuFlyoutItem Text="查看艺术家" Tag="{Binding Result}" Click="ViewArtist_Click" />
                                         </MenuFlyout>
@@ -186,6 +188,8 @@
                                                 <MenuFlyoutItem Text="添加到播放队列" Tag="{Binding Result}" Click="AddToQueue_Click" />
                                                 <MenuFlyoutItem Text="下一首播放" Tag="{Binding Result}" Click="PlayNext_Click" />
                                                 <MenuFlyoutItem Text="收藏" Tag="{Binding Result}" Click="Favorite_Click" />
+                                                <MenuFlyoutSeparator />
+                                                <MenuFlyoutItem Text="添加到库" Tag="{Binding Result}" Click="AddToLibrary_Click" />
                                                 <MenuFlyoutSeparator />
                                                 <MenuFlyoutItem Text="查看专辑" Tag="{Binding Result}" Click="ViewAlbum_Click" />
                                                 <MenuFlyoutItem Text="查看艺术家" Tag="{Binding Result}" Click="ViewArtist_Click" />

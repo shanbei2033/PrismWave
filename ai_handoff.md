@@ -1,6 +1,6 @@
 # PrismWave AI 接手文档
 
-更新时间：2026-07-22
+更新时间：2026-07-23
 
 **语言要求：接手 AI 必须使用中文与用户沟通。**
 
@@ -15,7 +15,7 @@
 | 工作目录 | `E:\Project\PrismWave` |
 | Git 分支 | `WinUI`（`main` 是最终主分支，WinUI 重构完成后统一合并） |
 | WinUI 工程 | `src/PrismWave.WinUI/`，技术栈 WinUI 3 / .NET 10 / CommunityToolkit.Mvvm / TagLibSharp |
-| 测试工程 | `tests/PrismWave.WinUI.Tests/`，461 项测试通过 |
+| 测试工程 | `tests/PrismWave.WinUI.Tests/`，458 项测试通过 |
 | 播放后端 | 普通播放用 `native/libmpv-winui/libmpv-2.dll`（完整解码版）；DSD 用 BASS 三件套 |
 | Flutter 基线 | R503，位于 `app/`，不得删除 |
 | 最高优先级 | 完成 MP3/FLAC/WAV/OGG、中文长路径、删除源文件、DSD/ASIO、在线 provider 真机矩阵 |
@@ -120,7 +120,18 @@ HITS 在此基础上增加 bilibili、bilivideo、YouTube。
 
 ---
 
-## 5. 最近修复（2026-07-22）
+## 5. 最近修复（2026-07-23）
+
+1. **单曲循环无法重播**：`HandleMediaEnded` 中单曲循环用 `Seek(0) + Play()` 不创建 MPV load context，`_loaded` 恒为 false，`IsPlaying` 返回 false。修复：改为 `LoadCurrentTrack(autoplay: true)` 重新加载文件，正确重置所有 MPV 状态。
+2. **进度条滑块未归位**：WinUI 3 Slider OneWay 绑定在用户交互（拖动 seek）后不更新 thumb 视觉。修复：在 `BottomPlayerBar` 和 `FullPlayPage` 的 code-behind 中显式 `Slider.Value = 0`，监听 `CurrentTrack` 变化和 `PositionSeconds == 0` 两种触发（后者覆盖单曲循环同一曲目不切换的场景）。
+3. **库页面"更多选项"按钮移除**：移除库、专辑详情、艺术家详情、我最爱四个页面中歌曲行右侧的"..."按钮，改为右键上下文菜单，收藏按钮移至最右侧。收藏按钮统一无边框样式（`Background=Transparent`、`BorderThickness=0`）。
+4. **在线歌曲收藏按钮灰色不可用**：`CanFavoriteCurrentTrack` 原条件排除 `IsRemote` 轨道。修复：放宽条件为 `CurrentTrack.IsRemote || !string.IsNullOrWhiteSpace(CurrentTrack.Path)`，`ToggleFavoriteAsync` 已自动处理在线歌曲加库+收藏逻辑。
+5. **在线歌曲加入库功能**：新增 `OnlineLibraryTrackEntry` 持久化模型和 `AddOnlineTrackAsync` / `IsOnlineTrackInLibrary` 接口方法。搜索页和首页趋势歌曲列表新增"添加到库"菜单项。`RescanAsync` 合并在线歌曲条目，确保 rescan 后不丢失。
+6. **在线音源解析增强**：`ResolveMiguAsync`、`ResolveKugouAsync`、`ResolveTaiheAsync` 添加 `ResolveGdStudioAsync` 兜底（与 netease/kuwo 对齐）。migu 主端点 `cms_audio_play` 返回无效 JSON 时走 gdstudio API 回退。部分歌曲仍可能解析失败（上游 API 限制）。
+
+---
+
+## 6. 上一轮修复（2026-07-22）
 
 1. **封面替换 Bug**：`CoverService` 文件名仅基于曲目身份，同格式不同封面产生同路径，导致 `StableCoverImage` 和 `PlaybackViewModel` 路径守卫跳过更新。修复：文件名加入图片内容 SHA-256。
 2. **导航动画闪烁**：`ShellPage.xaml.cs` 的 `PrepareIncoming` 用 `intent.HostWidth`（始终为 0）定位传入 Frame。修复：改用 `PageTransitionHost.ActualWidth`。
@@ -133,6 +144,6 @@ HITS 在此基础上增加 bilibili、bilivideo、YouTube。
 
 ---
 
-## 6. Flutter 基线参考
+## 7. Flutter 基线参考
 
 R503（`pubspec.yaml` 503.0.0+505）是行为对照基线。技术栈：Flutter 3.41.4 / Riverpod / just_audio_media_kit → libmpv。构建：`tools\flutter\bin\flutter.bat build windows --release`，产物 `app/build/windows/x64/runner/Release/prismwave_demo.exe`。WASAPI Exclusive 破音已通过二进制修补 `native/libmpv/libmpv-2.dll`（端点缓冲 3ms→50ms）修复，切换 media_kit 版本需重新核对。

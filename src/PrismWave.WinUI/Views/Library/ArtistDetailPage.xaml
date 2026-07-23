@@ -55,7 +55,6 @@
                 <ColumnDefinition Width="1.1*" />
                 <ColumnDefinition Width="64" />
                 <ColumnDefinition Width="38" />
-                <ColumnDefinition Width="38" />
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="1" Text="歌曲" Style="{StaticResource PrismCaptionTextStyle}" />
             <TextBlock Grid.Column="2" Text="专辑" Style="{StaticResource PrismCaptionTextStyle}" />
@@ -95,24 +94,23 @@
                             <ColumnDefinition Width="1.1*" />
                             <ColumnDefinition Width="64" />
                             <ColumnDefinition Width="38" />
-                            <ColumnDefinition Width="38" />
                         </Grid.ColumnDefinitions>
                         <TextBlock x:Name="TrackIndex" Style="{StaticResource PrismCaptionTextStyle}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="2" Text="{Binding Album}" Style="{StaticResource PrismCaptionTextStyle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="3" Text="{Binding Duration}" Style="{StaticResource PrismCaptionTextStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                        <Button Grid.Column="4" Tag="{Binding}" Click="FavoriteTrack_Click">
+                        <Button
+                            Grid.Column="4"
+                            Width="38"
+                            Height="38"
+                            Padding="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Tag="{Binding}"
+                            Click="FavoriteTrack_Click">
                             <FontIcon Glyph="{Binding FavoriteGlyph}" FontSize="15" />
-                        </Button>
-                        <Button Grid.Column="5">
-                            <FontIcon Glyph="&#xE712;" FontSize="14" />
-                            <Button.Flyout>
-                                <MenuFlyout>
-                                    <MenuFlyoutItem Text="添加到播放队列" Tag="{Binding}" Click="AddTrackToQueue_Click" />
-                                    <MenuFlyoutItem Text="下一首播放" Tag="{Binding}" Click="PlayTrackNext_Click" />
-                                    <MenuFlyoutItem Text="查看专辑" Tag="{Binding}" Click="ViewTrackAlbum_Click" />
-                                </MenuFlyout>
-                            </Button.Flyout>
                         </Button>
                     </Grid>
                 </DataTemplate>

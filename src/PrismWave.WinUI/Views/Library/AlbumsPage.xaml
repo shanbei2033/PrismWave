@@ -116,7 +116,7 @@
                 Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}">
                 <FontIcon Glyph="&#xE93C;" FontSize="34" Foreground="{StaticResource PrismTextSecondaryBrush}" />
                 <TextBlock Text="没有匹配的专辑" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                <TextBlock Text="添加本地音乐或调整搜索关键词" Style="{StaticResource PrismCaptionTextStyle}" />
+                <TextBlock Text="添加音乐或调整搜索关键词" Style="{StaticResource PrismCaptionTextStyle}" />
             </StackPanel>
         </Grid>
     </Grid>

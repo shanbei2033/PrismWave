@@ -22,6 +22,8 @@
             <Setter Property="MinWidth" Value="38" />
             <Setter Property="MinHeight" Value="38" />
             <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -148,7 +150,6 @@
                         <ColumnDefinition Width="1.1*" />
                         <ColumnDefinition Width="64" />
                         <ColumnDefinition Width="44" />
-                        <ColumnDefinition Width="44" />
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="TrackIndex" Style="{StaticResource PrismCaptionTextStyle}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
@@ -164,19 +165,6 @@
                             Glyph="{Binding FavoriteGlyph}"
                             FontSize="18"
                             AutomationProperties.AutomationId="AlbumTrackFavoriteIcon" />
-                    </Button>
-                    <Button
-                        Grid.Column="5"
-                        Style="{StaticResource AlbumTrackActionButtonStyle}"
-                        >
-                        <FontIcon Glyph="&#xE712;" FontSize="16" />
-                        <Button.Flyout>
-                            <MenuFlyout>
-                                <MenuFlyoutItem Text="添加到播放队列" Tag="{Binding}" Click="AddTrackToQueue_Click" />
-                                <MenuFlyoutItem Text="下一首播放" Tag="{Binding}" Click="PlayTrackNext_Click" />
-                                <MenuFlyoutItem Text="查看艺术家" Tag="{Binding}" Click="ViewTrackArtist_Click" />
-                            </MenuFlyout>
-                        </Button.Flyout>
                     </Button>
                 </Grid>
             </DataTemplate>

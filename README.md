@@ -3,8 +3,8 @@
   <img src="assets/logo.png" alt="logo" width="128">
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
-  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.1-blue" alt="Release"></a>
-  <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.29.3-blue" alt="Flutter"></a>
+  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.3-blue" alt="Release"></a>
+  <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.41.4-blue" alt="Flutter"></a>
 </div>
 
 [中文说明](./README_zh.md)
@@ -13,7 +13,7 @@ PrismWave WinUI is the native Windows 11 music player edition of PrismWave.
 It combines a real local library with online recommendations, search, queue
 playback, FullPlay lyrics, and configurable Windows materials.
 
-## Current WinUI Beta
+## WinUI Edition
 
 The default development branch is [`WinUI`](https://github.com/shanbei2033/PrismWave/tree/WinUI).
 This branch is the active native implementation and includes:
@@ -25,39 +25,24 @@ This branch is the active native implementation and includes:
 - Automatic lyrics plus QQ QRC / NetEase YRC word timing when available
 - Playback queue, context actions, cover replacement, and state-preserving navigation
 - Classic solid, light Windows 11 Mica, and Acrylic appearance styles
+- Online songs can be added to library and favorites from search and Home
 
 The Flutter application remains under `app/` as the legacy/reference client.
 
-> **WinUI beta branch**: the current native Windows UI is maintained on the
-> [`WinUI`](https://github.com/shanbei2033/PrismWave/tree/WinUI) branch. It
-> includes the WinUI 3 shell, real local-library scanning, online audio cache,
-> word-by-word lyrics, immersive FullPlay, and configurable Solid / light Mica
-> / Acrylic appearance styles. The Flutter application remains available in
-> `app/` for comparison and compatibility.
+## Latest release: v1.0.3
 
-## Latest release: v1.0.1
+This release brings quality-of-life improvements and new features:
 
-This maintenance release for PrismWave WinUI:
+- Fixes single-repeat mode not replaying a song after it ends
+- Fixes the progress bar slider thumb not resetting on track change
+- Removes the "more options" button from library pages in favor of right-click context menus
+- Makes favorite buttons borderless across all library pages for a cleaner look
+- Fixes the favorite button being grayed out when playing online songs
+- Adds "Add to Library" for online songs from search results and the Home trending list
+- Online songs added to library persist across rescans
+- Adds gdstudio fallback for migu, kugou, and taihe audio source resolution
 
-- Fixes the window being resizable below a usable size; the minimum size is now locked to the launch size so the UI is never clipped
-- Removes the Windows DSD playback backend and its settings/options
-- Removes the Flutter preferences migration panel and the low-effects mode
-
-Earlier v1.0.0 highlights still apply:
-
-- Complete native WinUI 3 desktop music player with modern Windows 11 design
-- Real recursive local library scanning with metadata and cover art fallback
-- MPV, WASAPI shared, and WASAPI exclusive output paths with automatic fallback
-- Unified local and online search with instant playback and queue building
-- Online providers: Audius, NetEase, Kuwo, Migu, QQ Music, Kugou, and Taihe
-- Word-by-word lyrics with QQ QRC and NetEase YRC support
-- Immersive FullPlay page with Win2D lyrics canvas
-- Playback queue with drag-to-reorder and on-demand online source recovery
-- HITS radio mode with schedule-based online playback and 10 audio providers
-- Developer mode with live playback logs
-- Configurable appearance: Classic solid, light Windows 11 Mica, and Acrylic styles
-
-Downloads are available from the [v1.0.1 release page](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.1).
+Downloads are available from the [v1.0.3 release page](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.3).
 
 ## Features
 
@@ -66,7 +51,8 @@ Downloads are available from the [v1.0.1 release page](https://github.com/shanbe
   enabled by default on first launch
 - Online Home with a TOP100 trending banner, refreshed recommendations,
   new albums, hot songs, and unified online/local search
-- Library / Albums / Artists / Favorites views with drag-to-reorder
+- Library / Albums / Artists / Favorites views with drag-to-reorder and
+  right-click context menus
 - Bottom playback bar + full-screen play page
 - Playback queue with drag-to-reorder and on-demand online source recovery
 - Playback modes: list loop, single repeat, shuffle
@@ -75,6 +61,7 @@ Downloads are available from the [v1.0.1 release page](https://github.com/shanbe
   QQ QRC decode
 - HITS radio mode: schedule-based online playback with 10 audio providers, cover & lyrics caching, prefetch
   - HITS schedules are generated by [prismwave-hits](https://github.com/shanbei2033/prismwave-hits)
+- Online songs can be added to library and favorites from search and Home
 - Developer mode with live playback logs
 
 ## Stack
@@ -84,7 +71,7 @@ Downloads are available from the [v1.0.1 release page](https://github.com/shanbe
 - Win2D and Windows Composition
 - libmpv with WASAPI shared/exclusive routing
 - TagLib# local metadata reader
-- Flutter (3.29.3) legacy/reference client
+- Flutter (3.41.4) legacy/reference client
 - Riverpod
 - just_audio + just_audio_media_kit (media_kit / MPV)
 - Windows desktop
@@ -100,14 +87,14 @@ PrismWave/
   tools/flutter/         Bundled Flutter SDK 
 ```
 
-## Run (WinUI Beta)
+## Run (WinUI)
 
 ```powershell
 git switch WinUI
 dotnet run --project src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64
 ```
 
-## Build (WinUI Beta)
+## Build (WinUI)
 
 ```powershell
 dotnet build src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64 --no-restore
@@ -161,7 +148,7 @@ dist/PrismWave-Setup-R503.exe
 
 ## Audio notes
 
-The playback backend is `just_audio + media_kit + MPV`.
+The WinUI playback backend uses libmpv directly with WASAPI routing.
 
 Available output modes on Windows:
 
@@ -186,24 +173,9 @@ queue immediately while unresolved online tracks are resolved in the background.
 If a queued online source fails at playback time, PrismWave invalidates that
 source and retries resolution from the available providers.
 
-In R501_fix, the Home refresh button refreshes recommendation songs and albums
-directly from the app while keeping the trending chart independent. Search and
-online playback use a broader non-video music-source resolver, and the full
-play page now auto-matches online lyrics using the current playback duration
-when available. This fix release also refreshes the glass UI, switches the app
-font to Resource Han Rounded, speeds up automatic lyrics matching, and removes
-the red tint from the main play button and progress bar.
-
-In R501_fix2, the online Home daily chart uses the generated schema 7 Top 100
-payload from `prismwave-hits`, caches by Beijing date, falls back to a bundled
-Top 100 payload on cold start, and shows a warning when live recommendations are
-unavailable. The Windows window can also be resized freely from its frameless
-edges.
-
-In R502, chart refresh states are split more clearly: if today's chart has not
-been generated yet, PrismWave shows yesterday's chart and marks the chart detail
-page with an update-time notice; only real network or JSON failures show the
-yellow unavailable warning. The Home card stays clean without status icons.
+Online songs encountered in search results or the Home trending list can be
+added to the library or favorites directly. Added online songs persist across
+library rescans and appear in Library, Albums, Artists, and Favorites views.
 
 ## Developer mode
 

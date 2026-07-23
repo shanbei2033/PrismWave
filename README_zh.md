@@ -3,15 +3,15 @@
   <img src="assets/logo.png" alt="logo" width="128">
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
-  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.1-blue" alt="Release"></a>
-  <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.29.3-blue" alt="Flutter"></a>
+  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.3-blue" alt="Release"></a>
+  <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.41.4-blue" alt="Flutter"></a>
 </div>
 
 [English README](./README.md)
 
 PrismWave WinUI 是 PrismWave 的原生 Windows 11 音乐播放器版本，结合真实本地曲库、在线推荐、搜索、播放队列、FullPlay 歌词和可配置的 Windows 材质。
 
-## 当前 WinUI Beta
+## WinUI 版本
 
 默认开发分支是 [`WinUI`](https://github.com/shanbei2033/PrismWave/tree/WinUI)。
 该分支是当前主要的原生实现，包含：
@@ -23,45 +23,31 @@ PrismWave WinUI 是 PrismWave 的原生 Windows 11 音乐播放器版本，结�
 - 自动歌词，以及可用时的 QQ QRC / 网易云 YRC 逐字时间轴
 - 播放队列、右键操作、封面替换和返回状态保留
 - 经典纯色、浅色 Windows 11 云母和亚克力外观切换
+- 在线歌曲可从搜索页和首页添加到库与收藏
 
 Flutter 应用仍保留在 `app/` 目录，作为旧版/对照客户端。
 
-> **WinUI Beta 分支**：当前原生 Windows 界面维护在
-> [`WinUI`](https://github.com/shanbei2033/PrismWave/tree/WinUI) 分支，包含
-> WinUI 3 外壳、真实本地曲库扫描、在线音频缓存、逐字歌词、沉浸式
-> FullPlay，以及可切换的经典纯色 / 浅色云母 / 亚克力外观。Flutter 应用仍
-> 保留在 `app/` 目录中，用于对照和兼容。
+## 最新版本：v1.0.3
 
-## 最新版本：v1.0.1
+本次发布带来多项体验改进和新功能：
 
-本次为 PrismWave WinUI 的维护更新：
+- 修复单曲循环模式下歌曲播放完成后无法重新播放的问题
+- 修复切换歌曲时进度条滑块未归位的问题
+- 移除库页面的"更多选项"按钮，改为右键上下文菜单
+- 收藏按钮统一无边框样式，更简洁
+- 修复播放在线歌曲时收藏按钮灰色不可用的问题
+- 搜索结果和首页趋势歌曲支持"添加到库"
+- 在线歌曲加入库后持久保存，rescan 后不丢失
+- 增强 migu、酷狗、太合的音源解析（添加 gdstudio 兜底）
 
-- 修复窗口可被无限缩小导致 UI 显示不全的问题：最小尺寸锁定为启动尺寸
-- 移除 Windows DSD 播放后端及相关设置项
-- 移除 Flutter 设置迁移面板与低特效模式
-
-v1.0.0 的主要特性依然适用：
-
-- 完整的原生 WinUI 3 桌面音乐播放器，采用现代 Windows 11 设计
-- 支持元数据和封面回退的真实递归本地曲库扫描
-- MPV、WASAPI 共享和 WASAPI 独占播放路径，带自动回退
-- 本地和在线统一搜索，即时播放和队列构建
-- 在线音源：Audius、网易云、酷我、咪咕、QQ音乐、酷狗、太合
-- 逐字歌词，支持 QQ QRC 和网易云 YRC
-- 沉浸式 FullPlay 页面，使用 Win2D 歌词画布
-- 播放队列，支持拖拽排序和在线音源按需恢复
-- HITS 广播模式，基于节目单的在线播放，10 个音源 provider
-- 开发者模式，带实时播放日志
-- 可配置外观：经典纯色、浅色 Windows 11 云母和亚克力风格
-
-下载请前往 [v1.0.1 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.1)。
+下载请前往 [v1.0.3 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.3)。
 
 ## 功能
 
 - 本地音乐库扫描与文件夹管理
 - 在线优先启动：应用启动后直接进入首页，首次打开默认启用在线模式
 - 在线首页：TOP100 今日趋势、应用内刷新推荐、新专辑、热门歌曲，以及本地/在线统一搜索
-- 音乐库 / 专辑 / 艺术家 / 我最爱 视图，支持拖拽排序
+- 音乐库 / 专辑 / 艺术家 / 我最爱 视图，支持拖拽排序与右键上下文菜单
 - 底部播放栏 + 全屏播放页
 - 播放队列，支持拖拽排序与在线音源按需恢复
 - 播放模式：列表循环、单曲循环、随机播放
@@ -69,6 +55,7 @@ v1.0.0 的主要特性依然适用：
 - 歌词：本地歌词、在线自动匹配、在线搜索与缓存、逐字歌词、QQ QRC 解码
 - HITS 广播模式：基于节目单的在线播放，10 个音源 provider，封面与歌词缓存，预加载
   - HITS 节目单由 [prismwave-hits](https://github.com/shanbei2033/prismwave-hits) 仓库生成
+- 在线歌曲可从搜索页和首页添加到库与收藏
 - 开发者模式：实时播放日志窗口与本地日志文件
 
 ## 技术栈
@@ -78,7 +65,7 @@ v1.0.0 的主要特性依然适用：
 - Win2D 与 Windows Composition
 - libmpv，支持 WASAPI 共享 / 独占路由
 - TagLib# 本地元数据读取
-- Flutter (3.29.3) 旧版/对照客户端
+- Flutter (3.41.4) 旧版/对照客户端
 - Riverpod
 - just_audio + just_audio_media_kit (media_kit / MPV)
 - Windows Desktop
@@ -94,14 +81,14 @@ PrismWave/
   tools/flutter/         内置 Flutter SDK
 ```
 
-## 运行（WinUI Beta）
+## 运行（WinUI）
 
 ```powershell
 git switch WinUI
 dotnet run --project src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64
 ```
 
-## 构建（WinUI Beta）
+## 构建（WinUI）
 
 ```powershell
 dotnet build src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64 --no-restore
@@ -155,7 +142,7 @@ dist/PrismWave-Setup-R503.exe
 
 ## 音频说明
 
-播放后端为 `just_audio + media_kit + MPV`。
+WinUI 播放后端直接使用 libmpv，支持 WASAPI 路由。
 
 Windows 下可用的输出模式：
 
@@ -176,11 +163,7 @@ HITS 是一个广播电台模式，按节目单播放在线内容：
 
 首次启动时在线模式默认启用，PrismWave 会直接打开首页，加载推荐分区，并支持搜索结果立即组成播放队列。队列中尚未解析完成的在线歌曲会在后台继续解析；如果某个在线音源在实际播放时失败，PrismWave 会让该源失效并重新从可用 provider 中寻找可播放地址。
 
-R501_fix 中，首页右上角刷新按钮会直接从应用内刷新推荐歌曲与专辑，同时保持趋势榜单独立更新。在线搜索和在线播放接入了更多非视频音乐源；fullplay 页面会在播放在线歌曲时结合当前播放时长自动匹配在线歌词。本次修复版还更新了玻璃拟态 UI、将全局字体切换为 Resource Han Rounded、优化自动歌词匹配速度，并移除了主播放键与进度条的红色调。
-
-R501_fix2 中，在线首页每日榜单改为使用 `prismwave-hits` 生成的 schema 7 Top100 JSON，按北京时间日期缓存；冷启动没有本地缓存且远程不可用时，会使用内置 Top100 兜底并显示黄色告警。无边框 Windows 窗口现在也可以从边缘自由拉伸。
-
-R502 中，今日榜单尚未生成和网络不可用被拆分为两个状态：前者默认显示昨日榜单，并只在榜单详情页标题旁显示更新时间提示；后者才显示黄色不可用告警。首页榜单卡片不再显示状态叹号。
+在搜索结果或首页趋势歌曲中遇到的在线歌曲，可以直接添加到库或收藏。已添加的在线歌曲在 rescan 后仍保留，并出现在音乐库、专辑、艺术家和我最爱视图中。
 
 ## 开发者模式
 

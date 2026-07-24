@@ -1,4 +1,0 @@
-enum PlaybackBackendKind {
-  mediaKit,
-  windowsDsd,
-}

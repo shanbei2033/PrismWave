@@ -4,12 +4,12 @@
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
   <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.3-blue" alt="Release"></a>
-  <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.41.4-blue" alt="Flutter"></a>
+  <a href="https://dotnet.microsoft.com"><img src="https://img.shields.io/badge/.NET-10-blue" alt=".NET"></a>
 </div>
 
 [English README](./README.md)
 
-PrismWave WinUI 是 PrismWave 的原生 Windows 11 音乐播放器版本，结合真实本地曲库、在线推荐、搜索、播放队列、FullPlay 歌词和可配置的 Windows 材质。
+PrismWave 是一款基于 WinUI 3 的原生 Windows 11 音乐播放器，结合真实本地曲库、在线推荐、搜索、播放队列、FullPlay 歌词和可配置的 Windows 材质。
 
 ## WinUI 版本
 
@@ -24,8 +24,6 @@ PrismWave WinUI 是 PrismWave 的原生 Windows 11 音乐播放器版本，结�
 - 播放队列、右键操作、封面替换和返回状态保留
 - 经典纯色、浅色 Windows 11 云母和亚克力外观切换
 - 在线歌曲可从搜索页和首页添加到库与收藏
-
-Flutter 应用仍保留在 `app/` 目录，作为旧版/对照客户端。
 
 ## 最新版本：v1.0.3
 
@@ -65,20 +63,16 @@ Flutter 应用仍保留在 `app/` 目录，作为旧版/对照客户端。
 - Win2D 与 Windows Composition
 - libmpv，支持 WASAPI 共享 / 独占路由
 - TagLib# 本地元数据读取
-- Flutter (3.41.4) 旧版/对照客户端
-- Riverpod
-- just_audio + just_audio_media_kit (media_kit / MPV)
 - Windows Desktop
 
 ## 项目结构
 
 ```text
 PrismWave/
-  app/                   Flutter 应用
   src/PrismWave.WinUI/   原生 WinUI 应用
   tests/                 WinUI 回归测试
-  installer/             Inno Setup 安装包脚本
-  tools/flutter/         内置 Flutter SDK
+  native/                原生库（libmpv、BASS/DSD）
+  tools/                 构建工具
 ```
 
 ## 运行（WinUI）
@@ -149,29 +143,6 @@ Windows 下可用的输出模式：
 - 兼容模式
 - WASAPI 共享
 - WASAPI 独占
-
-## HITS 模式
-
-HITS 是一个广播电台模式，按节目单播放在线内容：
-
-- 从 `prismwave-hits` 仓库拉取节目单
-- 10 个音源 provider 解析音频（B 站、YouTube、Audius、网易云、酷我、咪咕、QQ 音乐、酷狗、千千/太合）
-- 封面、歌词、音频本地缓存
-- 后台预加载即将播放的曲目
-
-## 在线模式
-
-首次启动时在线模式默认启用，PrismWave 会直接打开首页，加载推荐分区，并支持搜索结果立即组成播放队列。队列中尚未解析完成的在线歌曲会在后台继续解析；如果某个在线音源在实际播放时失败，PrismWave 会让该源失效并重新从可用 provider 中寻找可播放地址。
-
-在搜索结果或首页趋势歌曲中遇到的在线歌曲，可以直接添加到库或收藏。已添加的在线歌曲在 rescan 后仍保留，并出现在音乐库、专辑、艺术家和我最爱视图中。
-
-## 开发者模式
-
-启用开发者模式后，PrismWave 会打开一个实时日志窗口，并将播放日志写入：
-
-```text
-C:\Users\<你的用户名>\AppData\Local\PrismWave\logs\
-```
 
 ## 鸣谢
 

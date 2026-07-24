@@ -4,12 +4,12 @@
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
   <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.3-blue" alt="Release"></a>
-  <a href="https://flutter.dev"><img src="https://img.shields.io/badge/flutter-3.41.4-blue" alt="Flutter"></a>
+  <a href="https://dotnet.microsoft.com"><img src="https://img.shields.io/badge/.NET-10-blue" alt=".NET"></a>
 </div>
 
 [中文说明](./README_zh.md)
 
-PrismWave WinUI is the native Windows 11 music player edition of PrismWave.
+PrismWave is a native Windows 11 music player built with WinUI 3.
 It combines a real local library with online recommendations, search, queue
 playback, FullPlay lyrics, and configurable Windows materials.
 
@@ -26,8 +26,6 @@ This branch is the active native implementation and includes:
 - Playback queue, context actions, cover replacement, and state-preserving navigation
 - Classic solid, light Windows 11 Mica, and Acrylic appearance styles
 - Online songs can be added to library and favorites from search and Home
-
-The Flutter application remains under `app/` as the legacy/reference client.
 
 ## Latest release: v1.0.3
 
@@ -71,20 +69,16 @@ Downloads are available from the [v1.0.3 release page](https://github.com/shanbe
 - Win2D and Windows Composition
 - libmpv with WASAPI shared/exclusive routing
 - TagLib# local metadata reader
-- Flutter (3.41.4) legacy/reference client
-- Riverpod
-- just_audio + just_audio_media_kit (media_kit / MPV)
 - Windows desktop
 
 ## Project layout
 
 ```text
 PrismWave/
-  app/                   Flutter application
   src/PrismWave.WinUI/   Native WinUI application
   tests/                 WinUI regression tests
-  installer/             Inno Setup installer script
-  tools/flutter/         Bundled Flutter SDK 
+  native/                Native libraries (libmpv, BASS/DSD)
+  tools/                 Build tools
 ```
 
 ## Run (WinUI)
@@ -155,41 +149,3 @@ Available output modes on Windows:
 - Compatibility
 - WASAPI Shared
 - WASAPI Exclusive
-
-## HITS mode
-
-HITS is a radio-style mode that plays scheduled online content:
-
-- Pulls schedule from the `prismwave-hits` repository
-- Resolves audio from 10 providers (Bilibili, YouTube, Audius, NetEase, Kuwo, Migu, QQ Music, Kugou, Taihe)
-- Caches covers, lyrics, and audio locally
-- Prefetches upcoming tracks in the background
-
-## Online mode
-
-Online mode is enabled by default on first launch. PrismWave starts on the Home
-page, loads recommendation sections, and lets search results build a playback
-queue immediately while unresolved online tracks are resolved in the background.
-If a queued online source fails at playback time, PrismWave invalidates that
-source and retries resolution from the available providers.
-
-Online songs encountered in search results or the Home trending list can be
-added to the library or favorites directly. Added online songs persist across
-library rescans and appear in Library, Albums, Artists, and Favorites views.
-
-## Developer mode
-
-When developer mode is enabled, PrismWave opens a live log window and writes playback logs to:
-
-```text
-C:\Users\<YourUser>\AppData\Local\PrismWave\logs\
-```
-
-## Acknowledgements
-
-- [QQMusicDecoder](https://github.com/WXRIW/QQMusicDecoder): helped verify the QQ `QRC` word-by-word lyrics pipeline, especially the decrypt and decompress steps required before parsing lyric content.
-- [LDDC](https://github.com/chenmozhijin/LDDC): provided useful reference for timed / word-by-word lyric parsing details, format tolerance, and edge-case handling during the PrismWave lyrics adaptation work.
-
-## License
-
-GPL-3.0

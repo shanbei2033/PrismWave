@@ -2,7 +2,7 @@
 
 更新时间：2026-07-23
 
-**语言要求：接手 AI 必须使用中文与用户沟通。**
+**语言要求：接手 AI 必须全程使用中文与用户沟通。**
 
 本文档帮助其他 AI 快速接手 `E:\Project\PrismWave` 开发。主线为 WinUI 3 / C# 重构，Flutter 工程（`app/`）保留为行为回归基线。
 
@@ -16,11 +16,11 @@
 | Git 分支 | `WinUI`（`main` 是最终主分支，WinUI 重构完成后统一合并） |
 | WinUI 工程 | `src/PrismWave.WinUI/`，技术栈 WinUI 3 / .NET 10 / CommunityToolkit.Mvvm / TagLibSharp |
 | 测试工程 | `tests/PrismWave.WinUI.Tests/`，458 项测试通过 |
-| 播放后端 | 普通播放用 `native/libmpv-winui/libmpv-2.dll`（完整解码版）；DSD 用 BASS 三件套 |
+| 播放后端 | `native/libmpv-winui/libmpv-2.dll`（完整解码版） |
 | Flutter 基线 | R503，位于 `app/`，不得删除 |
-| 最高优先级 | 完成 MP3/FLAC/WAV/OGG、中文长路径、删除源文件、DSD/ASIO、在线 provider 真机矩阵 |
+| 最高优先级 | 完成 MP3/FLAC/WAV/OGG、中文长路径、删除源文件、在线 provider 真机矩阵 |
 
-WinUI 工程已具备壳层、MVVM、mpv/DSD 播放、本地库、在线服务、歌词、封面、HITS、设置和多页面 UI，但仍处迁移开发期，不能宣称全功能等价。
+WinUI 工程已具备壳层、MVVM、mpv 播放、本地库、在线服务、歌词、封面、HITS、设置和多页面 UI，但仍处迁移开发期，不能宣称全功能等价。
 
 ### 构建、测试和启动
 
@@ -56,7 +56,7 @@ src/PrismWave.WinUI/
 └── Themes/                                  PrismTokens.xaml（含 PrismPagePadding 24,18,24,18）、PrismControls.xaml
 ```
 
-MVVM 模式：View 负责 XAML，ViewModel 基于 CommunityToolkit.Mvvm，服务通过接口注入。`AppServices.cs` 是手工组合根——不要把 mpv/BASS/文件系统/网络请求塞进页面 code-behind。
+MVVM 模式：View 负责 XAML，ViewModel 基于 CommunityToolkit.Mvvm，服务通过接口注入。`AppServices.cs` 是手工组合根——不要把 mpv/文件系统/网络请求塞进页面 code-behind。
 
 ### 已完成能力概要
 
@@ -78,7 +78,7 @@ MVVM 模式：View 负责 XAML，ViewModel 基于 CommunityToolkit.Mvvm，服务
 - **不要**把 bilibili/bilivideo/YouTube 加回普通在线搜索——只保留给 HITS 兜底。
 - **不要**把 `_kSchemaVersion` 降回 7，不要把远端 `topPlaylist.subtitle` 作为生成时间展示。
 - **不要**把首页今日趋势卡片的 TOP100 标签、副标题、查看按钮加回来。
-- **不要**重新引入"DSD 自动强制独占"或把 HITS 改回非 WASAPI Shared。
+- **不要**把 HITS 改回非 WASAPI Shared。
 - **不要**运行 `git clean`/`git reset --hard`/大范围 checkout。
 - **不要**因为文件 untracked 就删除——WinUI 工程依赖这些文件。
 - `bin/`、`obj/`、`AppPackages/`、`artifacts/` 不得进入分支。
@@ -105,18 +105,16 @@ HITS 在此基础上增加 bilibili、bilivideo、YouTube。
 | 问题 | 状态 |
 |------|------|
 | `IWindowService` 等三个服务未正式实现 | 仍在 `PlaceholderContracts.cs` |
-| DSD 设备切换后当前曲目不自动重载 | 需修复 |
 | 6 个中国 provider 长期可用性 | 需真机/长期验证 |
 
 ### 下一步
 
 1. 本地播放真机矩阵（MP3/FLAC/WAV/OGG、中文长路径、seek、队列、设备切换）
 2. 本地库写操作（拖拽排序、移出库、删除源文件、旁置联动）
-3. DSD 真机（DSF/DFF、ASIO、raw DSD、DoP）
-4. 补齐 `IWindowService`/`IDialogService`/`IUpdateService`
-5. 在线链路验证（7 provider 搜索/解析、schema 8 缓存/回退）
-6. 歌词/FullPlay 验证、HITS 验证
-7. 发布前打磨（可访问性、多 DPI、MSIX/安装包）
+3. 补齐 `IWindowService`/`IDialogService`/`IUpdateService`
+4. 在线链路验证（7 provider 搜索/解析、schema 8 缓存/回退）
+5. 歌词/FullPlay 验证、HITS 验证
+6. 发布前打磨（可访问性、多 DPI、MSIX/安装包）
 
 ---
 

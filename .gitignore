@@ -27,18 +27,6 @@ dist/
 .tmp/
 *.zip
 
-# Flutter / Dart
-app/.dart_tool/
-app/build/
-app/.flutter-plugins
-app/.flutter-plugins-dependencies
-app/.packages
-app/tool/verify_online_lyrics.dart
-
-# Windows build leftovers
-app/windows/flutter/ephemeral/
-app/windows/x64/
-
 # .NET / WinUI build outputs
 **/bin/
 **/obj/
@@ -48,13 +36,8 @@ app/windows/x64/
 # Rust
 native/rust_core/target/
 
-# Bundled local SDK / tools
-tools/flutter/
-.sdk/
-
 # External repos / separate projects
 prismwave-hits/
-app_android/
 
 # Local app logs
 PrismWave/

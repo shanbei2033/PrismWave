@@ -65,7 +65,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\app\assets\home\latest_home.json" Link="Assets\HomeFallback\latest_home.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\HomeFallback\latest_home.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\native\libmpv-winui\libmpv-2.dll" Link="Native\libmpv-2.dll" PackagePath="Native\libmpv-2.dll" CopyToOutputDirectory="Always" />
   </ItemGroup>
 

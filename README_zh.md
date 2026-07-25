@@ -9,7 +9,8 @@
 
 [English README](./README.md)
 
-PrismWave 是一款基于 WinUI 3 的原生 Windows 11 音乐播放器，结合真实本地曲库、在线推荐、搜索、播放队列、FullPlay 歌词和可配置的 Windows 材质。
+PrismWave 是一款基于 **WinUI 3 和 .NET 10** 的原生 Windows 11 音乐播放器。
+支持真实本地曲库管理、在线推荐、FullPlay 歌词舞台、DSD HiFi 播放，以及可配置的 Windows 11 材质（纯色/云母/亚克力）。
 
 ## WinUI 版本
 
@@ -78,61 +79,19 @@ PrismWave/
 ## 运行（WinUI）
 
 ```powershell
-git switch WinUI
+git checkout main
 dotnet run --project src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64
 ```
 
 ## 构建（WinUI）
 
 ```powershell
+git checkout main
 dotnet build src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64 --no-restore
 dotnet test tests/PrismWave.WinUI.Tests/PrismWave.WinUI.Tests.csproj --no-restore
 ```
 
-原生 WinUI 输出位于 `src/PrismWave.WinUI/bin/x64/`。
-
-## 运行（Flutter 旧版客户端）
-
-如果你的环境中已经安装了 Flutter：
-
-```powershell
-cd app
-flutter pub get
-flutter run -d windows
-```
-
-如果你希望使用仓库内置的本地 Flutter 工具链：
-
-```powershell
-cd app
-..\tools\flutter\bin\flutter.bat pub get
-..\tools\flutter\bin\flutter.bat run -d windows
-```
-
-## 构建（Flutter 旧版客户端）
-
-```powershell
-cd app
-..\tools\flutter\bin\flutter.bat build windows --release
-```
-
-Release 输出路径：
-
-```text
-app/build/windows/x64/runner/Release/prismwave_demo.exe
-```
-
-安装包构建：
-
-```powershell
-& "C:\Users\Admin\AppData\Local\Programs\Inno Setup 6\ISCC.exe" installer\PrismWaveSetup.iss
-```
-
-安装包输出路径：
-
-```text
-dist/PrismWave-Setup-R503.exe
-```
+原生输出位于 `src/PrismWave.WinUI/bin/x64/`。
 
 ## 音频说明
 

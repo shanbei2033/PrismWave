@@ -1,10 +1,10 @@
 # PrismWave AI 接手文档
 
-更新时间：2026-07-23
+更新时间：2026-07-24
 
 **语言要求：接手 AI 必须全程使用中文与用户沟通。**
 
-本文档帮助其他 AI 快速接手 `E:\Project\PrismWave` 开发。主线为 WinUI 3 / C# 重构，Flutter 工程（`app/`）保留为行为回归基线。
+本文档帮助其他 AI 快速接手 `E:\Project\PrismWave` 开发。项目主线为 **原生 WinUI 3 / C# 音乐播放器**，完全移除了 Flutter 代码。
 
 ---
 
@@ -13,14 +13,15 @@
 | 项目 | 状态 |
 |------|------|
 | 工作目录 | `E:\Project\PrismWave` |
-| Git 分支 | `WinUI`（`main` 是最终主分支，WinUI 重构完成后统一合并） |
+| Git 分支 | `main` (唯一主分支) |
 | WinUI 工程 | `src/PrismWave.WinUI/`，技术栈 WinUI 3 / .NET 10 / CommunityToolkit.Mvvm / TagLibSharp |
 | 测试工程 | `tests/PrismWave.WinUI.Tests/`，458 项测试通过 |
-| 播放后端 | `native/libmpv-winui/libmpv-2.dll`（完整解码版） |
-| Flutter 基线 | R503，位于 `app/`，不得删除 |
-| 最高优先级 | 完成 MP3/FLAC/WAV/OGG、中文长路径、删除源文件、在线 provider 真机矩阵 |
+| 播放后端 | `native/libmpv-winui/libmpv-2.dll`（完整解码版，支持 MPV 自动/WASAPI 共享/WASAPI 独占） |
+| DSD 播放 | `native/windows_dsd/bass.dll` + `bassdsd.dll` + `bassasio.dll` |
+| 推荐生成器 | `e:\Project\prismwave-hits` (独立 Python 脚本仓库，schema 8 每日首页) |
+| 最高优先级 | 完成真机矩阵验证（MP3/FLAC/WAV/OGGG、DSD/ASIO、在线 provider）、补齐缺失服务接口 |
 
-WinUI 工程已具备壳层、MVVM、mpv 播放、本地库、在线服务、歌词、封面、HITS、设置和多页面 UI，但仍处迁移开发期，不能宣称全功能等价。
+WinUI 工程是**唯一活跃开发分支**，具备完整的本地曲库扫描、元数据读取、在线搜索和播放、歌词系统、HITS 电台模式、FullPlay 逐字歌词舞台、收藏管理和设置功能。
 
 ### 构建、测试和启动
 
@@ -118,7 +119,49 @@ HITS 在此基础上增加 bilibili、bilivideo、YouTube。
 
 ---
 
-## 5. 最近修复（2026-07-23）
+## 2. 推荐生成器 (prismwave-hits)
+
+每日首页推荐由独立仓库 `E:\Project\prismwave-hits` 生成，GitHub Actions 每天北京时间 10:00 自动构建。
+
+### 技术栈
+- Python 脚本：`scripts/build_home.py`
+- Schema: v8（包含 Top100、风格分区和 Trending Hot 板块）
+- 数据源：Last.fm、Deezer、iTunes、Audius 等聚合
+- 增强功能：歌手去重（Top100 最多 3 首/歌手）、新鲜度奖励、Hot Rising 独立音乐人板块
+
+### 运行命令
+```powershell
+cd e:\Project\prismwave-hits
+python scripts\build_home.py
+```
+
+输出文件：
+- `home/home_recommendations-{YYYY-MM-DD}.json`
+- `home/latest_home.json` (复制到 GitHub raw.githubusercontent.com)
+
+客户端通过 `latest_home.json` 拉取，缓存策略：当天优先 → 昨天回退 → 内置兜底。
+
+---
+
+## 3. 最近修复（2026-07-24）
+
+清理了 Flutter 代码库，释放 ~2.4 GB 空间：
+- 删除 `app/` (Flutter 源代码+资源 + 构建产物)
+- 删除 `tools/flutter/` (Flutter SDK, ~2.1 GB)
+- 删除 `installer/PrismWaveSetup.iss` (Flutter Inno Setup 脚本)
+- 删除 `native/libmpv/` (Flutter WASAPI 修补版 DLL)
+- 删除 `dist/` 中所有 R401-R503 版本发布说明
+- 迁移 `app/assets/home/latest_home.json` → `src/PrismWave.WinUI/Assets/HomeFallback/latest_home.json`
+
+结果：
+- 删除代码：**45,316 行**
+- 新增/迁移代码：9,345 行
+- 净减少：**35,971 行**
+- WinUI 测试全部通过：458/458
+
+---
+
+## 4. 上一轮修复（2026-07-23）
 
 1. **单曲循环无法重播**：`HandleMediaEnded` 中单曲循环用 `Seek(0) + Play()` 不创建 MPV load context，`_loaded` 恒为 false，`IsPlaying` 返回 false。修复：改为 `LoadCurrentTrack(autoplay: true)` 重新加载文件，正确重置所有 MPV 状态。
 2. **进度条滑块未归位**：WinUI 3 Slider OneWay 绑定在用户交互（拖动 seek）后不更新 thumb 视觉。修复：在 `BottomPlayerBar` 和 `FullPlayPage` 的 code-behind 中显式 `Slider.Value = 0`，监听 `CurrentTrack` 变化和 `PositionSeconds == 0` 两种触发（后者覆盖单曲循环同一曲目不切换的场景）。
@@ -129,7 +172,7 @@ HITS 在此基础上增加 bilibili、bilivideo、YouTube。
 
 ---
 
-## 6. 上一轮修复（2026-07-22）
+## 5. 上一轮修复（2026-07-22）
 
 1. **封面替换 Bug**：`CoverService` 文件名仅基于曲目身份，同格式不同封面产生同路径，导致 `StableCoverImage` 和 `PlaybackViewModel` 路径守卫跳过更新。修复：文件名加入图片内容 SHA-256。
 2. **导航动画闪烁**：`ShellPage.xaml.cs` 的 `PrepareIncoming` 用 `intent.HostWidth`（始终为 0）定位传入 Frame。修复：改用 `PageTransitionHost.ActualWidth`。

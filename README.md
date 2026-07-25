@@ -9,9 +9,9 @@
 
 [中文说明](./README_zh.md)
 
-PrismWave is a native Windows 11 music player built with WinUI 3.
-It combines a real local library with online recommendations, search, queue
-playback, FullPlay lyrics, and configurable Windows materials.
+PrismWave is a native Windows 11 music player built with WinUI 3 and .NET 10.
+It features real local library management, online recommendations, FullPlay lyrics, DSD playback support,
+and configurable Windows 11 material styles (Solid/Mica/Acrylic).
 
 ## WinUI Edition
 
@@ -84,61 +84,19 @@ PrismWave/
 ## Run (WinUI)
 
 ```powershell
-git switch WinUI
+git checkout main
 dotnet run --project src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64
 ```
 
 ## Build (WinUI)
 
 ```powershell
+git checkout main
 dotnet build src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64 --no-restore
 dotnet test tests/PrismWave.WinUI.Tests/PrismWave.WinUI.Tests.csproj --no-restore
 ```
 
 The native output is produced under `src/PrismWave.WinUI/bin/x64/`.
-
-## Run (Flutter legacy client)
-
-If Flutter is already available in your environment:
-
-```powershell
-cd app
-flutter pub get
-flutter run -d windows
-```
-
-If you want to use the bundled local Flutter toolchain:
-
-```powershell
-cd app
-..\tools\flutter\bin\flutter.bat pub get
-..\tools\flutter\bin\flutter.bat run -d windows
-```
-
-## Build (Flutter legacy client)
-
-```powershell
-cd app
-..\tools\flutter\bin\flutter.bat build windows --release
-```
-
-Release output:
-
-```text
-app/build/windows/x64/runner/Release/prismwave_demo.exe
-```
-
-Installer build:
-
-```powershell
-& "C:\Users\Admin\AppData\Local\Programs\Inno Setup 6\ISCC.exe" installer\PrismWaveSetup.iss
-```
-
-Installer output:
-
-```text
-dist/PrismWave-Setup-R503.exe
-```
 
 ## Audio notes
 

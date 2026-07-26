@@ -65,10 +65,10 @@
                     </ListView.ItemContainerTransitions>
                     <ListView.ItemTemplate>
                         <DataTemplate>
-                            <Grid Padding="12,10">
+                            <Grid Padding="12,10" Tag="{Binding}">
                                 <Grid.ContextFlyout>
                                     <MenuFlyout>
-                                        <MenuFlyoutItem Text="删除此记录" Tag="{Binding}" Click="RemoveHistory_Click" />
+                                        <MenuFlyoutItem Text="删除此记录" Click="RemoveHistory_Click" />
                                     </MenuFlyout>
                                 </Grid.ContextFlyout>
                                 <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" />

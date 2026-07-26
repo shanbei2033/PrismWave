@@ -36,7 +36,8 @@ public sealed record SettingsSnapshot(
     string AppearanceStyle = AppearanceStyleIds.Mica,
     long OnlineCacheMaximumBytes = OnlineAudioCacheDefault.MaximumBytes,
     string OnlineCacheDirectory = "",
-    IReadOnlyList<OnlineLibraryTrackEntry>? OnlineLibraryTracks = null);
+    IReadOnlyList<OnlineLibraryTrackEntry>? OnlineLibraryTracks = null,
+    bool AutoCheckUpdate = true);
 
 public static class OnlineAudioCacheDefault
 {

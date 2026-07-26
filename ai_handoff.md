@@ -1,6 +1,6 @@
 # PrismWave AI 接手文档
 
-更新时间：2026-07-24
+更新时间：2026-07-26
 
 **语言要求：接手 AI 必须全程使用中文与用户沟通。**
 
@@ -17,11 +17,10 @@
 | WinUI 工程 | `src/PrismWave.WinUI/`，技术栈 WinUI 3 / .NET 10 / CommunityToolkit.Mvvm / TagLibSharp |
 | 测试工程 | `tests/PrismWave.WinUI.Tests/`，458 项测试通过 |
 | 播放后端 | `native/libmpv-winui/libmpv-2.dll`（完整解码版，支持 MPV 自动/WASAPI 共享/WASAPI 独占） |
-| DSD 播放 | `native/windows_dsd/bass.dll` + `bassdsd.dll` + `bassasio.dll` |
 | 推荐生成器 | `e:\Project\prismwave-hits` (独立 Python 脚本仓库，schema 8 每日首页) |
-| 最高优先级 | 完成真机矩阵验证（MP3/FLAC/WAV/OGGG、DSD/ASIO、在线 provider）、补齐缺失服务接口 |
+| 最高优先级 | 本地播放真机矩阵验证、在线链路验证、发布前打磨 |
 
-WinUI 工程是**唯一活跃开发分支**，具备完整的本地曲库扫描、元数据读取、在线搜索和播放、歌词系统、HITS 电台模式、FullPlay 逐字歌词舞台、收藏管理和设置功能。
+WinUI 工程是**唯一活跃开发分支**，具备完整的本地曲库扫描、元数据读取、在线搜索和播放、歌词系统、HITS 电台模式、FullPlay 逐字歌词舞台、收藏管理、设置功能、启动动画和版本检测。
 
 ### 构建、测试和启动
 
@@ -67,7 +66,9 @@ MVVM 模式：View 负责 XAML，ViewModel 基于 CommunityToolkit.Mvvm，服务
 - **在线**：schema 8 首页缓存/回退，7 个普通 provider，`OnlinePlaybackResolver` 多源竞速解析。
 - **歌词/封面**：`LyricsStageControl` 单画布 Win2D 歌词舞台；`CoverService` 多源封面搜索，缓存文件名含内容哈希。
 - **HITS**：`HitsService` manifest/schedule 拉取，10 个 provider（含 bilibili/YouTube 兜底），强制 WASAPI Shared。
-- **缺口**：`IWindowService`/`IDialogService`/`IUpdateService` 仍在 `PlaceholderContracts.cs` 未正式实现。
+- **启动动画**：`SplashPage` 显示 PrismWave Logo 入场动画（Prism 从左侧滑入 + Wave 从上方落下），停留后整体向右飞出渐隐，过渡到首页。总时长约 1.75 秒。
+- **版本检测**：`UpdateService` 调用 GitHub Release API 检测新版本，设置页版本卡片支持手动检测，开启自动检测后启动时静默查询并在右上角弹出通知弹窗。
+- **缺口**：`IWindowService`/`IDialogService` 仍在 `PlaceholderContracts.cs` 未正式实现。`IUpdateService` 已正式实现。
 
 ---
 
@@ -105,14 +106,14 @@ HITS 在此基础上增加 bilibili、bilivideo、YouTube。
 
 | 问题 | 状态 |
 |------|------|
-| `IWindowService` 等三个服务未正式实现 | 仍在 `PlaceholderContracts.cs` |
+| `IWindowService`/`IDialogService` 未正式实现 | 仍在 `PlaceholderContracts.cs` |
 | 6 个中国 provider 长期可用性 | 需真机/长期验证 |
 
 ### 下一步
 
 1. 本地播放真机矩阵（MP3/FLAC/WAV/OGG、中文长路径、seek、队列、设备切换）
 2. 本地库写操作（拖拽排序、移出库、删除源文件、旁置联动）
-3. 补齐 `IWindowService`/`IDialogService`/`IUpdateService`
+3. 补齐 `IWindowService`/`IDialogService`
 4. 在线链路验证（7 provider 搜索/解析、schema 8 缓存/回退）
 5. 歌词/FullPlay 验证、HITS 验证
 6. 发布前打磨（可访问性、多 DPI、MSIX/安装包）
@@ -143,7 +144,20 @@ python scripts\build_home.py
 
 ---
 
-## 3. 最近修复（2026-07-24）
+## 3. 最近修复（2026-07-26）
+
+### v1.0.4 新增功能
+
+1. **启动动画**：新增 `SplashPage` 启动页，"Prism" 从左侧滑入中心（0.4s），"Wave" 从上方落下（0.5s），停留 0.3s 后整体向右飞出渐隐（0.55s），过渡到首页。`App.OnLaunched` 中 `async void` 流程控制，添加 `_isWindowClosed` 标志防止关闭后访问已释放 UI。
+2. **搜索历史右键删除**：`SearchPage.xaml` 历史记录项添加 `Grid.ContextFlyout` + `MenuFlyout`，`Tag` 绑定移到 Grid 上（MenuFlyoutItem 不在可视化树中无法绑定），code-behind 通过 `VisualTreeHelper` 遍历查找父级 Grid 的 Tag。
+3. **版本检测功能**：`IUpdateService` 接口正式实现，`UpdateService` 调用 GitHub Release API（`https://api.github.com/repos/shanbei2033/PrismWave/releases/latest`），语义化版本比较，筛选 `win-x64-portable.zip` 下载直链。
+4. **设置页版本卡片**：基本选项底部新增版本卡片，左侧版本号（28px Bold）+ 最新版本小字，右侧检测按钮（MinWidth=140）+ 自动检测开关（水平排列）。
+5. **更新通知弹窗**：`MainWindow.xaml` 右上角新增 `UpdateNotification` Border，从右侧 320px 处滑入 + 淡入（0.3s），含关闭按钮点击后缩回右侧 + 渐隐（0.25s）。
+6. **自动检测**：`App.OnLaunched` 中首页加载后检查 `AutoCheckUpdate` 设置，后台静默检测，有更新时 `DispatcherQueue.TryEnqueue` 在 UI 线程弹出通知。
+
+---
+
+## 4. 上一轮修复（2026-07-24）
 
 清理了 Flutter 代码库，释放 ~2.4 GB 空间：
 - 删除 `app/` (Flutter 源代码+资源 + 构建产物)

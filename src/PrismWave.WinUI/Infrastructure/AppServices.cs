@@ -31,6 +31,7 @@ public sealed class AppServices
     public required ICoverService CoverService { get; init; }
     public required IThemeService ThemeService { get; init; }
     public required IDeveloperLogService DeveloperLogService { get; init; }
+    public required IUpdateService UpdateService { get; init; }
 
     public required PlaybackViewModel Playback { get; init; }
     public required ShellViewModel Shell { get; init; }
@@ -67,6 +68,7 @@ public sealed class AppServices
         var hitsService = new HitsService();
         var lyricsService = new LyricsService(settingsService);
         var themeService = new ThemeService(settingsService);
+        var updateService = new UpdateService();
 
         var playback = new PlaybackViewModel(
             playbackService,
@@ -89,7 +91,7 @@ public sealed class AppServices
         // Keep the shared settings construction explicit; the cache and folder picker are
         // additional services owned by this same SettingsViewModel instance.
         // new SettingsViewModel(settingsService, libraryFolders, playbackService, themeService, developerLogService, onlineAccountService)
-        var settings = new SettingsViewModel(settingsService, libraryFolders, playbackService, themeService, developerLogService, onlineAccountService, musicFolderPicker, onlineAudioCache);
+        var settings = new SettingsViewModel(settingsService, libraryFolders, playbackService, themeService, developerLogService, onlineAccountService, musicFolderPicker, onlineAudioCache, updateService);
         var hits = new HitsStatusViewModel(hitsService, hitsPlaybackSession);
 
         return new AppServices
@@ -108,6 +110,7 @@ public sealed class AppServices
             CoverService = coverService,
             ThemeService = themeService,
             DeveloperLogService = developerLogService,
+            UpdateService = updateService,
             Playback = playback,
             Shell = shell,
             Home = home,

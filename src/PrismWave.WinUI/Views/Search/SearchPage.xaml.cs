@@ -31,10 +31,48 @@ public sealed partial class SearchPage : Page
 
     private void RemoveHistory_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement { Tag: string value })
+        // MenuFlyoutItem lives outside the visual tree (inside a Flyout),
+        // so Tag binding on it may not resolve. Walk up from the flyout's
+        // placement target to find the parent Grid whose Tag holds the
+        // history string.
+        if (sender is not FrameworkElement element)
+        {
+            return;
+        }
+
+        string? value = element.Tag as string ?? element.DataContext as string;
+        if (string.IsNullOrEmpty(value))
+        {
+            // The flyout's owner is the Grid that carries Tag="{Binding}"
+            var owner = element.XamlRoot is null
+                ? null
+                : FindAncestorWithTag(element);
+            if (owner is { Tag: string tag })
+            {
+                value = tag;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(value))
         {
             App.Services.Search.RemoveHistoryCommand.Execute(value);
         }
+    }
+
+    private static FrameworkElement? FindAncestorWithTag(DependencyObject element)
+    {
+        var current = element;
+        while (current is not null)
+        {
+            if (current is FrameworkElement fe && fe.Tag is string)
+            {
+                return fe;
+            }
+
+            current = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(current);
+        }
+
+        return null;
     }
 
     private void ResultRow_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)

@@ -79,6 +79,28 @@
                                 <TextBlock Text="{Binding AppearanceStyleDescription}" Style="{StaticResource PrismCaptionTextStyle}" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
+                        <Border Style="{StaticResource PrismPanelBorderStyle}">
+                            <Grid ColumnSpacing="14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="4" VerticalAlignment="Top">
+                                    <TextBlock Text="版本" FontSize="12" Foreground="{StaticResource PrismTextSecondaryBrush}" />
+                                    <TextBlock Text="{Binding CurrentVersion}" FontWeight="Bold" FontSize="28" />
+                                    <TextBlock Style="{StaticResource PrismCaptionTextStyle}">
+                                        <Run Text="最新版本: "/><Run Text="{Binding LatestVersionDisplay}"/>
+                                    </TextBlock>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="10" VerticalAlignment="Center">
+                                    <Button Content="{Binding UpdateButtonText}" Command="{Binding CheckUpdateCommand}" IsEnabled="{Binding CanCheckUpdate}" HorizontalAlignment="Stretch" MinWidth="140" Padding="20,10" FontSize="14" />
+                                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="自动检测" FontSize="13" VerticalAlignment="Center" />
+                                        <ToggleSwitch IsOn="{Binding AutoCheckUpdate, Mode=TwoWay}" OnContent="开" OffContent="关" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
                     </StackPanel>
                     </ScrollViewer>
                 </PivotItem>

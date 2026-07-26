@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="PrismWave_WinUI.Views.Shell.SplashPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{StaticResource PrismBackgroundBrush}">
+
+    <Grid>
+        <!-- Centered logo container -->
+        <Viewbox 
+            Stretch="Uniform"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Width="400"
+            Height="100">
+            
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                
+                <!-- Prism text container for animation -->
+                <Border x:Name="PrismContainer" Grid.Column="0" 
+                        Opacity="0">
+                    <Border.RenderTransform>
+                        <CompositeTransform TranslateX="-180" />
+                    </Border.RenderTransform>
+                    <TextBlock 
+                        x:Name="PrismText"
+                        Text="Prism"
+                        FontSize="72" 
+                        FontWeight="ExtraBold" 
+                        Foreground="White"
+                        VerticalAlignment="Center" />
+                </Border>
+                
+                <!-- Wave text container for animation -->
+                <Border x:Name="WaveContainer" Grid.Column="1" Margin="0,0,-5,0"
+                        Opacity="0">
+                    <Border.RenderTransform>
+                        <CompositeTransform TranslateY="-80" />
+                    </Border.RenderTransform>
+                    <TextBlock 
+                        x:Name="WaveText"
+                        Text="Wave"
+                        FontSize="72" 
+                        FontWeight="ExtraBold" 
+                        Foreground="White"
+                        VerticalAlignment="Center" />
+                </Border>
+            </Grid>
+        </Viewbox>
+    </Grid>
+</Page>

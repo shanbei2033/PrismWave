@@ -3,7 +3,7 @@
   <img src="assets/logo.png" alt="logo" width="128">
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
-  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.3-blue" alt="Release"></a>
+  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.4-blue" alt="Release"></a>
   <a href="https://dotnet.microsoft.com"><img src="https://img.shields.io/badge/.NET-10-blue" alt=".NET"></a>
 </div>
 
@@ -26,20 +26,18 @@ PrismWave 是一款基于 **WinUI 3 和 .NET 10** 的原生 Windows 11 音乐播
 - 经典纯色、浅色 Windows 11 云母和亚克力外观切换
 - 在线歌曲可从搜索页和首页添加到库与收藏
 
-## 最新版本：v1.0.3
+## 最新版本：v1.0.4
 
-本次发布带来多项体验改进和新功能：
+本次发布新增启动动画、搜索历史管理和版本检测功能：
 
-- 修复单曲循环模式下歌曲播放完成后无法重新播放的问题
-- 修复切换歌曲时进度条滑块未归位的问题
-- 移除库页面的"更多选项"按钮，改为右键上下文菜单
-- 收藏按钮统一无边框样式，更简洁
-- 修复播放在线歌曲时收藏按钮灰色不可用的问题
-- 搜索结果和首页趋势歌曲支持"添加到库"
-- 在线歌曲加入库后持久保存，rescan 后不丢失
-- 增强 migu、酷狗、太合的音源解析（添加 gdstudio 兜底）
+- 新增应用启动动画：PrismWave Logo 从左侧滑入并从上方落下组合，停留后向右飞出渐隐，过渡到首页
+- 新增搜索历史右键删除功能：在搜索页历史记录上右键即可删除对应记录
+- 新增版本检测功能：设置页基本选项底部新增版本卡片，支持手动检测 GitHub Release 最新版本
+- 新增自动检测更新：开启后每次启动应用静默检测新版本，有更新时右上角弹出通知弹窗
+- 更新通知弹窗支持关闭按钮，点击后弹窗缩回右侧
+- 修复启动动画播放期间关闭窗口导致进程无法正常退出的问题
 
-下载请前往 [v1.0.3 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.3)。
+下载请前往 [v1.0.4 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.4)。
 
 ## 功能
 
@@ -56,6 +54,8 @@ PrismWave 是一款基于 **WinUI 3 和 .NET 10** 的原生 Windows 11 音乐播
   - HITS 节目单由 [prismwave-hits](https://github.com/shanbei2033/prismwave-hits) 仓库生成
 - 在线歌曲可从搜索页和首页添加到库与收藏
 - 开发者模式：实时播放日志窗口与本地日志文件
+- 启动动画：PrismWave Logo 入场与退场动画
+- 版本检测：GitHub Release API 自动检测更新与通知弹窗
 
 ## 技术栈
 

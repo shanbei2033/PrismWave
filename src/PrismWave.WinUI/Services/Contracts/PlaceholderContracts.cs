@@ -38,7 +38,31 @@ public interface IDialogService
 
 public interface IUpdateService
 {
+    /// <summary>当前应用版本号，如 "1.0.3"</summary>
+    string CurrentVersion { get; }
+
+    /// <summary>最新版本号，未检测时为 null</summary>
+    string? LatestVersion { get; }
+
+    /// <summary>最新版的下载直链</summary>
+    string? LatestDownloadUrl { get; }
+
+    /// <summary>是否检测到新版本</summary>
+    bool HasUpdate { get; }
+
+    /// <summary>检测最新版本（异步）</summary>
+    Task<UpdateCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>当检测到新版本时触发</summary>
+    event Action<UpdateCheckResult>? UpdateAvailable;
 }
+
+public sealed record UpdateCheckResult(
+    bool HasUpdate,
+    string CurrentVersion,
+    string? LatestVersion,
+    string? DownloadUrl,
+    string? ReleaseNotesUrl);
 
 public interface IThemeService
 {

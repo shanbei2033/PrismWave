@@ -13,6 +13,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly IPlaybackService _playbackService;
     private readonly IMusicFolderPicker _folderPicker;
     private readonly IOnlineAudioCache _onlineAudioCache;
+    private readonly IUpdateService _updateService;
     private string _language = "zh-CN";
     private bool _experimentalFeaturesEnabled;
     private bool _onlineModeEnabled = true;
@@ -33,13 +34,15 @@ public sealed partial class SettingsViewModel : ObservableObject
         IDeveloperLogService developerLogService,
         IOnlineAccountService onlineAccountService,
         IMusicFolderPicker folderPicker,
-        IOnlineAudioCache onlineAudioCache)
+        IOnlineAudioCache onlineAudioCache,
+        IUpdateService updateService)
     {
         _settingsService = settingsService;
         _developerLogService = developerLogService;
         _playbackService = playbackService;
         _folderPicker = folderPicker;
         _onlineAudioCache = onlineAudioCache;
+        _updateService = updateService;
         _onlineAudioCache.CacheChanged += (_, _) => RefreshCacheStatus();
         LibraryFolders = libraryFolders;
         OnlineAccounts = new OnlineAccountSettingsViewModel(onlineAccountService);
@@ -351,5 +354,90 @@ public sealed partial class SettingsViewModel : ObservableObject
     private void RefreshOnlineAccountAvailability()
     {
         OnlineAccounts.IsLoginEnabled = true;
+    }
+
+    // --- Version checking ---
+
+    public string CurrentVersion => _updateService.CurrentVersion;
+
+    public string LatestVersionDisplay => _updateService.LatestVersion ?? "未检测";
+
+    public bool HasUpdate => _updateService.HasUpdate;
+
+    private bool _isCheckingUpdate;
+    public bool IsCheckingUpdate
+    {
+        get => _isCheckingUpdate;
+        private set
+        {
+            if (SetProperty(ref _isCheckingUpdate, value))
+            {
+                OnPropertyChanged(nameof(UpdateButtonText));
+                OnPropertyChanged(nameof(CanCheckUpdate));
+            }
+        }
+    }
+
+    private bool _isUpToDate;
+    public bool IsUpToDate
+    {
+        get => _isUpToDate;
+        private set
+        {
+            if (SetProperty(ref _isUpToDate, value))
+            {
+                OnPropertyChanged(nameof(UpdateButtonText));
+            }
+        }
+    }
+
+    public bool CanCheckUpdate => !IsCheckingUpdate;
+
+    public string UpdateButtonText => HasUpdate ? "下载" : IsCheckingUpdate ? "检测中..." : IsUpToDate ? "已是最新" : "检测版本";
+
+    public bool AutoCheckUpdate
+    {
+        get => _settingsService.Current.AutoCheckUpdate;
+        set
+        {
+            _ = _settingsService.SaveAsync(_settingsService.Current with { AutoCheckUpdate = value });
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCheckUpdate))]
+    private async Task CheckUpdateAsync()
+    {
+        IsCheckingUpdate = true;
+        IsUpToDate = false;
+        try
+        {
+            var result = await _updateService.CheckForUpdatesAsync();
+            OnPropertyChanged(nameof(LatestVersionDisplay));
+            OnPropertyChanged(nameof(HasUpdate));
+            OnPropertyChanged(nameof(UpdateButtonText));
+            if (!result.HasUpdate)
+            {
+                IsUpToDate = true;
+                await Task.Delay(2000);
+                IsUpToDate = false;
+            }
+        }
+        finally
+        {
+            IsCheckingUpdate = false;
+            CheckUpdateCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    [RelayCommand]
+    private async Task DownloadUpdateAsync()
+    {
+        var url = _updateService.LatestDownloadUrl;
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return;
+        }
+
+        await Windows.System.Launcher.LaunchUriAsync(new Uri(url));
     }
 }

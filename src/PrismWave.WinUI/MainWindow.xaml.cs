@@ -1,5 +1,7 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using PrismWave_WinUI.Infrastructure;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.Services.Contracts;
@@ -12,6 +14,11 @@ public sealed partial class MainWindow : Window
     private bool _isImmersiveTitleBar;
     private readonly ISettingsService _settingsService;
     private string? _activeAppearanceStyle;
+
+    /// <summary>
+    /// Gets the root frame used for navigation. Exposed for splash screen integration.
+    /// </summary>
+    internal FrameworkElement GetRootFrameElement() => (FrameworkElement)WindowRoot.FindName("RootFrame") ?? throw new InvalidOperationException("Frame not found in MainWindow");
 
     public MainWindow(WindowLaunchSize launchSize)
     {
@@ -37,8 +44,7 @@ public sealed partial class MainWindow : Window
         ApplyAppearanceStyle(_settingsService.Current.AppearanceStyle);
         StartupLog.Write($"Window launch size: {launchSize.Width}x{launchSize.Height}");
 
-        RootFrame.Navigate(typeof(ShellPage));
-        StartupLog.Write("ShellPage navigation requested");
+        // Note: Navigation to ShellPage is handled by App after splash screen animation
     }
 
     internal void SetImmersiveTitleBar(bool isImmersive, UIElement? dragRegion = null)
@@ -68,6 +74,85 @@ public sealed partial class MainWindow : Window
     {
         _settingsService.SettingsChanged -= SettingsService_SettingsChanged;
         StartupLog.Write("MainWindow closed");
+    }
+
+    // --- Update notification ---
+
+    private string? _pendingUpdateDownloadUrl;
+
+    internal void ShowUpdateNotification(UpdateCheckResult result)
+    {
+        UpdateVersionText.Text = $"最新版本 {result.LatestVersion} 已发布，当前版本 {result.CurrentVersion}";
+        _pendingUpdateDownloadUrl = result.DownloadUrl;
+        UpdateNotification.Visibility = Visibility.Visible;
+
+        var slideIn = new DoubleAnimation
+        {
+            From = 320,
+            To = 0,
+            Duration = new Duration(TimeSpan.FromSeconds(0.3)),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        Storyboard.SetTarget(slideIn, UpdateNotification);
+        Storyboard.SetTargetProperty(slideIn, "(UIElement.RenderTransform).(CompositeTransform.TranslateX)");
+
+        var fadeIn = new DoubleAnimation
+        {
+            From = 0,
+            To = 1,
+            Duration = new Duration(TimeSpan.FromSeconds(0.3)),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        Storyboard.SetTarget(fadeIn, UpdateNotification);
+        Storyboard.SetTargetProperty(fadeIn, "Opacity");
+
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(slideIn);
+        storyboard.Children.Add(fadeIn);
+        storyboard.Begin();
+    }
+
+    private async void UpdateDownloadButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrWhiteSpace(_pendingUpdateDownloadUrl))
+        {
+            await Windows.System.Launcher.LaunchUriAsync(new Uri(_pendingUpdateDownloadUrl));
+        }
+        HideUpdateNotification();
+    }
+
+    private void HideUpdateNotification()
+    {
+        var slideOut = new DoubleAnimation
+        {
+            From = 0,
+            To = 320,
+            Duration = new Duration(TimeSpan.FromSeconds(0.25)),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+        };
+        Storyboard.SetTarget(slideOut, UpdateNotification);
+        Storyboard.SetTargetProperty(slideOut, "(UIElement.RenderTransform).(CompositeTransform.TranslateX)");
+
+        var fadeOut = new DoubleAnimation
+        {
+            From = 1,
+            To = 0,
+            Duration = new Duration(TimeSpan.FromSeconds(0.25)),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+        };
+        Storyboard.SetTarget(fadeOut, UpdateNotification);
+        Storyboard.SetTargetProperty(fadeOut, "Opacity");
+
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(slideOut);
+        storyboard.Children.Add(fadeOut);
+        storyboard.Completed += (_, _) => UpdateNotification.Visibility = Visibility.Collapsed;
+        storyboard.Begin();
+    }
+
+    private void UpdateCloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        HideUpdateNotification();
     }
 
     private void ApplyAppearanceStyle(string? requestedStyle)

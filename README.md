@@ -15,7 +15,7 @@ and configurable appearance styles (Dark/Light Beta).
 
 ## WinUI Edition
 
-The default development branch is [`main`](https://github.com/shanbei2033/PrismWave/tree/main).
+The default development branch is [`WinUI`](https://github.com/shanbei2033/PrismWave/tree/WinUI).
 This branch is the active native implementation and includes:
 
 - WinUI 3 desktop shell with immersive FullPlay
@@ -85,14 +85,14 @@ PrismWave/
 ## Run (WinUI)
 
 ```powershell
-git checkout main
+git checkout WinUI
 dotnet run --project src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64
 ```
 
 ## Build (WinUI)
 
 ```powershell
-git checkout main
+git checkout WinUI
 dotnet build src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64 --no-restore
 dotnet test tests/PrismWave.WinUI.Tests/PrismWave.WinUI.Tests.csproj --no-restore
 ```

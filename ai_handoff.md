@@ -13,7 +13,7 @@
 | 项目 | 状态 |
 |------|------|
 | 工作目录 | `E:\Project\PrismWave` |
-| Git 分支 | `main` (唯一主分支) |
+| Git 分支 | `WinUI` (默认分支) |
 | WinUI 工程 | `src/PrismWave.WinUI/`，技术栈 WinUI 3 / .NET 10 / CommunityToolkit.Mvvm / TagLibSharp |
 | 测试工程 | `tests/PrismWave.WinUI.Tests/`，458 项测试通过 |
 | 播放后端 | `native/libmpv-winui/libmpv-2.dll`（完整解码版，支持 MPV 自动/WASAPI 共享/WASAPI 独占） |

@@ -14,7 +14,7 @@ PrismWave 是一款基于 **WinUI 3 和 .NET 10** 的原生 Windows 11 音乐播
 
 ## WinUI 版本
 
-默认开发分支是 [`main`](https://github.com/shanbei2033/PrismWave/tree/main)。
+默认开发分支是 [`WinUI`](https://github.com/shanbei2033/PrismWave/tree/WinUI)。
 该分支是当前主要的原生实现，包含：
 
 - WinUI 3 桌面外壳与沉浸式 FullPlay
@@ -80,14 +80,14 @@ PrismWave/
 ## 运行（WinUI）
 
 ```powershell
-git checkout main
+git checkout WinUI
 dotnet run --project src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64
 ```
 
 ## 构建（WinUI）
 
 ```powershell
-git checkout main
+git checkout WinUI
 dotnet build src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64 --no-restore
 dotnet test tests/PrismWave.WinUI.Tests/PrismWave.WinUI.Tests.csproj --no-restore
 ```

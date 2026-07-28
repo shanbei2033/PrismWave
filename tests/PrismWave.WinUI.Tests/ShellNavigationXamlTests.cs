@@ -38,7 +38,7 @@ public sealed class ShellNavigationXamlTests
     }
 
     [Fact]
-    public void Shell_UsesRadioSvgForHitsOnly()
+    public void Shell_UsesFontIconForHitsNavigationItem()
     {
         var xamlPath = FindRepositoryFile(
             "src", "PrismWave.WinUI", "Views", "Shell", "ShellPage.xaml");
@@ -46,26 +46,16 @@ public sealed class ShellNavigationXamlTests
         var hitsItem = Assert.Single(document.Descendants(), element =>
             element.Name.LocalName == "NavigationViewItem" &&
             element.Attribute("Tag")?.Value == "Hits");
-        var imageIcon = Assert.Single(hitsItem.Descendants(), element =>
+        var fontIcon = Assert.Single(hitsItem.Descendants(), element =>
+            element.Name.LocalName == "FontIcon");
+        Assert.NotNull(fontIcon.Attribute("Glyph"));
+        // Ensure no hardcoded SVG icons that don't adapt to theme
+        Assert.DoesNotContain(hitsItem.Descendants(), element =>
             element.Name.LocalName == "ImageIcon");
-        var svgSource = Assert.Single(imageIcon.Descendants(), element =>
-            element.Name.LocalName == "SvgImageSource");
-
-        Assert.Equal("20", imageIcon.Attribute("Width")?.Value);
-        Assert.Equal("20", imageIcon.Attribute("Height")?.Value);
-        Assert.Equal("ms-appx:///Assets/Icons/radio.svg", svgSource.Attribute("UriSource")?.Value);
-
-        var project = File.ReadAllText(FindRepositoryFile(
-            "src", "PrismWave.WinUI", "PrismWave.WinUI.csproj"));
-        Assert.Contains("Assets\\Icons\\radio.svg", project, StringComparison.Ordinal);
-        var svg = File.ReadAllText(FindRepositoryFile(
-            "src", "PrismWave.WinUI", "Assets", "Icons", "radio.svg"));
-        Assert.Contains("#F2F2F2", svg, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("#000", svg, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void Shell_UsesAlbumSvgForAlbumsNavigationItem()
+    public void Shell_UsesFontIconForAlbumsNavigationItem()
     {
         var xamlPath = FindRepositoryFile(
             "src", "PrismWave.WinUI", "Views", "Shell", "ShellPage.xaml");
@@ -73,22 +63,12 @@ public sealed class ShellNavigationXamlTests
         var albumsItem = Assert.Single(document.Descendants(), element =>
             element.Name.LocalName == "NavigationViewItem" &&
             element.Attribute("Tag")?.Value == "Albums");
-        var imageIcon = Assert.Single(albumsItem.Descendants(), element =>
+        var fontIcon = Assert.Single(albumsItem.Descendants(), element =>
+            element.Name.LocalName == "FontIcon");
+        Assert.NotNull(fontIcon.Attribute("Glyph"));
+        // Ensure no hardcoded SVG icons that don't adapt to theme
+        Assert.DoesNotContain(albumsItem.Descendants(), element =>
             element.Name.LocalName == "ImageIcon");
-        var svgSource = Assert.Single(imageIcon.Descendants(), element =>
-            element.Name.LocalName == "SvgImageSource");
-
-        Assert.Equal("20", imageIcon.Attribute("Width")?.Value);
-        Assert.Equal("20", imageIcon.Attribute("Height")?.Value);
-        Assert.Equal("ms-appx:///Assets/Icons/album.svg", svgSource.Attribute("UriSource")?.Value);
-
-        var project = File.ReadAllText(FindRepositoryFile(
-            "src", "PrismWave.WinUI", "PrismWave.WinUI.csproj"));
-        Assert.Contains(@"Assets\Icons\album.svg", project, StringComparison.Ordinal);
-        var svg = File.ReadAllText(FindRepositoryFile(
-            "src", "PrismWave.WinUI", "Assets", "Icons", "album.svg"));
-        Assert.Contains("viewBox=\"0 0 24 24\"", svg, StringComparison.Ordinal);
-        Assert.Contains("circle", svg, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

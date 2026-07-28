@@ -184,6 +184,8 @@ public sealed record OnlineAccountCardViewModel(
     bool IsAuthenticated,
     bool CanSignOut)
 {
+    public bool HasAvatar => !string.IsNullOrWhiteSpace(AvatarUrl);
+
     internal static OnlineAccountCardViewModel FromSnapshot(
         string providerName,
         OnlineAccountSnapshot snapshot)
@@ -203,7 +205,7 @@ public sealed record OnlineAccountCardViewModel(
             snapshot.ProviderKey,
             providerName,
             snapshot.State,
-            string.IsNullOrWhiteSpace(snapshot.DisplayName) ? providerName : snapshot.DisplayName,
+            string.IsNullOrWhiteSpace(snapshot.DisplayName) ? string.Empty : snapshot.DisplayName,
             NormalizePublicAvatarUrl(snapshot.AvatarUrl),
             status,
             snapshot.State == OnlineProviderAuthState.Authenticated,
@@ -212,6 +214,18 @@ public sealed record OnlineAccountCardViewModel(
 
     private static string? NormalizePublicAvatarUrl(string? value)
     {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        // Handle protocol-relative URLs (e.g., //p1.music.126.net/xxx.jpg)
+        // NetEase and QQ Music APIs commonly return this format
+        if (value.StartsWith("//", StringComparison.Ordinal))
+        {
+            value = "https:" + value;
+        }
+
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)
             || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
         {
@@ -222,8 +236,8 @@ public sealed record OnlineAccountCardViewModel(
         {
             UserName = string.Empty,
             Password = string.Empty,
-            Query = string.Empty,
-            Fragment = string.Empty,
         }.Uri.AbsoluteUri.TrimEnd('/');
+        // Note: Query string is preserved because NetEase/QQ avatar URLs may include
+        // size parameters (e.g., ?param=48y48) that affect the returned image
     }
 }

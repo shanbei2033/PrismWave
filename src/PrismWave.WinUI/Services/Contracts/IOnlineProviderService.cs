@@ -79,4 +79,10 @@ public interface IOnlineProviderService
     }
 
     void InvalidatePlaybackUrl(string playbackUrl);
+
+    /// <summary>
+    /// Resolve a cover URL by searching Deezer for the same song.
+    /// Cross-source fallback for providers that don't return cover URLs.
+    /// </summary>
+    Task<string?> ResolveCoverFromDeezerAsync(string title, string artist, CancellationToken cancellationToken = default);
 }

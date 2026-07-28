@@ -344,6 +344,19 @@ public sealed class OnlineAccountService : IOnlineAccountService, IDisposable
                 return null;
             }
 
+            // Fetch user profile after validating the session
+            string? profileDisplayName = null;
+            string? profileAvatarUrl = null;
+            try
+            {
+                (profileDisplayName, profileAvatarUrl) = await adapter.FetchProfileAsync(
+                    candidate, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Profile fetch is best effort; session is still valid without it
+            }
+
             lock (_sync)
             {
                 if (state.Revision != revision || state.CredentialsLoaded)
@@ -356,7 +369,11 @@ public sealed class OnlineAccountService : IOnlineAccountService, IDisposable
                 state.Session = candidate;
                 state.SessionVerified = true;
                 state.AuthenticationRecoveryAttempted = false;
-                state.Snapshot = new(key, OnlineProviderAuthState.Authenticated);
+                state.Snapshot = new(
+                    key,
+                    OnlineProviderAuthState.Authenticated,
+                    DisplayName: profileDisplayName,
+                    AvatarUrl: profileAvatarUrl);
 
                 return state.Session;
             }
@@ -717,6 +734,10 @@ internal interface IOnlineLoginAdapter
     Task<IReadOnlyDictionary<string, string>?> RecoverSessionAsync(
         OnlineProviderSession session,
         CancellationToken cancellationToken);
+
+    Task<(string? DisplayName, string? AvatarUrl)> FetchProfileAsync(
+        OnlineProviderSession session,
+        CancellationToken cancellationToken);
 }
 
 internal sealed record AdapterChallenge(
@@ -787,7 +808,7 @@ internal sealed class NeteaseQrLoginAdapter(HttpClient httpClient, Func<DateTime
             800 => new(OnlineProviderAuthState.Expired),
             801 => new(OnlineProviderAuthState.WaitingForScan),
             802 => new(OnlineProviderAuthState.Scanned),
-            803 => CreateAuthenticatedResult(json.RootElement, response),
+            803 => await CreateAuthenticatedResultAsync(json.RootElement, response, cancellationToken).ConfigureAwait(false),
             _ => new(OnlineProviderAuthState.Failed, StatusMessage: "Login service is temporarily unavailable."),
         };
     }
@@ -849,9 +870,10 @@ internal sealed class NeteaseQrLoginAdapter(HttpClient httpClient, Func<DateTime
         return cookies;
     }
 
-    private static AdapterPollResult CreateAuthenticatedResult(
+    private async Task<AdapterPollResult> CreateAuthenticatedResultAsync(
         JsonElement root,
-        HttpResponseMessage response)
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
     {
         var cookies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         CookieUtilities.CollectAllowed(
@@ -866,9 +888,83 @@ internal sealed class NeteaseQrLoginAdapter(HttpClient httpClient, Func<DateTime
             }
         }
 
-        return !CookieUtilities.HasNeteaseAuthenticationCookie(cookies)
-            ? new(OnlineProviderAuthState.Failed, StatusMessage: "Login could not be verified.")
-            : new(OnlineProviderAuthState.Authenticated, cookies);
+        if (!CookieUtilities.HasNeteaseAuthenticationCookie(cookies))
+        {
+            return new(OnlineProviderAuthState.Failed, StatusMessage: "Login could not be verified.");
+        }
+
+        // Try to extract profile from the login response first
+        var displayName = TryGetString(root, "nickname");
+        var avatarUrl = TryGetString(root, "avatarUrl");
+
+        if (root.TryGetProperty("profile", out var profile) && profile.ValueKind == JsonValueKind.Object)
+        {
+            displayName ??= TryGetString(profile, "nickname");
+            avatarUrl ??= TryGetString(profile, "avatarUrl");
+        }
+
+        // If profile data is missing from login response, fetch it from the account API
+        if (string.IsNullOrWhiteSpace(displayName) || string.IsNullOrWhiteSpace(avatarUrl))
+        {
+            var cookieHeader = string.Join("; ", cookies.Select(static pair => $"{pair.Key}={pair.Value}"));
+            var (fetchedName, fetchedAvatar) = await FetchNeteaseUserProfileAsync(
+                cookieHeader, cancellationToken).ConfigureAwait(false);
+            displayName ??= fetchedName;
+            avatarUrl ??= fetchedAvatar;
+        }
+
+        return new(
+            OnlineProviderAuthState.Authenticated,
+            cookies,
+            DisplayName: displayName,
+            AvatarUrl: avatarUrl);
+    }
+
+    private async Task<(string? DisplayName, string? AvatarUrl)> FetchNeteaseUserProfileAsync(
+        string cookieHeader,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, AccountUri);
+            request.Headers.TryAddWithoutValidation("Cookie", cookieHeader);
+            using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return (null, null);
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var root = json.RootElement;
+            if (TryGetInt32(root, "code") != 200)
+            {
+                return (null, null);
+            }
+
+            // The account API returns profile under "profile" object
+            string? name = null;
+            string? avatar = null;
+            if (root.TryGetProperty("profile", out var profile) && profile.ValueKind == JsonValueKind.Object)
+            {
+                name = TryGetString(profile, "nickname");
+                avatar = TryGetString(profile, "avatarUrl");
+            }
+
+            // Fallback: check "account" object
+            if (string.IsNullOrWhiteSpace(name) &&
+                root.TryGetProperty("account", out var account) && account.ValueKind == JsonValueKind.Object)
+            {
+                name ??= TryGetString(account, "userName");
+                avatar ??= TryGetString(account, "avatarUrl");
+            }
+
+            return (name, avatar);
+        }
+        catch
+        {
+            return (null, null);
+        }
     }
 
     private static int TryGetInt32(JsonElement element, string propertyName)
@@ -890,6 +986,14 @@ internal sealed class NeteaseQrLoginAdapter(HttpClient httpClient, Func<DateTime
 
     private static bool IsNonNullObject(JsonElement element, string propertyName) =>
         element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.Object;
+
+    public async Task<(string? DisplayName, string? AvatarUrl)> FetchProfileAsync(
+        OnlineProviderSession session,
+        CancellationToken cancellationToken)
+    {
+        return await FetchNeteaseUserProfileAsync(session.CookieHeader, cancellationToken)
+            .ConfigureAwait(false);
+    }
 
     private sealed record NeteaseChallengeContext(string Key);
 }
@@ -1030,6 +1134,11 @@ internal sealed class QqQrLoginAdapter(
             : int.TryParse(value.ToString(), CultureInfo.InvariantCulture, out code);
     }
 
+    private static string? TryGetString(JsonElement element, string propertyName) =>
+        element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
     private static Uri BuildPollUri(string qrsig, DateTimeOffset now)
     {
         var parameters = new Dictionary<string, string>
@@ -1121,7 +1230,77 @@ internal sealed class QqQrLoginAdapter(
         var displayName = callbackFields.Count > 5 && !string.IsNullOrWhiteSpace(callbackFields[5])
             ? callbackFields[5]
             : null;
-        return new(OnlineProviderAuthState.Authenticated, normalized, displayName);
+
+        // Fetch avatar from QQ Music user info API
+        var (qqAvatarUrl, qqDisplayName) = await FetchQqUserInfoAsync(
+            normalized, cancellationToken).ConfigureAwait(false);
+
+        return new(
+            OnlineProviderAuthState.Authenticated,
+            normalized,
+            DisplayName: qqDisplayName ?? displayName,
+            AvatarUrl: qqAvatarUrl);
+    }
+
+    private async Task<(string? AvatarUrl, string? DisplayName)> FetchQqUserInfoAsync(
+        IReadOnlyDictionary<string, string> cookies,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var uin = cookies.GetValueOrDefault("uin") ?? string.Empty;
+            var payload = JsonSerializer.Serialize(new
+            {
+                comm = new { ct = 24, cv = 0, uin },
+                req_1 = new
+                {
+                    module = "music.UserInfo.userInfoServer",
+                    method = "GetLoginUserInfo",
+                    param = new { },
+                },
+            });
+            using var request = new HttpRequestMessage(HttpMethod.Post, UserInfoUri)
+            {
+                Content = new StringContent(payload, System.Text.Encoding.UTF8, "application/json"),
+            };
+            request.Headers.Referrer = Referer;
+            request.Headers.TryAddWithoutValidation(
+                "Cookie",
+                string.Join("; ", cookies.Select(static pair => $"{pair.Key}={pair.Value}")));
+
+            using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return (null, null);
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var root = json.RootElement;
+            if (!TryReadCode(root, out var rootCode) || rootCode != 0 ||
+                !root.TryGetProperty("req_1", out var userInfo) ||
+                !TryReadCode(userInfo, out var userInfoCode) || userInfoCode != 0 ||
+                !userInfo.TryGetProperty("data", out var data) ||
+                data.ValueKind != JsonValueKind.Object)
+            {
+                return (null, null);
+            }
+
+            var avatarUrl = TryGetString(data, "headurl") ?? TryGetString(data, "avatarUrl");
+            var name = TryGetString(data, "nick") ?? TryGetString(data, "nickname");
+
+            // QQ avatar URLs may be protocol-relative
+            if (!string.IsNullOrWhiteSpace(avatarUrl) && avatarUrl.StartsWith("//", StringComparison.Ordinal))
+            {
+                avatarUrl = "https:" + avatarUrl;
+            }
+
+            return (avatarUrl, name);
+        }
+        catch
+        {
+            return (null, null);
+        }
     }
 
     private static bool IsRedirect(HttpStatusCode statusCode) => statusCode is
@@ -1139,6 +1318,14 @@ internal sealed class QqQrLoginAdapter(
     private static bool IsWithinDomain(string host, string trustedSuffix) =>
         host.Equals(trustedSuffix, StringComparison.OrdinalIgnoreCase) ||
         host.EndsWith($".{trustedSuffix}", StringComparison.OrdinalIgnoreCase);
+
+    public async Task<(string? DisplayName, string? AvatarUrl)> FetchProfileAsync(
+        OnlineProviderSession session,
+        CancellationToken cancellationToken)
+    {
+        return await FetchQqUserInfoAsync(session.Cookies, cancellationToken)
+            .ConfigureAwait(false);
+    }
 
     private sealed record QqChallengeContext(string QrSignature);
 }

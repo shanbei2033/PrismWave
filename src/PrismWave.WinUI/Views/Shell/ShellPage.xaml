@@ -60,14 +60,7 @@
                 </NavigationViewItem>
                 <NavigationViewItem Content="{Binding AlbumsLabel}" Tag="Albums">
                     <NavigationViewItem.Icon>
-                        <ImageIcon
-                            Width="20"
-                            Height="20"
-                            AutomationProperties.AutomationId="AlbumsIcon">
-                            <ImageIcon.Source>
-                                <SvgImageSource UriSource="ms-appx:///Assets/Icons/album.svg" />
-                            </ImageIcon.Source>
-                        </ImageIcon>
+                        <FontIcon Glyph="&#xE93C;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Content="{Binding ArtistsLabel}" Tag="Artists">
@@ -85,14 +78,7 @@
                     Tag="Hits"
                     Visibility="{Binding IsOnlineNavigationVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                     <NavigationViewItem.Icon>
-                        <ImageIcon
-                            Width="20"
-                            Height="20"
-                            AutomationProperties.AutomationId="HitsRadioIcon">
-                            <ImageIcon.Source>
-                                <SvgImageSource UriSource="ms-appx:///Assets/Icons/radio.svg" />
-                            </ImageIcon.Source>
-                        </ImageIcon>
+                        <ImageIcon Source="ms-appx:///Assets/Icons/hits_radio.svg" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>

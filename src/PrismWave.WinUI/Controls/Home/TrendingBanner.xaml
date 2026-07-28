@@ -7,12 +7,7 @@
     SizeChanged="BannerRoot_SizeChanged">
 
     <UserControl.Resources>
-        <AcrylicBrush
-            x:Key="TrendingAcrylicBrush"
-            TintColor="#FF303135"
-            TintOpacity="0.66"
-            TintLuminosityOpacity="0.72"
-            FallbackColor="#ED303135" />
+        <SolidColorBrush x:Key="TrendingOverlayBrush" Color="{StaticResource PrismSurfaceColor}" Opacity="0.72" />
     </UserControl.Resources>
 
     <Grid x:Name="LayoutRoot">
@@ -47,9 +42,9 @@
                 Height="220"
                 Source="{Binding BackdropUrl, ElementName=BannerRoot, Converter={StaticResource CoverImageSourceConverter}}"
                 Stretch="UniformToFill"
-                Opacity="0.28"
+                Opacity="0.55"
                 AutomationProperties.AutomationId="HeroBackdrop" />
-            <Border Background="{StaticResource TrendingAcrylicBrush}" CornerRadius="12" />
+            <Border Background="{StaticResource PrismGlassBrush}" CornerRadius="12" Opacity="0.5" />
 
             <Grid Padding="28,20,24,20" ColumnSpacing="36">
                 <Grid.ColumnDefinitions>
@@ -68,7 +63,7 @@
                             Text="TRENDING"
                             FontSize="12"
                             FontWeight="SemiBold"
-                            Foreground="#FFB9BEC8" />
+                            Foreground="{StaticResource PrismTextSecondaryBrush}" />
                         <TextBlock
                             Text="TOP 100"
                             FontSize="12"
@@ -81,20 +76,20 @@
                         FontFamily="Segoe UI Variable Display, Microsoft YaHei UI"
                         FontSize="44"
                         FontWeight="Bold"
-                        Foreground="#FFF6F6F7"
+                        Foreground="{StaticResource PrismTextPrimaryBrush}"
                         TextTrimming="CharacterEllipsis"
                         TextWrapping="NoWrap" />
                     <TextBlock
                         MaxWidth="560"
                         Text="汇集今天最受关注的作品，按全球趋势持续更新。"
                         FontSize="15"
-                        Foreground="#FFB9BEC8"
+                        Foreground="{StaticResource PrismTextSecondaryBrush}"
                         TextWrapping="Wrap" />
                     <TextBlock
                         MaxWidth="560"
                         Text="{Binding Subtitle, ElementName=BannerRoot}"
                         FontSize="12"
-                        Foreground="#FF8E96A3"
+                        Foreground="{StaticResource PrismTextMutedBrush}"
                         TextTrimming="CharacterEllipsis"
                         TextWrapping="NoWrap" />
                     <StackPanel Margin="0,8,0,0" Orientation="Horizontal" Spacing="8">

@@ -138,6 +138,12 @@ public sealed class OnlineSearchServiceTests
         public void InvalidatePlaybackUrl(string playbackUrl)
         {
         }
+
+        public Task<string?> ResolveCoverFromDeezerAsync(
+            string title,
+            string artist,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<string?>(null);
     }
 
     private sealed class FakeLibraryService(IReadOnlyList<TrackModel> tracks) : ILibraryService

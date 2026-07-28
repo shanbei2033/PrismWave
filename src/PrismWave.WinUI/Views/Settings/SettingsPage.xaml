@@ -3,7 +3,11 @@
     x:Class="PrismWave_WinUI.Views.Settings.SettingsPage"
     x:Name="SettingsRoot"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:PrismWave_WinUI.Converters">
+    <Page.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    </Page.Resources>
     <Grid Padding="{StaticResource PrismPagePadding}" RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -121,7 +125,7 @@
                                 <Border Width="48" Height="48" CornerRadius="24" Background="{StaticResource PrismSurfaceStrongBrush}">
                                     <Grid>
                                         <FontIcon Glyph="&#xE77B;" FontSize="22" Foreground="{StaticResource PrismTextMutedBrush}" />
-                                        <Image Source="{Binding OnlineAccounts.Netease.AvatarUrl}" Stretch="UniformToFill" />
+                                        <Image Source="{Binding OnlineAccounts.Netease.AvatarUrl}" Stretch="UniformToFill" Visibility="{Binding OnlineAccounts.Netease.HasAvatar, Converter={StaticResource BoolToVisibilityConverter}}" />
                                     </Grid>
                                 </Border>
                                 <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
@@ -145,7 +149,7 @@
                                 <Border Width="48" Height="48" CornerRadius="24" Background="{StaticResource PrismSurfaceStrongBrush}">
                                     <Grid>
                                         <FontIcon Glyph="&#xE77B;" FontSize="22" Foreground="{StaticResource PrismTextMutedBrush}" />
-                                        <Image Source="{Binding OnlineAccounts.Qq.AvatarUrl}" Stretch="UniformToFill" />
+                                        <Image Source="{Binding OnlineAccounts.Qq.AvatarUrl}" Stretch="UniformToFill" Visibility="{Binding OnlineAccounts.Qq.HasAvatar, Converter={StaticResource BoolToVisibilityConverter}}" />
                                     </Grid>
                                 </Border>
                                 <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
@@ -168,8 +172,7 @@
                                     Header="{Binding Text.PreferredStreamingQuality}"
                                     ItemsSource="{Binding OnlineQualityOptions}"
                                     DisplayMemberPath="DisplayName"
-                                    SelectedValuePath="Value"
-                                    SelectedValue="{Binding OnlineQualityPreference, Mode=TwoWay}"
+                                    SelectedItem="{Binding SelectedOnlineQualityOption, Mode=TwoWay}"
                                     IsEnabled="{Binding OnlineAccounts.IsLoginEnabled}"
                                     Width="260"
                                     HorizontalAlignment="Left" />

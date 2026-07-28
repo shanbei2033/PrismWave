@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PrismWave_WinUI.Infrastructure;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.Services.Contracts;
 
@@ -12,6 +13,7 @@ public sealed partial class HomeViewModel : ObservableObject
     private readonly IPlaybackService _playbackService;
     private readonly ICoverService? _coverService;
     private readonly Dictionary<TrackCoverKey, string> _coverOverrides = new();
+    private readonly SynchronizationContext? _uiContext = SynchronizationContext.Current;
     private HomeSectionModel _topPlaylist = new("daily-top-100", "Trending", string.Empty, Array.Empty<HomeTrackModel>());
     private HomeSectionModel _selectedPlaylist = new("daily-top-100", "Trending", string.Empty, Array.Empty<HomeTrackModel>());
     private HomeSectionModel _editorialSection = EmptyEditorialSection();
@@ -31,7 +33,7 @@ public sealed partial class HomeViewModel : ObservableObject
         _homeService = homeService;
         _playbackService = playbackService;
         _coverService = coverService;
-        _homeService.HomeChanged += (_, _) => RefreshFromService();
+        _homeService.HomeChanged += OnHomeChanged;
         _playbackService.StateChanged += (_, _) => SynchronizeCurrentTrackCover();
         if (_coverService is not null)
         {
@@ -39,6 +41,21 @@ public sealed partial class HomeViewModel : ObservableObject
         }
 
         RefreshFromService();
+    }
+
+    private void OnHomeChanged(object? sender, EventArgs e)
+    {
+        // Marshal to UI thread — HomeChanged may fire from a background thread
+        // when App.DispatcherQueue is null (startup/shutdown), causing
+        // ObservableCollection modifications to crash.
+        if (_uiContext is not null)
+        {
+            _uiContext.Post(static state => ((HomeViewModel)state!).RefreshFromService(), this);
+        }
+        else
+        {
+            RefreshFromService();
+        }
     }
 
     public HomeSectionModel TopPlaylist
@@ -190,7 +207,18 @@ public sealed partial class HomeViewModel : ObservableObject
     [RelayCommand]
     private async Task RefreshHomeAsync()
     {
-        await _homeService.RefreshAsync(force: true);
+        try
+        {
+            await _homeService.RefreshAsync(force: true);
+        }
+        catch (OperationCanceledException)
+        {
+            // Refresh cancelled — not an error
+        }
+        catch (Exception exception)
+        {
+            StartupLog.Write($"home.refresh.failed: {exception.Message}", exception);
+        }
     }
 
     [RelayCommand]

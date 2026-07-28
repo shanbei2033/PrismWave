@@ -16,7 +16,7 @@ public sealed class UpdateService : IUpdateService
         Timeout = TimeSpan.FromSeconds(15)
     };
 
-    public string CurrentVersion => "1.0.4";
+    public string CurrentVersion => "1.0.5";
 
     public string? LatestVersion { get; private set; }
     public string? LatestDownloadUrl { get; private set; }

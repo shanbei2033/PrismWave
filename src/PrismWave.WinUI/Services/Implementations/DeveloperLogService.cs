@@ -54,7 +54,14 @@ public sealed class DeveloperLogService : IDeveloperLogService, IDisposable
             File.WriteAllText(FilePath, string.Empty);
         }
 
-        Process.Start(new ProcessStartInfo(FilePath) { UseShellExecute = true });
+        // Launch a PowerShell window that tails the log file in real-time
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            Arguments = $"-NoExit -Command \"Write-Host 'PrismWave Developer Log - Live Stream' -ForegroundColor Cyan; Write-Host 'File: {FilePath}' -ForegroundColor DarkGray; Write-Host ''; Get-Content -Path '{FilePath}' -Wait -Tail 50\"",
+            UseShellExecute = true,
+            WindowStyle = ProcessWindowStyle.Normal
+        });
     }
 
     public void Dispose()

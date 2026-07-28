@@ -10,6 +10,7 @@ namespace PrismWave_WinUI.Controls.Playback;
 public sealed partial class BottomPlayerBar : UserControl
 {
     private PlaybackViewModel? _subscribedViewModel;
+    private bool _isSeeking;
 
     public BottomPlayerBar()
     {
@@ -50,9 +51,18 @@ public sealed partial class BottomPlayerBar : UserControl
         }
         else if (e.PropertyName == nameof(PlaybackViewModel.PositionSeconds)
                  && _subscribedViewModel is not null
-                 && _subscribedViewModel.PositionSeconds == 0)
+                 && !_isSeeking)
         {
-            DispatcherQueue.TryEnqueue(() => SeekSlider.Value = 0);
+            // WinUI 3 Slider OneWay binding stops updating the thumb after user interaction.
+            // Force-update the value on every PositionSeconds change when not seeking.
+            var position = _subscribedViewModel.PositionSeconds;
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (!_isSeeking)
+                {
+                    SeekSlider.Value = position;
+                }
+            });
         }
     }
 
@@ -92,13 +102,20 @@ public sealed partial class BottomPlayerBar : UserControl
         }
     }
 
+    private void SeekSlider_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        _isSeeking = true;
+    }
+
     private void SeekSlider_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
     {
+        _isSeeking = false;
         CommitSeek(sender);
     }
 
     private void SeekSlider_KeyUp(object sender, KeyRoutedEventArgs e)
     {
+        _isSeeking = false;
         CommitSeek(sender);
     }
 

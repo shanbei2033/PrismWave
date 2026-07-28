@@ -3,18 +3,18 @@
   <img src="assets/logo.png" alt="logo" width="128">
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
-  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.4-blue" alt="Release"></a>
+  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.5-blue" alt="Release"></a>
   <a href="https://dotnet.microsoft.com"><img src="https://img.shields.io/badge/.NET-10-blue" alt=".NET"></a>
 </div>
 
 [English README](./README.md)
 
 PrismWave 是一款基于 **WinUI 3 和 .NET 10** 的原生 Windows 11 音乐播放器。
-支持真实本地曲库管理、在线推荐、FullPlay 歌词舞台、DSD HiFi 播放，以及可配置的 Windows 11 材质（纯色/云母/亚克力）。
+支持真实本地曲库管理、在线推荐、FullPlay 歌词舞台，以及可配置的外观样式（深色/浅色 Beta）。
 
 ## WinUI 版本
 
-默认开发分支是 [`WinUI`](https://github.com/shanbei2033/PrismWave/tree/WinUI)。
+默认开发分支是 [`main`](https://github.com/shanbei2033/PrismWave/tree/main)。
 该分支是当前主要的原生实现，包含：
 
 - WinUI 3 桌面外壳与沉浸式 FullPlay
@@ -23,21 +23,22 @@ PrismWave 是一款基于 **WinUI 3 和 .NET 10** 的原生 Windows 11 音乐播
 - 在线音源故障转移与短期磁盘音频缓存
 - 自动歌词，以及可用时的 QQ QRC / 网易云 YRC 逐字时间轴
 - 播放队列、右键操作、封面替换和返回状态保留
-- 经典纯色、浅色 Windows 11 云母和亚克力外观切换
+- 经典深色和浅色 Windows 11 云母（Beta）外观切换
 - 在线歌曲可从搜索页和首页添加到库与收藏
 
-## 最新版本：v1.0.4
+## 最新版本：v1.0.5
 
-本次发布新增启动动画、搜索历史管理和版本检测功能：
+本次发布修复主页刷新闪退、精简外观选项、统一浅色模式 UI：
 
-- 新增应用启动动画：PrismWave Logo 从左侧滑入并从上方落下组合，停留后向右飞出渐隐，过渡到首页
-- 新增搜索历史右键删除功能：在搜索页历史记录上右键即可删除对应记录
-- 新增版本检测功能：设置页基本选项底部新增版本卡片，支持手动检测 GitHub Release 最新版本
-- 新增自动检测更新：开启后每次启动应用静默检测新版本，有更新时右上角弹出通知弹窗
-- 更新通知弹窗支持关闭按钮，点击后弹窗缩回右侧
-- 修复启动动画播放期间关闭窗口导致进程无法正常退出的问题
+- 修复主页刷新榜单按钮闪退问题（跨线程 ObservableCollection 访问）
+- 精简外观选项：删除亚克力，重命名为"深色"和"浅色(Beta)"
+- 修复浅色模式下 UI 不统一：播放栏占位图、趋势 Banner、导航图标、专辑详情渐变
+- HITS 导航图标更换为自定义收音机 SVG 图标
+- 专辑详情页封面显示区域加大，封面顶部对齐
+- 开发者日志"打开"改为实时日志输出窗口（PowerShell Get-Content -Wait）
+- 便携版使用 Bootstrap API 自动加载 Windows App SDK 运行时
 
-下载请前往 [v1.0.4 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.4)。
+下载请前往 [v1.0.5 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.5)。
 
 ## 功能
 
@@ -53,7 +54,7 @@ PrismWave 是一款基于 **WinUI 3 和 .NET 10** 的原生 Windows 11 音乐播
 - HITS 广播模式：基于节目单的在线播放，10 个音源 provider，封面与歌词缓存，预加载
   - HITS 节目单由 [prismwave-hits](https://github.com/shanbei2033/prismwave-hits) 仓库生成
 - 在线歌曲可从搜索页和首页添加到库与收藏
-- 开发者模式：实时播放日志窗口与本地日志文件
+- 开发者模式：实时 PowerShell 日志输出窗口与本地日志文件
 - 启动动画：PrismWave Logo 入场与退场动画
 - 版本检测：GitHub Release API 自动检测更新与通知弹窗
 

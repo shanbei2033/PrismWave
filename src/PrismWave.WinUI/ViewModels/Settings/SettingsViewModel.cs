@@ -25,6 +25,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private int _fadeDurationMs = 220;
     private string _developerLogText = string.Empty;
     private string _developerLogCount = "0 entries";
+    private IReadOnlyList<LocalizedOnlineQualityOption> _onlineQualityOptions = [];
 
     public SettingsViewModel(
         ISettingsService settingsService,
@@ -63,6 +64,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _fadeEnabled = settings.FadeEnabled;
         _fadeDurationMs = settings.FadeDurationMs;
 
+        _onlineQualityOptions = BuildOnlineQualityOptions();
         RefreshLogs();
     }
 
@@ -73,7 +75,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         new(AudioOutputPolicy.WasapiSharedId, Text.WasapiSharedName, Text.WasapiSharedDescription),
         new(AudioOutputPolicy.WasapiExclusiveId, Text.WasapiExclusiveName, Text.WasapiExclusiveDescription)
     ];
-    public IReadOnlyList<LocalizedOnlineQualityOption> OnlineQualityOptions =>
+    public IReadOnlyList<LocalizedOnlineQualityOption> OnlineQualityOptions => _onlineQualityOptions;
+
+    private IReadOnlyList<LocalizedOnlineQualityOption> BuildOnlineQualityOptions() =>
     [
         new(OnlineQualityPreference.Lossless, Text.Lossless),
         new(OnlineQualityPreference.High, Text.HighQuality),
@@ -82,8 +86,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<LocalizedAppearanceStyleOption> AppearanceStyleOptions =>
     [
         new(AppearanceStyleIds.Solid, Text.SolidAppearance, Text.SolidAppearanceDescription),
-        new(AppearanceStyleIds.Mica, Text.MicaAppearance, Text.MicaAppearanceDescription),
-        new(AppearanceStyleIds.Acrylic, Text.AcrylicAppearance, Text.AcrylicAppearanceDescription)
+        new(AppearanceStyleIds.Mica, Text.MicaAppearance, Text.MicaAppearanceDescription)
     ];
     public OnlineAccountSettingsViewModel OnlineAccounts { get; }
     public LibraryFolderManagerViewModel LibraryFolders { get; }
@@ -96,9 +99,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _language, value))
             {
+                _onlineQualityOptions = BuildOnlineQualityOptions();
                 OnPropertyChanged(nameof(Text));
                 OnPropertyChanged(nameof(AudioOutputModeOptions));
                 OnPropertyChanged(nameof(OnlineQualityOptions));
+                OnPropertyChanged(nameof(SelectedOnlineQualityOption));
                 OnPropertyChanged(nameof(AppearanceStyleOptions));
                 OnPropertyChanged(nameof(AppearanceStyleDescription));
                 OnPropertyChanged(nameof(AudioOutputModeDescription));
@@ -152,6 +157,19 @@ public sealed partial class SettingsViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _onlineQualityPreference, value))
+            {
+                OnPropertyChanged(nameof(SelectedOnlineQualityOption));
+                Save();
+            }
+        }
+    }
+
+    public LocalizedOnlineQualityOption? SelectedOnlineQualityOption
+    {
+        get => OnlineQualityOptions.FirstOrDefault(o => o.Value == _onlineQualityPreference);
+        set
+        {
+            if (value is not null && SetProperty(ref _onlineQualityPreference, value.Value, nameof(OnlineQualityPreference)))
             {
                 Save();
             }

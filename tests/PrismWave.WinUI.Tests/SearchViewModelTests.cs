@@ -187,6 +187,12 @@ public sealed class SearchViewModelTests
                 [new SearchResultModel(query, "Artist", "Album", "NetEase", "03:00", false, $"online://netease/1")]);
         }
 
+        public Task<string?> ResolveCoverAsync(
+            string title,
+            string artist,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<string?>(null);
+
         private async Task<IReadOnlyList<SearchResultModel>> WaitAndReturnAsync(
             string query,
             CancellationToken cancellationToken)

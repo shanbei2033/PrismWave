@@ -1,6 +1,6 @@
 # PrismWave AI 接手文档
 
-更新时间：2026-07-26
+更新时间：2026-07-26 (v1.0.5)
 
 **语言要求：接手 AI 必须全程使用中文与用户沟通。**
 
@@ -18,9 +18,10 @@
 | 测试工程 | `tests/PrismWave.WinUI.Tests/`，458 项测试通过 |
 | 播放后端 | `native/libmpv-winui/libmpv-2.dll`（完整解码版，支持 MPV 自动/WASAPI 共享/WASAPI 独占） |
 | 推荐生成器 | `e:\Project\prismwave-hits` (独立 Python 脚本仓库，schema 8 每日首页) |
+| 便携版打包 | `dotnet publish -c Release -r win-x64 --self-contained true`，从 `publish` 目录复制到 `artifacts/` |
 | 最高优先级 | 本地播放真机矩阵验证、在线链路验证、发布前打磨 |
 
-WinUI 工程是**唯一活跃开发分支**，具备完整的本地曲库扫描、元数据读取、在线搜索和播放、歌词系统、HITS 电台模式、FullPlay 逐字歌词舞台、收藏管理、设置功能、启动动画和版本检测。
+WinUI 工程是**唯一活跃开发分支**，具备完整的本地曲库扫描、元数据读取、在线搜索和播放、歌词系统、HITS 电台模式、FullPlay 逐字歌词舞台、收藏管理、设置功能、启动动画和版本检测。当前版本 **v1.0.5**。
 
 ### 构建、测试和启动
 
@@ -142,11 +143,30 @@ python scripts\build_home.py
 
 客户端通过 `latest_home.json` 拉取，缓存策略：当天优先 → 昨天回退 → 内置兜底。
 
+### 便携版打包注意事项
+
+- **不要**使用 `dotnet publish -o <dir>` 指定输出目录，会导致 `.pri` 文件缺失，应用无法启动。正确做法是先 `dotnet publish`（默认输出到 `publish` 子目录），再 `Copy-Item` 复制到目标目录。
+- **不要**使用 `dotnet clean`，会清除 Windows App SDK 注册信息导致 `REGDB_E_CLASSNOTREG` 错误。如已执行，需通过 `dotnet run` 或 `winapp run` 重新注册。
+- csproj 中 `WindowsAppSdkBootstrapInitialize=true` 和 `WindowsAppSdkDeploymentManagerInitialize=false` 是 portable 版本能直接运行的关键，不要删除。
+- 构建命令：`dotnet publish -c Release -r win-x64 --self-contained true`
+
 ---
 
-## 3. 最近修复（2026-07-26）
+## 3. 最近修复（2026-07-26 v1.0.5）
 
-### v1.0.4 新增功能
+### v1.0.5 变更
+
+1. **主页刷新闪退修复**：`HomeViewModel` 的 `Notify()` 方法在 `App.DispatcherQueue` 为 null 时直接在后台线程触发事件，导致 `ObservableCollection` 跨线程访问崩溃。修复：添加 `SynchronizationContext` 确保事件处理在 UI 线程执行，`RefreshHomeAsync` 添加 try-catch。
+2. **外观样式精简**：删除"亚克力"选项，"Windows 11 云母"改为"浅色(Beta)"，"经典纯色"改为"深色"。`SettingsModels.cs` 中 `Acrylic` 常量删除，`Normalize` 自动降级为 `Mica`。
+3. **浅色模式 UI 统一**：修复底部播放栏封面占位图、首页趋势 Banner、导航菜单 SVG 图标、专辑详情页渐变在浅色模式下仍为深色的问题。`TrendingBanner.xaml` 移除 `TrendingAcrylicBrush` 改用 `PrismGlassBrush`；`LocalAlbumDetailPage.xaml.cs` 添加 `UpdateGradientColors()` 方法在 `ActualThemeChanged` 时动态更新渐变色。
+4. **HITS 导航图标**：从 FontIcon 改为自定义 SVG 收音机图标（`Assets/Icons/hits_radio.svg`），使用 `ImageIcon` + `SvgImageSource`。SVG 使用固定颜色 `#F2F2F2`。
+5. **专辑封面显示优化**：`AlbumHero` 高度从 430 增加到 520，`StableCoverImage` 新增 `ImageVerticalAlignment` 依赖属性，专辑详情页设置 `Top` 对齐让封面中间显示在上方。
+6. **开发者日志实时输出**：`DeveloperLogService.OpenLogFile()` 从直接打开日志文件改为启动 PowerShell 窗口，使用 `Get-Content -Wait -Tail 50` 实时监控日志输出。
+7. **Portable 版本 Bootstrap 初始化**：csproj 添加 `WindowsAppSdkBootstrapInitialize=true` 和 `WindowsAppSdkDeploymentManagerInitialize=false`，使 portable 版本通过 Bootstrap API 自动加载 Windows App SDK 运行时，无需系统级 MSIX 包注册。
+
+---
+
+## 4. v1.0.4 新增功能
 
 1. **启动动画**：新增 `SplashPage` 启动页，"Prism" 从左侧滑入中心（0.4s），"Wave" 从上方落下（0.5s），停留 0.3s 后整体向右飞出渐隐（0.55s），过渡到首页。`App.OnLaunched` 中 `async void` 流程控制，添加 `_isWindowClosed` 标志防止关闭后访问已释放 UI。
 2. **搜索历史右键删除**：`SearchPage.xaml` 历史记录项添加 `Grid.ContextFlyout` + `MenuFlyout`，`Tag` 绑定移到 Grid 上（MenuFlyoutItem 不在可视化树中无法绑定），code-behind 通过 `VisualTreeHelper` 遍历查找父级 Grid 的 Tag。

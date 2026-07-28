@@ -19,6 +19,8 @@ public sealed partial class SearchViewModel : ObservableObject
     private string? _error;
     private int _searchRevision;
     private CancellationTokenSource? _searchCancellation;
+    private CancellationTokenSource? _coverEnrichmentCancellation;
+    private readonly SynchronizationContext? _uiContext = SynchronizationContext.Current;
     private string? _currentTrackId;
 
     private bool _hasSubmittedSearch;
@@ -238,6 +240,66 @@ public sealed partial class SearchViewModel : ObservableObject
         _sourceStates[key] = new SearchSourceState(title);
     }
 
+    private async Task EnrichCoversAsync(
+        string source,
+        IReadOnlyList<SearchResultModel> results,
+        int revision,
+        SynchronizationContext? uiContext)
+    {
+        // Only enrich online results that are missing covers
+        var tracksNeedingCovers = results
+            .Select((result, index) => (result, index))
+            .Where(item => !item.result.IsLocal && string.IsNullOrWhiteSpace(item.result.CoverPath))
+            .ToList();
+
+        if (tracksNeedingCovers.Count == 0)
+        {
+            return;
+        }
+
+        // Cancel any previous enrichment for this source
+        _coverEnrichmentCancellation?.Cancel();
+        _coverEnrichmentCancellation = new CancellationTokenSource();
+        var token = _coverEnrichmentCancellation.Token;
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+
+        var updated = false;
+        var resultList = results.ToList();
+
+        await Task.WhenAll(tracksNeedingCovers.Select(async item =>
+        {
+            try
+            {
+                var cover = await _searchService.ResolveCoverAsync(
+                    item.result.Title,
+                    item.result.Artist,
+                    timeout.Token);
+
+                if (!string.IsNullOrWhiteSpace(cover) && !token.IsCancellationRequested)
+                {
+                    resultList[item.index] = item.result with { CoverPath = cover };
+                    updated = true;
+                }
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                // Enrichment cancelled
+            }
+            catch
+            {
+                // Cover resolution failed for this track — skip
+            }
+        }));
+
+        if (updated && revision == _searchRevision && !token.IsCancellationRequested)
+        {
+            _sourceStates[source].Results = resultList;
+            uiContext?.Post(static state => ((SearchViewModel)state!).RebuildDisplayItems(), this);
+        }
+    }
+
     private async Task LoadSourceAsync(
         string source,
         string query,
@@ -259,6 +321,9 @@ public sealed partial class SearchViewModel : ObservableObject
             _sourceStates[source].Results = results;
             _sourceStates[source].IsLoading = false;
             RebuildDisplayItems();
+
+            // Asynchronously enrich missing covers in the background (non-blocking)
+            _ = EnrichCoversAsync(source, results, revision, _uiContext);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

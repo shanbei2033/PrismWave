@@ -115,7 +115,7 @@
                         x:Name="CoverButton"
                         Width="58"
                         Height="58"
-                        Background="{StaticResource PrismAccentDeepBrush}"
+                        Background="{StaticResource PrismSurfaceStrongBrush}"
                         CornerRadius="9">
                         <Grid>
                             <FontIcon
@@ -286,6 +286,7 @@
                         Minimum="0"
                         Maximum="{Binding DurationSeconds}"
                         Value="{Binding PositionSeconds, Mode=OneWay}"
+                        PointerPressed="SeekSlider_PointerPressed"
                         PointerCaptureLost="SeekSlider_PointerCaptureLost"
                         KeyUp="SeekSlider_KeyUp"
                         AutomationProperties.AutomationId="PlayerSeekSlider" />

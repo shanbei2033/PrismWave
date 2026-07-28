@@ -22,6 +22,12 @@ public sealed class StableCoverImage : Grid
         typeof(StableCoverImage),
         new PropertyMetadata(Stretch.UniformToFill, OnStretchChanged));
 
+    public static readonly DependencyProperty ImageVerticalAlignmentProperty = DependencyProperty.Register(
+        nameof(ImageVerticalAlignment),
+        typeof(VerticalAlignment),
+        typeof(StableCoverImage),
+        new PropertyMetadata(VerticalAlignment.Center, OnImageVerticalAlignmentChanged));
+
     private readonly Image _currentImage;
     private Image? _pendingImage;
     private string? _requestedSource;
@@ -45,6 +51,12 @@ public sealed class StableCoverImage : Grid
         set => SetValue(StretchProperty, value);
     }
 
+    public VerticalAlignment ImageVerticalAlignment
+    {
+        get => (VerticalAlignment)GetValue(ImageVerticalAlignmentProperty);
+        set => SetValue(ImageVerticalAlignmentProperty, value);
+    }
+
     private static void OnSourcePathChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
     {
         ((StableCoverImage)sender).LoadSource(args.NewValue as string);
@@ -58,6 +70,17 @@ public sealed class StableCoverImage : Grid
         if (control._pendingImage is not null)
         {
             control._pendingImage.Stretch = stretch;
+        }
+    }
+
+    private static void OnImageVerticalAlignmentChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+    {
+        var control = (StableCoverImage)sender;
+        var alignment = (VerticalAlignment)args.NewValue;
+        control._currentImage.VerticalAlignment = alignment;
+        if (control._pendingImage is not null)
+        {
+            control._pendingImage.VerticalAlignment = alignment;
         }
     }
 
@@ -139,6 +162,7 @@ public sealed class StableCoverImage : Grid
         return new Image
         {
             Stretch = Stretch,
+            VerticalAlignment = ImageVerticalAlignment,
             IsHitTestVisible = false
         };
     }

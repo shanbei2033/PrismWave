@@ -172,7 +172,6 @@ public sealed partial class MainWindow : Window
         {
             SystemBackdrop = style switch
             {
-                AppearanceStyleIds.Acrylic => new DesktopAcrylicBackdrop(),
                 AppearanceStyleIds.Mica => new MicaBackdrop(),
                 _ => null
             };
@@ -208,20 +207,6 @@ public sealed partial class MainWindow : Window
                 GlassSoft: Color(0x96, 0xFF, 0xFF, 0xFF),
                 Selection: Color(0x18, 0x00, 0x00, 0x00),
                 Control: Color(0x0D, 0x00, 0x00, 0x00)),
-            AppearanceStyleIds.Acrylic => new AppearancePalette(
-                Background: Color(0x00, 0x29, 0x2A, 0x2D),
-                Surface: Color(0xB5, 0x2D, 0x2E, 0x33),
-                SurfaceElevated: Color(0xD1, 0x3A, 0x3B, 0x40),
-                SurfaceStrong: Color(0xE2, 0x4A, 0x4B, 0x51),
-                TextPrimary: Color(0xFF, 0xF6, 0xF6, 0xF7),
-                TextSecondary: Color(0xFF, 0xB9, 0xBE, 0xC8),
-                TextMuted: Color(0xFF, 0x7F, 0x87, 0x94),
-                CardBorder: Color(0x2B, 0xFF, 0xFF, 0xFF),
-                CardHover: Color(0x18, 0xFF, 0xFF, 0xFF),
-                Glass: Color(0xA8, 0x38, 0x39, 0x3D),
-                GlassSoft: Color(0x72, 0x41, 0x42, 0x46),
-                Selection: Color(0x24, 0xFF, 0xFF, 0xFF),
-                Control: Color(0x12, 0xFF, 0xFF, 0xFF)),
             _ => new AppearancePalette(
                 Background: Color(0xFF, 0x29, 0x2A, 0x2D),
                 Surface: Color(0xFF, 0x30, 0x31, 0x34),

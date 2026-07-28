@@ -15,7 +15,7 @@ public sealed class OnlineProviderService : IOnlineProviderService
 {
     private const string TaiheAppId = "16073360";
     private const string TaiheSignSalt = "0b50b02fd0d73a9c4c8c3a781c30845f";
-    private static readonly TimeSpan ProviderSearchTimeout = TimeSpan.FromSeconds(4);
+    private static readonly TimeSpan ProviderSearchTimeout = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan CandidateResolutionTimeout = TimeSpan.FromSeconds(4);
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan ResolutionLifetime = TimeSpan.FromMinutes(5);
@@ -952,12 +952,72 @@ public sealed class OnlineProviderService : IOnlineProviderService
                 return track;
             }
 
-            var cover = source.Equals("qq", StringComparison.OrdinalIgnoreCase)
+            // Step 1: Try source-specific cover resolution
+            string? cover = source.Equals("qq", StringComparison.OrdinalIgnoreCase)
                 ? await ResolveQqCoverAsync(track.ProviderTrackId, cancellationToken)
                 : await ResolveGdStudioCoverAsync(source, track.ProviderTrackId, cancellationToken);
+
+            // Step 2: If still no cover, try Deezer cross-source cover resolution
+            cover ??= await ResolveCoverFromDeezerAsync(track.Title, track.Artist, cancellationToken);
+
             return string.IsNullOrWhiteSpace(cover) ? track : track with { CoverUrl = cover };
         }));
         return enriched;
+    }
+
+    /// <summary>
+    /// Resolve cover art by searching Deezer for the same song title + artist.
+    /// This is a cross-source fallback for providers that don't return cover URLs.
+    /// </summary>
+    public async Task<string?> ResolveCoverFromDeezerAsync(
+        string title,
+        string artist,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return null;
+        }
+
+        try
+        {
+            var query = string.IsNullOrWhiteSpace(artist)
+                ? title
+                : $"{title} {artist}";
+            var uri = new Uri(
+                $"https://api.deezer.com/search?q={Uri.EscapeDataString(query)}&limit=1");
+            using var document = await GetJsonAsync(uri, PyncmdHeaders, cancellationToken);
+            if (document is null
+                || !document.RootElement.TryGetProperty("data", out var data)
+                || data.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            var firstTrack = data.EnumerateArray().FirstOrDefault();
+            if (firstTrack.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            if (!firstTrack.TryGetProperty("album", out var album)
+                || album.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            return NormalizeUrl(ReadString(album, "cover_xl")
+                ?? ReadString(album, "cover_big")
+                ?? ReadString(album, "cover_medium"));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private async Task<string?> ResolveQqCoverAsync(
@@ -1004,6 +1064,57 @@ public sealed class OnlineProviderService : IOnlineProviderService
         catch (Exception exception) when (exception is HttpRequestException or JsonException)
         {
             StartupLog.Write($"online.providers.cover.failed: provider=qq, id={songMid}, error={exception.Message}");
+            return null;
+        }
+    }
+
+    private async Task<string?> ResolveKuwoCoverAsync(
+        string trackId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Try Kuwo's own music info API to get the cover
+            var token = await GetKuwoTokenAsync(cancellationToken) ?? string.Empty;
+            var uri = new Uri(
+                $"https://www.kuwo.cn/api/www/music/musicInfo?mid={Uri.EscapeDataString(trackId)}&httpsStatus=1");
+            using var document = await GetJsonAsync(
+                uri,
+                AddHeaders(KuwoHeaders, ("csrf", token), ("Cookie", $"kw_token={token}")),
+                cancellationToken);
+            if (document is null
+                || !document.RootElement.TryGetProperty("data", out var data)
+                || data.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            var cover = NormalizeUrl(ReadString(data, "pic")
+                ?? ReadString(data, "pic120")
+                ?? ReadString(data, "albumpic")
+                ?? ReadString(data, "albumPic"));
+            if (cover is not null)
+            {
+                cover = cover.Replace("{size}", "500", StringComparison.OrdinalIgnoreCase);
+                return cover;
+            }
+
+            // Fallback: construct cover URL from albumId
+            var albumId = ReadString(data, "albumid") ?? ReadString(data, "albumId");
+            if (!string.IsNullOrWhiteSpace(albumId))
+            {
+                return $"https://img4.kuwo.cn/star/albumcover/500/{Uri.EscapeDataString(albumId)}.jpg";
+            }
+
+            return null;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            StartupLog.Write($"online.providers.cover.failed: provider=kuwo, id={trackId}, error={exception.Message}");
             return null;
         }
     }
@@ -1123,38 +1234,63 @@ public sealed class OnlineProviderService : IOnlineProviderService
         string query,
         CancellationToken cancellationToken)
     {
-        var compatibilityResults = await SearchGdStudioAsync(
+        // Try Kuwo's native API first — it returns cover URLs in the response.
+        // Cap this attempt at 3 seconds so the GdStudio fallback still has budget
+        // within the overall provider search timeout.
+        try
+        {
+            using var nativeTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            nativeTimeout.CancelAfter(TimeSpan.FromSeconds(3));
+            var token = await GetKuwoTokenAsync(nativeTimeout.Token) ?? string.Empty;
+            var uri = new Uri(
+                $"https://www.kuwo.cn/api/www/search/searchMusicBykeyWord?key={Uri.EscapeDataString(query)}&pn=1&rn=15");
+            using var document = await GetJsonAsync(
+                uri,
+                AddHeaders(KuwoHeaders, ("csrf", token), ("Cookie", $"kw_token={token}")),
+                nativeTimeout.Token);
+            if (document is not null
+                && document.RootElement.TryGetProperty("data", out var data)
+                && data.TryGetProperty("list", out var list)
+                && list.ValueKind == JsonValueKind.Array)
+            {
+                // Log raw field names from the first track for cover debugging
+                if (list.EnumerateArray().FirstOrDefault() is { ValueKind: JsonValueKind.Object } firstTrack)
+                {
+                    var fieldNames = string.Join(", ", firstTrack.EnumerateObject().Select(p => p.Name));
+                    StartupLog.Write($"online.providers.kuwo.fields: {fieldNames}");
+                }
+
+                var results = list.EnumerateArray()
+                    .Select(ParseKuwoTrack)
+                    .Where(track => track is not null)
+                    .Select(track => track!)
+                    .Take(10)
+                    .ToList();
+                if (results.Count > 0)
+                {
+                    // Return immediately without cover enrichment to avoid timeout.
+                    // Covers will be resolved lazily by the UI via ResolveCoverForTrackAsync.
+                    return results;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            // Fall through to GdStudio compatibility search
+        }
+
+        // Fallback: GdStudio compatibility search. Return results directly —
+        // covers are enriched lazily by the UI layer (SearchViewModel.EnrichCoversAsync)
+        // to avoid exhausting the provider search timeout.
+        return await SearchGdStudioAsync(
             "kuwo",
             "kuwo",
             query,
             cancellationToken);
-        if (compatibilityResults.Count > 0)
-        {
-            return await EnrichMissingCoversAsync(compatibilityResults, "kuwo", cancellationToken);
-        }
-
-        var token = await GetKuwoTokenAsync(cancellationToken) ?? string.Empty;
-        var uri = new Uri(
-            $"https://www.kuwo.cn/api/www/search/searchMusicBykeyWord?key={Uri.EscapeDataString(query)}&pn=1&rn=15");
-        using var document = await GetJsonAsync(
-            uri,
-            AddHeaders(KuwoHeaders, ("csrf", token), ("Cookie", $"kw_token={token}")),
-            cancellationToken);
-        if (document is null
-            || !document.RootElement.TryGetProperty("data", out var data)
-            || !data.TryGetProperty("list", out var list)
-            || list.ValueKind != JsonValueKind.Array)
-        {
-            return Array.Empty<OnlineProviderTrackModel>();
-        }
-
-        var results = list.EnumerateArray()
-            .Select(ParseKuwoTrack)
-            .Where(track => track is not null)
-            .Select(track => track!)
-            .Take(10)
-            .ToList();
-        return await EnrichMissingCoversAsync(results, "kuwo", cancellationToken);
     }
 
     private async Task<IReadOnlyList<OnlineProviderTrackModel>> SearchMiguAsync(
@@ -1797,24 +1933,41 @@ public sealed class OnlineProviderService : IOnlineProviderService
 
     private static OnlineProviderTrackModel? ParseKuwoTrack(JsonElement item)
     {
-        var id = ReadString(item, "rid");
+        var id = ReadString(item, "rid") ?? ReadString(item, "musicrid");
         var title = ReadString(item, "name");
         if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(title))
         {
             return null;
         }
 
+        // Clean musicrid prefix (e.g., "MUSIC_12345" -> "12345")
+        if (id.StartsWith("MUSIC_", StringComparison.OrdinalIgnoreCase))
+        {
+            id = id["MUSIC_".Length..];
+        }
+
         var cover = NormalizeUrl(ReadString(item, "pic")
             ?? ReadString(item, "pic120")
+            ?? ReadString(item, "pic240")
+            ?? ReadString(item, "pic500")
             ?? ReadString(item, "albumpic")
-            ?? ReadString(item, "albumPic"));
+            ?? ReadString(item, "albumPic")
+            ?? ReadString(item, "albumpic300")
+            ?? ReadString(item, "web_albumpic_short"));
         if (cover is not null)
         {
             cover = cover.Replace("{size}", "500", StringComparison.OrdinalIgnoreCase);
+            // Handle relative paths from web_albumpic_short
+            if (cover.StartsWith("/", StringComparison.Ordinal))
+            {
+                cover = $"https://img4.kuwo.cn{cover}";
+            }
         }
         else
         {
-            var albumId = ReadString(item, "albumid") ?? ReadString(item, "albumId");
+            var albumId = ReadString(item, "albumid")
+                ?? ReadString(item, "albumId")
+                ?? ReadString(item, "albumidstr");
             if (!string.IsNullOrWhiteSpace(albumId))
             {
                 cover = $"https://img4.kuwo.cn/star/albumcover/500/{Uri.EscapeDataString(albumId)}.jpg";

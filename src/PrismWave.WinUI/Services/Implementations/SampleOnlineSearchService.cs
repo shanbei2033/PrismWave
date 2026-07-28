@@ -85,6 +85,12 @@ public sealed class OnlineSearchService : IOnlineSearchService
             .ToList();
     }
 
+    public Task<string?> ResolveCoverAsync(
+        string title,
+        string artist,
+        CancellationToken cancellationToken = default)
+        => _providerService.ResolveCoverFromDeezerAsync(title, artist, cancellationToken);
+
     private List<RankedResult> SearchLocal(string query)
     {
         return _libraryService.Tracks

@@ -25,12 +25,29 @@ public sealed partial class LocalAlbumDetailPage : Page
     {
         InitializeComponent();
         DataContext = App.Services.Albums;
+        ActualThemeChanged += (s, e) => UpdateGradientColors();
+    }
+
+    private void UpdateGradientColors()
+    {
+        // Read the current background color from the dynamically-updated brush
+        if (Application.Current.Resources["PrismBackgroundBrush"] is not SolidColorBrush brush)
+        {
+            return;
+        }
+
+        var bg = brush.Color;
+        AlbumGradientStop0.Color = Windows.UI.Color.FromArgb(0x00, bg.R, bg.G, bg.B);
+        AlbumGradientStop1.Color = Windows.UI.Color.FromArgb(0x5C, bg.R, bg.G, bg.B);
+        AlbumGradientStop2.Color = Windows.UI.Color.FromArgb(0xD4, bg.R, bg.G, bg.B);
+        AlbumGradientStop3.Color = Windows.UI.Color.FromArgb(0xFF, bg.R, bg.G, bg.B);
     }
 
     private void Page_Loaded(object sender, RoutedEventArgs e)
     {
         try
         {
+            UpdateGradientColors();
             EnsureHeroClip();
             EnsureHeroBlur();
             _ = DispatcherQueue.TryEnqueue(AttachScrollAnimations);
@@ -119,11 +136,11 @@ public sealed partial class LocalAlbumDetailPage : Page
             var heroVisual = ElementCompositionPreview.GetElementVisual(HeroCoverImage);
             var compositor = heroVisual.Compositor;
             var parallax = compositor.CreateExpressionAnimation(
-                "Clamp(-scroll.Translation.Y * 0.18f, 0.0f, 72.0f)");
+                "Clamp(-scroll.Translation.Y * 0.18f, 0.0f, 90.0f)");
             parallax.SetReferenceParameter("scroll", properties);
             heroVisual.StartAnimation("Translation.Y", parallax);
             var fade = compositor.CreateExpressionAnimation(
-                "Clamp(1.0f + scroll.Translation.Y / 360.0f, 0.16f, 1.0f)");
+                "Clamp(1.0f + scroll.Translation.Y / 450.0f, 0.16f, 1.0f)");
             fade.SetReferenceParameter("scroll", properties);
             heroVisual.StartAnimation("Opacity", fade);
         }

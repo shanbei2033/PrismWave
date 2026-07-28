@@ -4,12 +4,10 @@ public static class AppearanceStyleIds
 {
     public const string Solid = "solid";
     public const string Mica = "mica";
-    public const string Acrylic = "acrylic";
 
     public static string Normalize(string? value) => value?.Trim().ToLowerInvariant() switch
     {
         Solid => Solid,
-        Acrylic => Acrylic,
         _ => Mica
     };
 }

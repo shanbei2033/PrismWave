@@ -10,7 +10,7 @@ namespace PrismWave_WinUI.Controls.Media;
 
 public sealed class StableCoverImage : Grid
 {
-    private const int MaxCacheEntries = 50;
+    private const int MaxCacheEntries = 30;
     private static readonly Dictionary<string, WeakReference<BitmapImage>> SharedCache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly object CacheLock = new();
 

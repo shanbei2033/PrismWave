@@ -38,6 +38,7 @@ public sealed partial class FullPlayPage : Page
     private int _lyricsDocumentRevision;
     private bool _lyricsRefreshScheduled;
     private int _backdropRevision;
+    private LoadedImageSurface? _pendingBackdropSurface;
     private CompositionEffectFactory? _backdropEffectFactory;
     private ContainerVisual? _backdropContainer;
     private SpriteVisual? _currentBackdropVisual;
@@ -221,6 +222,11 @@ public sealed partial class FullPlayPage : Page
     private void LoadBackdrop(string? source)
     {
         var revision = ++_backdropRevision;
+        
+        // Dispose any pending surface from previous call
+        _pendingBackdropSurface?.Dispose();
+        _pendingBackdropSurface = null;
+        
         if (CreateSourceUri(source) is not { } uri)
         {
             return;
@@ -229,8 +235,10 @@ public sealed partial class FullPlayPage : Page
         var surface = LoadedImageSurface.StartLoadFromUri(
             uri,
             new Windows.Foundation.Size(960, 640));
+        _pendingBackdropSurface = surface;
         surface.LoadCompleted += (_, args) =>
         {
+            _pendingBackdropSurface = null;
             if (args.Status != LoadedImageSourceLoadStatus.Success)
             {
                 surface.Dispose();

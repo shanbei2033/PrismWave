@@ -25,6 +25,8 @@ public sealed class OnlineProviderService : IOnlineProviderService
     private static readonly TimeSpan ExpirationSafetyMargin = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan AccountPreferenceGrace = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan FailedResolutionLifetime = TimeSpan.FromSeconds(30);
+    private const int MaxResolutionCacheEntries = 30;
+    private const int MaxSearchCacheEntries = 20;
     private static readonly IReadOnlyList<string> Providers = Array.AsReadOnly(
         new[] { "audius", "netease", "kuwo", "migu", "qq", "kugou", "taihe" });
     private static readonly Regex BracketPattern = new(
@@ -2558,6 +2560,7 @@ public sealed class OnlineProviderService : IOnlineProviderService
     {
         lock (_cacheGate)
         {
+            PurgeExpiredCacheEntries();
             if (_resolutionCache.TryGetValue(key, out var cached))
             {
                 if (cached.ExpiresAt > _timeProvider.GetUtcNow())
@@ -2593,6 +2596,7 @@ public sealed class OnlineProviderService : IOnlineProviderService
             _resolutionCache[key] = new CachedResolution(
                 resolution,
                 expiresAt);
+            PurgeExpiredCacheEntries();
         }
     }
 
@@ -2605,6 +2609,7 @@ public sealed class OnlineProviderService : IOnlineProviderService
     {
         lock (_cacheGate)
         {
+            PurgeExpiredCacheEntries();
             if (_searchCache.TryGetValue(key, out var cached))
             {
                 if (cached.ExpiresAt > _timeProvider.GetUtcNow())
@@ -2626,6 +2631,40 @@ public sealed class OnlineProviderService : IOnlineProviderService
         lock (_cacheGate)
         {
             _searchCache[key] = new CachedSearch(results.ToList(), _timeProvider.GetUtcNow() + SearchLifetime);
+            PurgeExpiredCacheEntries();
+        }
+    }
+
+    private void PurgeExpiredCacheEntries()
+    {
+        var now = _timeProvider.GetUtcNow();
+
+        var expiredRes = _resolutionCache
+            .Where(p => p.Value.ExpiresAt <= now)
+            .Select(p => p.Key).ToList();
+        foreach (var k in expiredRes) _resolutionCache.Remove(k);
+
+        var expiredSearch = _searchCache
+            .Where(p => p.Value.ExpiresAt <= now)
+            .Select(p => p.Key).ToList();
+        foreach (var k in expiredSearch) _searchCache.Remove(k);
+
+        if (_resolutionCache.Count > MaxResolutionCacheEntries)
+        {
+            var oldest = _resolutionCache
+                .OrderBy(p => p.Value.ExpiresAt)
+                .Take(_resolutionCache.Count - MaxResolutionCacheEntries)
+                .Select(p => p.Key).ToList();
+            foreach (var k in oldest) _resolutionCache.Remove(k);
+        }
+
+        if (_searchCache.Count > MaxSearchCacheEntries)
+        {
+            var oldest = _searchCache
+                .OrderBy(p => p.Value.ExpiresAt)
+                .Take(_searchCache.Count - MaxSearchCacheEntries)
+                .Select(p => p.Key).ToList();
+            foreach (var k in oldest) _searchCache.Remove(k);
         }
     }
 

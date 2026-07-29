@@ -1058,16 +1058,20 @@ public sealed partial class ShellPage : Page
         var visual = ElementCompositionPreview.GetElementVisual(frame);
         visual.StopAnimation("Offset.X");
         visual.Offset = Vector3.Zero;
-        frame.Visibility = Visibility.Collapsed;
         frame.IsHitTestVisible = false;
         try
         {
+            // Clear content while the frame is still visible so the discarded page
+            // receives Unloaded (WinUI skips Unloaded for elements removed under a
+            // collapsed ancestor, leaking Unloaded-based cleanup).
             ResetFrameContent(frame);
         }
         catch (Exception exception)
         {
             StartupLog.Write("navigation.frame.reset.deferred", exception);
         }
+
+        frame.Visibility = Visibility.Collapsed;
     }
 
     private static void ResetFrameContent(Frame frame)

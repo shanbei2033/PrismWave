@@ -11,6 +11,7 @@ public sealed partial class ArtistDetailPage : Page
     {
         InitializeComponent();
         DataContext = App.Services.Artists;
+        Unloaded += (_, _) => DataContext = null;
     }
 
     private void Back_Click(object sender, RoutedEventArgs e) => App.Services.Shell.GoBackCommand.Execute(null);

@@ -436,6 +436,9 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
             return;
         }
 
+        // Release references from previous track before loading new one
+        GC.Collect(0, GCCollectionMode.Optimized, blocking: false);
+
         var recoverySeek = preserveRecoverySeek ? _pendingRecoverySeekSeconds : null;
         CancelPendingLoad();
         if (preserveRecoverySeek)
@@ -1153,6 +1156,7 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         }
 
         var enginePosition = Math.Max(0, _mpvHost.Engine.PositionSeconds);
+        var positionChanged = Math.Abs(PositionSeconds - enginePosition) > 0.3;
         if (PositionSeconds < 1 && enginePosition > 5)
         {
             return;
@@ -1170,7 +1174,10 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
             PositionSeconds = 0;
         }
 
-        Notify();
+        if (positionChanged)
+        {
+            Notify();
+        }
     }
 
     private void CancelPendingLoad()

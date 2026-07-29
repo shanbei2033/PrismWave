@@ -25,6 +25,7 @@ public sealed partial class HitsStatusPage : Page
     private SpriteVisual? _previousBackdropVisual;
     private LoadedImageSurface? _currentBackdropSurface;
     private LoadedImageSurface? _previousBackdropSurface;
+    private LoadedImageSurface? _pendingBackdropSurface;
     private int _backdropRevision;
     private bool _animationsEnabled = true;
     private string? _displayedTrackId;
@@ -218,14 +219,21 @@ public sealed partial class HitsStatusPage : Page
     private void LoadBackdrop(string? source)
     {
         var revision = ++_backdropRevision;
+        
+        // Dispose any pending surface from previous call
+        _pendingBackdropSurface?.Dispose();
+        _pendingBackdropSurface = null;
+        
         if (CreateSourceUri(source) is not { } uri)
         {
             return;
         }
 
         var surface = LoadedImageSurface.StartLoadFromUri(uri, new Windows.Foundation.Size(960, 640));
+        _pendingBackdropSurface = surface;
         surface.LoadCompleted += (_, args) =>
         {
+            _pendingBackdropSurface = null;
             if (args.Status != LoadedImageSourceLoadStatus.Success)
             {
                 surface.Dispose();

@@ -11,6 +11,7 @@ public sealed partial class SearchPage : Page
     {
         InitializeComponent();
         DataContext = App.Services.Search;
+        Unloaded += (_, _) => DataContext = null;
     }
 
     private void SearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)

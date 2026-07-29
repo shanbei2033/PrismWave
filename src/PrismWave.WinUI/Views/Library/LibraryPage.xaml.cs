@@ -13,6 +13,7 @@ public sealed partial class LibraryPage : Page
     {
         InitializeComponent();
         DataContext = App.Services.Library;
+        Unloaded += (_, _) => DataContext = null;
     }
 
     private void Tracks_ItemClick(object sender, ItemClickEventArgs e)

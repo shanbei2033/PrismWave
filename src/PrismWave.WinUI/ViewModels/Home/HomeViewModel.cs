@@ -13,6 +13,7 @@ public sealed partial class HomeViewModel : ObservableObject
     private readonly IPlaybackService _playbackService;
     private readonly ICoverService? _coverService;
     private readonly Dictionary<TrackCoverKey, string> _coverOverrides = new();
+    private const int MaxCoverOverrides = 100;
     private readonly SynchronizationContext? _uiContext = SynchronizationContext.Current;
     private HomeSectionModel _topPlaylist = new("daily-top-100", "Trending", string.Empty, Array.Empty<HomeTrackModel>());
     private HomeSectionModel _selectedPlaylist = new("daily-top-100", "Trending", string.Empty, Array.Empty<HomeTrackModel>());
@@ -362,6 +363,15 @@ public sealed partial class HomeViewModel : ObservableObject
         }
 
         _coverOverrides[key] = coverPath;
+        if (_coverOverrides.Count > MaxCoverOverrides)
+        {
+            // Remove oldest entries (first half of dictionary)
+            var keysToRemove = _coverOverrides.Keys.Take(_coverOverrides.Count - MaxCoverOverrides / 2).ToList();
+            foreach (var oldKey in keysToRemove)
+            {
+                _coverOverrides.Remove(oldKey);
+            }
+        }
         ApplyCoverOverridesToCurrentCatalog();
     }
 

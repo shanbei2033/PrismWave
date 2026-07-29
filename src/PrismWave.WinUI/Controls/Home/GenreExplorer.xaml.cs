@@ -1,20 +1,31 @@
 using System.Collections;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using PrismWave_WinUI.Infrastructure;
 using PrismWave_WinUI.Models;
 
 namespace PrismWave_WinUI.Controls.Home;
 
 public sealed partial class GenreExplorer : UserControl
 {
-    private INotifyCollectionChanged? _channelCollection;
-    private INotifyCollectionChanged? _genreCollection;
+    private readonly WeakCollectionChangedListener<GenreExplorer> _channelListener;
+    private readonly WeakCollectionChangedListener<GenreExplorer> _genreListener;
 
     public GenreExplorer()
     {
         InitializeComponent();
+        _channelListener = new WeakCollectionChangedListener<GenreExplorer>(
+            this,
+            static (self, _, _) => self.RefreshItems(self.ChannelSections, self.ChannelItems));
+        _genreListener = new WeakCollectionChangedListener<GenreExplorer>(
+            this,
+            static (self, _, _) => self.RefreshItems(self.GenreSections, self.GenreItems));
+        Unloaded += (_, _) =>
+        {
+            _channelListener.Unsubscribe();
+            _genreListener.Unsubscribe();
+        };
     }
 
     public event EventHandler<SectionOpenRequestedEventArgs>? OpenRequested;
@@ -52,10 +63,7 @@ public sealed partial class GenreExplorer : UserControl
         DependencyPropertyChangedEventArgs args)
     {
         var explorer = (GenreExplorer)dependencyObject;
-        explorer.ObserveCollection(
-            ref explorer._channelCollection,
-            args.NewValue,
-            explorer.ChannelSections_CollectionChanged);
+        explorer._channelListener.Subscribe(args.NewValue);
         explorer.RefreshItems(explorer.ChannelSections, explorer.ChannelItems);
     }
 
@@ -64,38 +72,8 @@ public sealed partial class GenreExplorer : UserControl
         DependencyPropertyChangedEventArgs args)
     {
         var explorer = (GenreExplorer)dependencyObject;
-        explorer.ObserveCollection(
-            ref explorer._genreCollection,
-            args.NewValue,
-            explorer.GenreSections_CollectionChanged);
+        explorer._genreListener.Subscribe(args.NewValue);
         explorer.RefreshItems(explorer.GenreSections, explorer.GenreItems);
-    }
-
-    private void ObserveCollection(
-        ref INotifyCollectionChanged? observedCollection,
-        object? source,
-        NotifyCollectionChangedEventHandler handler)
-    {
-        if (observedCollection is not null)
-        {
-            observedCollection.CollectionChanged -= handler;
-        }
-
-        observedCollection = source as INotifyCollectionChanged;
-        if (observedCollection is not null)
-        {
-            observedCollection.CollectionChanged += handler;
-        }
-    }
-
-    private void ChannelSections_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        RefreshItems(ChannelSections, ChannelItems);
-    }
-
-    private void GenreSections_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        RefreshItems(GenreSections, GenreItems);
     }
 
     private void RefreshItems(

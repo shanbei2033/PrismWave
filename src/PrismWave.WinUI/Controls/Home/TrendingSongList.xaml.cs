@@ -1,22 +1,26 @@
 using System.Collections;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Globalization;
 using System.Windows.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using PrismWave_WinUI.Infrastructure;
 using PrismWave_WinUI.Models;
 
 namespace PrismWave_WinUI.Controls.Home;
 
 public sealed partial class TrendingSongList : UserControl
 {
-    private INotifyCollectionChanged? _observableItems;
+    private readonly WeakCollectionChangedListener<TrendingSongList> _itemsListener;
     private RankedTrackItem? _moreItem;
 
     public TrendingSongList()
     {
         InitializeComponent();
+        _itemsListener = new WeakCollectionChangedListener<TrendingSongList>(
+            this,
+            static (self, _, _) => self.RefreshRankedTracks());
+        Unloaded += (_, _) => _itemsListener.Unsubscribe();
     }
 
     public static readonly DependencyProperty ItemsSourceProperty = DependencyProperty.Register(
@@ -50,30 +54,9 @@ public sealed partial class TrendingSongList : UserControl
         DependencyObject dependencyObject,
         DependencyPropertyChangedEventArgs args)
     {
-        ((TrendingSongList)dependencyObject).AttachItems(
-            args.OldValue as IEnumerable,
-            args.NewValue as IEnumerable);
-    }
-
-    private void AttachItems(IEnumerable? oldItems, IEnumerable? newItems)
-    {
-        if (_observableItems is not null)
-        {
-            _observableItems.CollectionChanged -= Items_CollectionChanged;
-        }
-
-        _observableItems = newItems as INotifyCollectionChanged;
-        if (_observableItems is not null)
-        {
-            _observableItems.CollectionChanged += Items_CollectionChanged;
-        }
-
-        RefreshRankedTracks();
-    }
-
-    private void Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        RefreshRankedTracks();
+        var songList = (TrendingSongList)dependencyObject;
+        songList._itemsListener.Subscribe(args.NewValue);
+        songList.RefreshRankedTracks();
     }
 
     private void RefreshRankedTracks()

@@ -10,6 +10,7 @@ public sealed partial class HomePage : Page
     {
         InitializeComponent();
         DataContext = App.Services.Home;
+        Unloaded += (_, _) => DataContext = null;
     }
 
     private void TrendingBanner_OpenRequested(object? sender, EventArgs e)

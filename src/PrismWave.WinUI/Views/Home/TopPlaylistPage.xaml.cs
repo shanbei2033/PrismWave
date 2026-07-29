@@ -9,6 +9,7 @@ public sealed partial class TopPlaylistPage : Page
     {
         InitializeComponent();
         DataContext = App.Services.Home;
+        Unloaded += (_, _) => DataContext = null;
     }
 
     private void Back_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

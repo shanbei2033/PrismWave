@@ -9,6 +9,7 @@ public sealed partial class ArtistsPage : Page
     {
         InitializeComponent();
         DataContext = App.Services.Artists;
+        Unloaded += (_, _) => DataContext = null;
     }
 
     private void Artists_ItemClick(object sender, ItemClickEventArgs e)

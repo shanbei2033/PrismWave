@@ -1,19 +1,23 @@
 using System.Collections;
-using System.Collections.Specialized;
 using System.Windows.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using PrismWave_WinUI.Infrastructure;
 using PrismWave_WinUI.Models;
 
 namespace PrismWave_WinUI.Controls.Home;
 
 public sealed partial class TrendingBanner : UserControl
 {
-    private INotifyCollectionChanged? _observableTracks;
+    private readonly WeakCollectionChangedListener<TrendingBanner> _tracksListener;
 
     public TrendingBanner()
     {
         InitializeComponent();
+        _tracksListener = new WeakCollectionChangedListener<TrendingBanner>(
+            this,
+            static (self, _, _) => self.UpdateCoverSlots());
+        Unloaded += (_, _) => _tracksListener.Unsubscribe();
     }
 
     public static readonly DependencyProperty TitleProperty = DependencyProperty.Register(
@@ -130,30 +134,9 @@ public sealed partial class TrendingBanner : UserControl
         DependencyObject dependencyObject,
         DependencyPropertyChangedEventArgs args)
     {
-        ((TrendingBanner)dependencyObject).AttachTracks(
-            args.OldValue as IEnumerable,
-            args.NewValue as IEnumerable);
-    }
-
-    private void AttachTracks(IEnumerable? oldTracks, IEnumerable? newTracks)
-    {
-        if (_observableTracks is not null)
-        {
-            _observableTracks.CollectionChanged -= Tracks_CollectionChanged;
-        }
-
-        _observableTracks = newTracks as INotifyCollectionChanged;
-        if (_observableTracks is not null)
-        {
-            _observableTracks.CollectionChanged += Tracks_CollectionChanged;
-        }
-
-        UpdateCoverSlots();
-    }
-
-    private void Tracks_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        UpdateCoverSlots();
+        var banner = (TrendingBanner)dependencyObject;
+        banner._tracksListener.Subscribe(args.NewValue);
+        banner.UpdateCoverSlots();
     }
 
     private void UpdateCoverSlots()

@@ -58,9 +58,9 @@ public sealed class TrendingHeroXamlTests
         Assert.Contains("CoverTwoUrl", source, StringComparison.Ordinal);
         Assert.Contains("CoverThreeUrl", source, StringComparison.Ordinal);
         Assert.Contains("CoverFourUrl", source, StringComparison.Ordinal);
-        Assert.Contains("INotifyCollectionChanged", source, StringComparison.Ordinal);
-        Assert.Contains("CollectionChanged +=", source, StringComparison.Ordinal);
-        Assert.Contains("CollectionChanged -=", source, StringComparison.Ordinal);
+        Assert.Contains("WeakCollectionChangedListener<TrendingBanner>", source, StringComparison.Ordinal);
+        Assert.Contains("_tracksListener.Subscribe(args.NewValue)", source, StringComparison.Ordinal);
+        Assert.Contains("_tracksListener.Unsubscribe()", source, StringComparison.Ordinal);
         Assert.Contains("OfType<HomeTrackModel>()", source, StringComparison.Ordinal);
         Assert.Contains("e.NewSize.Width >= 720", source, StringComparison.Ordinal);
         Assert.Contains("VisualStateManager.GoToState", source, StringComparison.Ordinal);

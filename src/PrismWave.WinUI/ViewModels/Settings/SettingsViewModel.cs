@@ -25,6 +25,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private int _fadeDurationMs = 220;
     private string _developerLogText = string.Empty;
     private string _developerLogCount = "0 entries";
+    private DateTimeOffset _lastLogRefresh = DateTimeOffset.MinValue;
     private IReadOnlyList<LocalizedOnlineQualityOption> _onlineQualityOptions = [];
 
     public SettingsViewModel(
@@ -358,6 +359,13 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private void RefreshLogs()
     {
+        var now = DateTimeOffset.UtcNow;
+        if ((now - _lastLogRefresh).TotalSeconds < 2)
+        {
+            return;
+        }
+
+        _lastLogRefresh = now;
         var lines = _developerLogService.Lines;
         DeveloperLogText = string.Join(Environment.NewLine, lines.TakeLast(500));
         DeveloperLogCount = $"{lines.Count} {Text.Entries}";

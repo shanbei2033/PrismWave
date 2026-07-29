@@ -69,9 +69,9 @@ public sealed class GenreExplorerXamlTests
 
         Assert.Contains("ChannelSectionsProperty", source, StringComparison.Ordinal);
         Assert.Contains("GenreSectionsProperty", source, StringComparison.Ordinal);
-        Assert.Contains("INotifyCollectionChanged", source, StringComparison.Ordinal);
-        Assert.Contains("CollectionChanged +=", source, StringComparison.Ordinal);
-        Assert.Contains("CollectionChanged -=", source, StringComparison.Ordinal);
+        Assert.Contains("WeakCollectionChangedListener<GenreExplorer>", source, StringComparison.Ordinal);
+        Assert.Contains("_channelListener.Subscribe(args.NewValue)", source, StringComparison.Ordinal);
+        Assert.Contains("_genreListener.Subscribe(args.NewValue)", source, StringComparison.Ordinal);
         Assert.Contains("OpenRequested", source, StringComparison.Ordinal);
         Assert.Contains("Section = section", source, StringComparison.Ordinal);
         Assert.Contains("ExplorerEntry_Click", source, StringComparison.Ordinal);

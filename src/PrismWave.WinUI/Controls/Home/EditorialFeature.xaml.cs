@@ -28,7 +28,7 @@ public sealed partial class EditorialFeature : UserControl
         new PropertyMetadata(null));
 
     public static readonly DependencyProperty FeatureTitleProperty = DependencyProperty.Register(
-        nameof(FeatureTitle), typeof(string), typeof(EditorialFeature), new PropertyMetadata("Play Now"));
+        nameof(FeatureTitle), typeof(string), typeof(EditorialFeature), new PropertyMetadata("正在热播"));
 
     public static readonly DependencyProperty TrackCountLabelProperty = DependencyProperty.Register(
         nameof(TrackCountLabel), typeof(string), typeof(EditorialFeature), new PropertyMetadata("TOP20"));
@@ -106,7 +106,7 @@ public sealed partial class EditorialFeature : UserControl
         {
             _featureCandidates = [];
             _featureCandidateIndex = 0;
-            FeatureTitle = "Play Now";
+            FeatureTitle = "正在热播";
             TrackCountLabel = "TOP20";
             FeaturedTrackTitle = "暂无推荐";
             FeaturedTrackArtist = string.Empty;
@@ -122,7 +122,7 @@ public sealed partial class EditorialFeature : UserControl
             .Take(8)
             .ToArray();
         _featureCandidateIndex = 0;
-        FeatureTitle = "Play Now";
+        FeatureTitle = "正在热播";
         TrackCountLabel = "TOP20";
         if (_featureCandidates.Length > 0)
         {

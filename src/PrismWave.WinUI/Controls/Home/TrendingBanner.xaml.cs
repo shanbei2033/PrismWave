@@ -102,8 +102,21 @@ public sealed partial class TrendingBanner : UserControl
 
     public event EventHandler? OpenRequested;
 
-    private void OpenButton_Click(object sender, RoutedEventArgs e)
+    private void HeroSurface_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
     {
+        if (e.OriginalSource is Microsoft.UI.Xaml.DependencyObject source)
+        {
+            var ancestor = source;
+            while (ancestor is not null)
+            {
+                if (ancestor is Microsoft.UI.Xaml.Controls.Primitives.ButtonBase)
+                {
+                    return;
+                }
+                ancestor = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(ancestor);
+            }
+        }
+
         OpenRequested?.Invoke(this, EventArgs.Empty);
     }
 

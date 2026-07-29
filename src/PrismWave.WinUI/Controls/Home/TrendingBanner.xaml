@@ -36,6 +36,7 @@
             Background="{StaticResource PrismSurfaceStrongBrush}"
             BorderThickness="0"
             CornerRadius="12"
+            Tapped="HeroSurface_Tapped"
             AutomationProperties.AutomationId="TrendingHero">
             <Grid>
             <Image
@@ -105,15 +106,6 @@
                                 <FontIcon Glyph="&#xE768;" FontSize="15" />
                                 <TextBlock Text="播放全部" VerticalAlignment="Center" />
                             </StackPanel>
-                        </Button>
-                        <Button
-                            Width="38"
-                            Height="38"
-                            Padding="0"
-                            Click="OpenButton_Click"
-                            Foreground="White"
-                            >
-                            <FontIcon Glyph="&#xE8A7;" FontSize="15" />
                         </Button>
                     </StackPanel>
                 </StackPanel>

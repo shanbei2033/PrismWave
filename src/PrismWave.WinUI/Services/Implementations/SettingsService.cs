@@ -161,8 +161,8 @@ public sealed class SettingsService : ISettingsService
 
         return new SettingsSnapshot(
             GetString(values, "ui.language", "zh-CN"),
-            GetBool(values, "ui.experimentalFeaturesEnabled", false),
-            GetBool(values, "online.modeEnabled", true),
+            false, // Experimental features always OFF on first launch
+            GetBool(values, "online.modeEnabled", false),
             GetString(values, "audio.outputMode", AudioOutputPolicy.WasapiSharedId),
             GetString(values, "audio.outputDevice", "auto"),
             GetBool(values, "audio.fadeEnabled", true),

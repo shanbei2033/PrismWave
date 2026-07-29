@@ -35,6 +35,9 @@
     <Content Include="Assets\Icons\album.svg" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\Icons\hits_radio.svg" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\Icons\vip_badge.svg" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Icons\github.svg" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Icons\github_icon.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Icons\contributor_avatar.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

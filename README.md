@@ -44,8 +44,8 @@ Downloads are available from the [v1.0.5 release page](https://github.com/shanbe
 ## Features
 
 - Local music library scan with folder management
-- Online-first startup: the app opens directly to Home, with online mode
-  enabled by default on first launch
+- Online features are OFF by default on first launch; enable them in
+  Settings > BETA / Online mode when ready
 - Online Home with a TOP100 trending banner, refreshed recommendations,
   new albums, hot songs, and unified online/local search
 - Library / Albums / Artists / Favorites views with drag-to-reorder and

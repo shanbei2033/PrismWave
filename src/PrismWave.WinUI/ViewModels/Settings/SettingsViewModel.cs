@@ -16,7 +16,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly IUpdateService _updateService;
     private string _language = "zh-CN";
     private bool _experimentalFeaturesEnabled;
-    private bool _onlineModeEnabled = true;
+    private bool _onlineModeEnabled = false;
     private OnlineQualityPreference _onlineQualityPreference = OnlineQualityPreference.Lossless;
     private string _appearanceStyle = AppearanceStyleIds.Mica;
     private string _audioOutputMode = AudioOutputPolicy.WasapiSharedId;

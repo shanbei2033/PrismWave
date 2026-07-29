@@ -109,12 +109,6 @@ Windows 下可用的输出模式：
 PrismWave 使用 [GD音乐台在线音乐平台 API](https://music-api.gdstudio.xyz/api.php)
 作为播放链接解析、跨源搜索和封面获取的回退代理。
 
-- 基础地址：`https://music-api.gdstudio.xyz/api.php`
-- 接口：`types=search`（搜索）、`types=url`（播放链接）、`types=pic`（专辑图）、`types=lyric`（歌词）
-- 支持音源：netease、tencent、kuwo、joox、bilibili、tidal、qobuz、apple、ytmusic、spotify
-- 频率限制：5 分钟内不超过 50 次请求
-- 许可：CC BY-NC 4.0（仅限非商业用途）
-
 ## 鸣谢
 
 - [GD音乐台](https://music.gdstudio.xyz)：提供在线音乐回退 API，用于播放链接解析、跨源搜索与封面获取。

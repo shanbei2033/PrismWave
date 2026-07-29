@@ -37,4 +37,24 @@ public sealed class BackNavigationPageCacheTests
         Assert.Equal(0, cache.Count);
         Assert.False(cache.TryPeek("AlbumDetail", out _));
     }
+
+    [Fact]
+    public void Push_EvictsOldestEntryWhenDepthExceeded()
+    {
+        var cache = new BackNavigationPageCache<object>();
+        var first = new object();
+        var second = new object();
+        var third = new object();
+
+        cache.Push("Home", first);
+        cache.Push("Search", second);
+        cache.Push("Player", third);
+
+        Assert.Equal(2, cache.Count);
+        Assert.True(cache.TryPeek("Player", out var peeked));
+        Assert.Same(third, peeked);
+        Assert.True(cache.TryPop("Player", out _));
+        Assert.True(cache.TryPeek("Search", out peeked));
+        Assert.Same(second, peeked);
+    }
 }

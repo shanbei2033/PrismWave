@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using PrismWave_WinUI.Infrastructure;
+using PrismWave_WinUI.Infrastructure.Http;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.Services.Contracts;
 
@@ -20,7 +21,7 @@ public sealed class HitsService : IHitsService
 
     public HitsService()
         : this(
-            new HttpClient(),
+            SharedHttpClient.Resolve(null),
             DefaultLatestManifestUri,
             Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

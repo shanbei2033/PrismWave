@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using PrismWave_WinUI.Infrastructure;
+using PrismWave_WinUI.Infrastructure.Http;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.Services.Contracts;
 
@@ -84,7 +85,7 @@ public sealed class OnlineProviderService : IOnlineProviderService
         IOnlineAccountService? accountService = null,
         Func<OnlineQualityPreference>? qualityPreference = null)
     {
-        _httpClient = httpClient ?? new HttpClient();
+        _httpClient = SharedHttpClient.Resolve(httpClient);
         _timeProvider = timeProvider ?? TimeProvider.System;
         _healthTracker = healthTracker ?? new OnlineProviderHealthTracker(_timeProvider);
         _accountService = accountService;
@@ -166,7 +167,8 @@ public sealed class OnlineProviderService : IOnlineProviderService
         string providerTrackId,
         string? coverUrl = null,
         double durationSeconds = 0,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool requiresVip = false)
     {
         var normalizedProvider = NormalizeProvider(provider);
         var normalizedId = providerTrackId.Trim();
@@ -200,7 +202,7 @@ public sealed class OnlineProviderService : IOnlineProviderService
 
             resolution = await ResolveWithAdapterAsync(
                 adapter,
-                new OnlineProviderResolveContext(normalizedId, coverUrl, durationSeconds, quality, session),
+                new OnlineProviderResolveContext(normalizedId, coverUrl, durationSeconds, quality, session, requiresVip),
                 operationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -744,22 +746,23 @@ public sealed class OnlineProviderService : IOnlineProviderService
             new BuiltInOnlineMusicProviderAdapter(
                 "audius",
                 SearchAudiusAsync,
-                (context, _) => Task.FromResult<OnlinePlaybackResolution?>(ResolveAudius(
+                (context, _, _) => Task.FromResult<OnlinePlaybackResolution?>(ResolveAudius(
                     context.ProviderTrackId,
                     context.CoverUrl,
                     context.DurationSeconds))),
             new BuiltInOnlineMusicProviderAdapter(
                 "netease",
                 SearchNeteaseAsync,
-                (context, token) => ResolveNeteaseAsync(
+                (context, token, skipOfficial) => ResolveNeteaseAsync(
                     context.ProviderTrackId,
                     context.CoverUrl,
                     context.DurationSeconds,
-                    token)),
+                    token,
+                    skipOfficial)),
             new BuiltInOnlineMusicProviderAdapter(
                 "kuwo",
                 SearchKuwoAsync,
-                (context, token) => ResolveKuwoAsync(
+                (context, token, _) => ResolveKuwoAsync(
                     context.ProviderTrackId,
                     context.CoverUrl,
                     context.DurationSeconds,
@@ -767,7 +770,7 @@ public sealed class OnlineProviderService : IOnlineProviderService
             new BuiltInOnlineMusicProviderAdapter(
                 "migu",
                 SearchMiguAsync,
-                (context, token) => ResolveMiguAsync(
+                (context, token, _) => ResolveMiguAsync(
                     context.ProviderTrackId,
                     context.CoverUrl,
                     context.DurationSeconds,
@@ -775,7 +778,7 @@ public sealed class OnlineProviderService : IOnlineProviderService
             new BuiltInOnlineMusicProviderAdapter(
                 "qq",
                 SearchQqAsync,
-                (context, token) => ResolveQqAsync(
+                (context, token, _) => ResolveQqAsync(
                     context.ProviderTrackId,
                     context.CoverUrl,
                     context.DurationSeconds,
@@ -783,7 +786,7 @@ public sealed class OnlineProviderService : IOnlineProviderService
             new BuiltInOnlineMusicProviderAdapter(
                 "kugou",
                 SearchKugouAsync,
-                (context, token) => ResolveKugouAsync(
+                (context, token, _) => ResolveKugouAsync(
                     context.ProviderTrackId,
                     context.CoverUrl,
                     context.DurationSeconds,
@@ -791,7 +794,7 @@ public sealed class OnlineProviderService : IOnlineProviderService
             new BuiltInOnlineMusicProviderAdapter(
                 "taihe",
                 SearchTaiheAsync,
-                (context, token) => ResolveTaiheAsync(
+                (context, token, _) => ResolveTaiheAsync(
                     context.ProviderTrackId,
                     context.CoverUrl,
                     context.DurationSeconds,
@@ -831,21 +834,33 @@ public sealed class OnlineProviderService : IOnlineProviderService
         {
             if (context.Session is not null && adapter.ProviderKey.Equals("netease", StringComparison.OrdinalIgnoreCase))
             {
-                var accountResolution = await ResolveNeteaseAccountAsync(context, cancellationToken);
-                if (accountResolution.Resolution is not null)
-                {
-                    return accountResolution.Resolution;
-                }
+                // For VIP tracks, check if the account has VIP status
+                var snapshot = _accountService?.GetSnapshot("netease");
+                var accountHasVip = snapshot?.IsVip ?? false;
 
-                if (accountResolution.AuthenticationFailed)
+                if (context.RequiresVip && !accountHasVip)
                 {
-                    var refreshed = await _accountService!.HandleAuthenticationFailureAsync("netease", cancellationToken);
-                    if (refreshed is not null)
+                    // Account exists but no VIP - skip account resolution, go directly to gdstudio fallback
+                    StartupLog.Write($"online.resolve.netease.vip-skipped: track={context.ProviderTrackId}, account-vip={accountHasVip}");
+                }
+                else
+                {
+                    var accountResolution = await ResolveNeteaseAccountAsync(context, cancellationToken);
+                    if (accountResolution.Resolution is not null)
                     {
-                        accountResolution = await ResolveNeteaseAccountAsync(context with { Session = refreshed }, cancellationToken);
-                        if (accountResolution.Resolution is not null)
+                        return accountResolution.Resolution;
+                    }
+
+                    if (accountResolution.AuthenticationFailed)
+                    {
+                        var refreshed = await _accountService!.HandleAuthenticationFailureAsync("netease", cancellationToken);
+                        if (refreshed is not null)
                         {
-                            return accountResolution.Resolution;
+                            accountResolution = await ResolveNeteaseAccountAsync(context with { Session = refreshed }, cancellationToken);
+                            if (accountResolution.Resolution is not null)
+                            {
+                                return accountResolution.Resolution;
+                            }
                         }
                     }
                 }
@@ -881,7 +896,12 @@ public sealed class OnlineProviderService : IOnlineProviderService
             // Account endpoints are opportunistic. A protocol failure must not block anonymous fallback.
         }
 
-        return await adapter.ResolveAsync(context with { Session = null }, cancellationToken);
+        // For VIP tracks on netease without VIP account, skip the official anonymous endpoint
+        // (it will return null URL anyway) and go directly to gdstudio fallback
+        var skipOfficialEndpoint = context.RequiresVip
+            && adapter.ProviderKey.Equals("netease", StringComparison.OrdinalIgnoreCase);
+
+        return await adapter.ResolveAsync(context with { Session = null }, cancellationToken, skipOfficialEndpoint);
     }
 
     private async Task<IReadOnlyList<OnlineProviderTrackModel>> SearchGdStudioAsync(
@@ -1470,27 +1490,33 @@ public sealed class OnlineProviderService : IOnlineProviderService
         string trackId,
         string? coverUrl,
         double durationSeconds,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool skipOfficialEndpoint = false)
     {
-        var officialUri = new Uri(
-            $"https://music.163.com/api/song/enhance/player/url?id={Uri.EscapeDataString(trackId)}&ids=%5B{Uri.EscapeDataString(trackId)}%5D&br=320000");
-        using (var document = await GetJsonAsync(officialUri, NeteaseHeaders, cancellationToken))
+        // Skip the official anonymous endpoint for VIP tracks without VIP account
+        // (it will return null URL anyway, wasting a network round-trip)
+        if (!skipOfficialEndpoint)
         {
-            if (document is not null
-                && document.RootElement.TryGetProperty("data", out var data)
-                && data.ValueKind == JsonValueKind.Array)
+            var officialUri = new Uri(
+                $"https://music.163.com/api/song/enhance/player/url?id={Uri.EscapeDataString(trackId)}&ids=%5B{Uri.EscapeDataString(trackId)}%5D&br=320000");
+            using (var document = await GetJsonAsync(officialUri, NeteaseHeaders, cancellationToken))
             {
-                var item = data.EnumerateArray().FirstOrDefault();
-                var url = NormalizeUrl(ReadString(item, "url"));
-                if (IsDirectPlayableUrl(url))
+                if (document is not null
+                    && document.RootElement.TryGetProperty("data", out var data)
+                    && data.ValueKind == JsonValueKind.Array)
                 {
-                    return new OnlinePlaybackResolution(
-                        url!,
-                        "netease",
-                        trackId,
-                        PlaybackHeaders("netease"),
-                        coverUrl,
-                        durationSeconds);
+                    var item = data.EnumerateArray().FirstOrDefault();
+                    var url = NormalizeUrl(ReadString(item, "url"));
+                    if (IsDirectPlayableUrl(url))
+                    {
+                        return new OnlinePlaybackResolution(
+                            url!,
+                            "netease",
+                            trackId,
+                            PlaybackHeaders("netease"),
+                            coverUrl,
+                            durationSeconds);
+                    }
                 }
             }
         }
@@ -1921,6 +1947,10 @@ public sealed class OnlineProviderService : IOnlineProviderService
             durationMs = ReadDouble(item, "duration");
         }
 
+        // fee: 1 = VIP-only, 4 = paid album; both require a VIP/purchase to stream officially.
+        var fee = (int)ReadDouble(item, "fee");
+        var requiresVip = fee is 1 or 4;
+
         return new OnlineProviderTrackModel(
             "netease",
             id,
@@ -1928,7 +1958,8 @@ public sealed class OnlineProviderService : IOnlineProviderService
             CleanText(artist),
             CleanText(album),
             durationMs / 1000d,
-            UpgradeNeteaseCover(cover));
+            UpgradeNeteaseCover(cover),
+            RequiresVip: requiresVip);
     }
 
     private static OnlineProviderTrackModel? ParseKuwoTrack(JsonElement item)

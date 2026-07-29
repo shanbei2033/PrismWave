@@ -206,7 +206,8 @@ public sealed class OnlineAccountService : IOnlineAccountService, IDisposable
                             OnlineProviderAuthState.Authenticated,
                             result.DisplayName,
                             result.AvatarUrl,
-                            result.StatusMessage);
+                            result.StatusMessage,
+                            result.IsVip);
                         authenticatedSnapshot = state.Snapshot;
                     }
                 }
@@ -242,7 +243,7 @@ public sealed class OnlineAccountService : IOnlineAccountService, IDisposable
                 return state.Snapshot;
             }
 
-            state.Snapshot = new(key, result.State, result.DisplayName, result.AvatarUrl, result.StatusMessage);
+            state.Snapshot = new(key, result.State, result.DisplayName, result.AvatarUrl, result.StatusMessage, result.IsVip);
             snapshot = state.Snapshot;
         }
         RaiseAccountChanged(snapshot);
@@ -347,9 +348,10 @@ public sealed class OnlineAccountService : IOnlineAccountService, IDisposable
             // Fetch user profile after validating the session
             string? profileDisplayName = null;
             string? profileAvatarUrl = null;
+            bool profileIsVip = false;
             try
             {
-                (profileDisplayName, profileAvatarUrl) = await adapter.FetchProfileAsync(
+                (profileDisplayName, profileAvatarUrl, profileIsVip) = await adapter.FetchProfileAsync(
                     candidate, cancellationToken).ConfigureAwait(false);
             }
             catch
@@ -373,7 +375,8 @@ public sealed class OnlineAccountService : IOnlineAccountService, IDisposable
                     key,
                     OnlineProviderAuthState.Authenticated,
                     DisplayName: profileDisplayName,
-                    AvatarUrl: profileAvatarUrl);
+                    AvatarUrl: profileAvatarUrl,
+                    IsVip: profileIsVip);
 
                 return state.Session;
             }
@@ -735,7 +738,7 @@ internal interface IOnlineLoginAdapter
         OnlineProviderSession session,
         CancellationToken cancellationToken);
 
-    Task<(string? DisplayName, string? AvatarUrl)> FetchProfileAsync(
+    Task<(string? DisplayName, string? AvatarUrl, bool IsVip)> FetchProfileAsync(
         OnlineProviderSession session,
         CancellationToken cancellationToken);
 }
@@ -751,7 +754,8 @@ internal sealed record AdapterPollResult(
     IReadOnlyDictionary<string, string>? Cookies = null,
     string? DisplayName = null,
     string? AvatarUrl = null,
-    string? StatusMessage = null);
+    string? StatusMessage = null,
+    bool IsVip = false);
 
 internal sealed class NeteaseQrLoginAdapter(HttpClient httpClient, Func<DateTimeOffset> utcNow) : IOnlineLoginAdapter
 {
@@ -896,6 +900,7 @@ internal sealed class NeteaseQrLoginAdapter(HttpClient httpClient, Func<DateTime
         // Try to extract profile from the login response first
         var displayName = TryGetString(root, "nickname");
         var avatarUrl = TryGetString(root, "avatarUrl");
+        bool isVip = false;
 
         if (root.TryGetProperty("profile", out var profile) && profile.ValueKind == JsonValueKind.Object)
         {
@@ -903,24 +908,32 @@ internal sealed class NeteaseQrLoginAdapter(HttpClient httpClient, Func<DateTime
             avatarUrl ??= TryGetString(profile, "avatarUrl");
         }
 
+        // Check VIP status from account object if present
+        if (root.TryGetProperty("account", out var account) && account.ValueKind == JsonValueKind.Object)
+        {
+            isVip = TryGetInt32(account, "vipType") > 0;
+        }
+
         // If profile data is missing from login response, fetch it from the account API
         if (string.IsNullOrWhiteSpace(displayName) || string.IsNullOrWhiteSpace(avatarUrl))
         {
             var cookieHeader = string.Join("; ", cookies.Select(static pair => $"{pair.Key}={pair.Value}"));
-            var (fetchedName, fetchedAvatar) = await FetchNeteaseUserProfileAsync(
+            var (fetchedName, fetchedAvatar, fetchedIsVip) = await FetchNeteaseUserProfileAsync(
                 cookieHeader, cancellationToken).ConfigureAwait(false);
             displayName ??= fetchedName;
             avatarUrl ??= fetchedAvatar;
+            isVip = fetchedIsVip;
         }
 
         return new(
             OnlineProviderAuthState.Authenticated,
             cookies,
             DisplayName: displayName,
-            AvatarUrl: avatarUrl);
+            AvatarUrl: avatarUrl,
+            IsVip: isVip);
     }
 
-    private async Task<(string? DisplayName, string? AvatarUrl)> FetchNeteaseUserProfileAsync(
+    private async Task<(string? DisplayName, string? AvatarUrl, bool IsVip)> FetchNeteaseUserProfileAsync(
         string cookieHeader,
         CancellationToken cancellationToken)
     {
@@ -931,7 +944,7 @@ internal sealed class NeteaseQrLoginAdapter(HttpClient httpClient, Func<DateTime
             using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                return (null, null);
+                return (null, null, false);
             }
 
             await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
@@ -939,7 +952,7 @@ internal sealed class NeteaseQrLoginAdapter(HttpClient httpClient, Func<DateTime
             var root = json.RootElement;
             if (TryGetInt32(root, "code") != 200)
             {
-                return (null, null);
+                return (null, null, false);
             }
 
             // The account API returns profile under "profile" object
@@ -959,11 +972,18 @@ internal sealed class NeteaseQrLoginAdapter(HttpClient httpClient, Func<DateTime
                 avatar ??= TryGetString(account, "avatarUrl");
             }
 
-            return (name, avatar);
+            // Check VIP status: account.vipType > 0 indicates VIP membership
+            bool isVip = false;
+            if (root.TryGetProperty("account", out var accountObj) && accountObj.ValueKind == JsonValueKind.Object)
+            {
+                isVip = TryGetInt32(accountObj, "vipType") > 0;
+            }
+
+            return (name, avatar, isVip);
         }
         catch
         {
-            return (null, null);
+            return (null, null, false);
         }
     }
 
@@ -987,7 +1007,7 @@ internal sealed class NeteaseQrLoginAdapter(HttpClient httpClient, Func<DateTime
     private static bool IsNonNullObject(JsonElement element, string propertyName) =>
         element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.Object;
 
-    public async Task<(string? DisplayName, string? AvatarUrl)> FetchProfileAsync(
+    public async Task<(string? DisplayName, string? AvatarUrl, bool IsVip)> FetchProfileAsync(
         OnlineProviderSession session,
         CancellationToken cancellationToken)
     {
@@ -1319,12 +1339,13 @@ internal sealed class QqQrLoginAdapter(
         host.Equals(trustedSuffix, StringComparison.OrdinalIgnoreCase) ||
         host.EndsWith($".{trustedSuffix}", StringComparison.OrdinalIgnoreCase);
 
-    public async Task<(string? DisplayName, string? AvatarUrl)> FetchProfileAsync(
+    public async Task<(string? DisplayName, string? AvatarUrl, bool IsVip)> FetchProfileAsync(
         OnlineProviderSession session,
         CancellationToken cancellationToken)
     {
-        return await FetchQqUserInfoAsync(session.Cookies, cancellationToken)
+        var (avatarUrl, displayName) = await FetchQqUserInfoAsync(session.Cookies, cancellationToken)
             .ConfigureAwait(false);
+        return (displayName, avatarUrl, false);
     }
 
     private sealed record QqChallengeContext(string QrSignature);

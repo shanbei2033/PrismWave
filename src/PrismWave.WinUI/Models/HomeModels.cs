@@ -40,7 +40,8 @@ public sealed record SearchResultModel(
     string? ProviderKey = null,
     string? ProviderTrackId = null,
     string? PlaybackUrl = null,
-    bool IsFavorite = false)
+    bool IsFavorite = false,
+    bool RequiresVip = false)
 {
     public string FavoriteGlyph => IsFavorite ? "\uEB52" : "\uEB51";
 }

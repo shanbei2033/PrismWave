@@ -3,7 +3,9 @@ namespace PrismWave_WinUI.Infrastructure.Navigation;
 public sealed class BackNavigationPageCache<TPage>
     where TPage : class
 {
-    private readonly Stack<Entry> _entries = new();
+    private const int MaxCacheDepth = 2;
+
+    private readonly LinkedList<Entry> _entries = new();
 
     public int Count => _entries.Count;
 
@@ -11,15 +13,20 @@ public sealed class BackNavigationPageCache<TPage>
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(route);
         ArgumentNullException.ThrowIfNull(page);
-        _entries.Push(new Entry(route, page));
+        _entries.AddFirst(new Entry(route, page));
+
+        while (_entries.Count > MaxCacheDepth)
+        {
+            _entries.RemoveLast();
+        }
     }
 
     public bool TryPeek(string route, out TPage? page)
     {
-        if (_entries.TryPeek(out var entry) &&
-            string.Equals(entry.Route, route, StringComparison.Ordinal))
+        if (_entries.First is not null &&
+            string.Equals(_entries.First.Value.Route, route, StringComparison.Ordinal))
         {
-            page = entry.Page;
+            page = _entries.First.Value.Page;
             return true;
         }
 
@@ -34,7 +41,7 @@ public sealed class BackNavigationPageCache<TPage>
             return false;
         }
 
-        _entries.Pop();
+        _entries.RemoveFirst();
         return true;
     }
 

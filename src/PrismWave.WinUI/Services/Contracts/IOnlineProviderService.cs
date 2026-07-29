@@ -32,7 +32,8 @@ public interface IOnlineProviderService
         string providerTrackId,
         string? coverUrl = null,
         double durationSeconds = 0,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool requiresVip = false);
 
     Task<OnlinePlaybackResolution?> SearchAndResolveAsync(
         TrackModel track,

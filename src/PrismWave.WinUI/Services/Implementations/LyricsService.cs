@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using PrismWave_WinUI.Infrastructure;
+using PrismWave_WinUI.Infrastructure.Http;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.Services.Contracts;
 
@@ -28,7 +29,7 @@ public sealed class LyricsService : ILyricsService
     public LyricsService(ISettingsService settingsService)
         : this(
             settingsService,
-            new HttpClient(),
+            SharedHttpClient.Resolve(null),
             Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "PrismWave",

@@ -22,7 +22,7 @@
                 <Grid>
                     <FontIcon Glyph="&#xE8D6;" FontSize="24" Foreground="{StaticResource PrismTextMutedBrush}" />
                     <Image
-                        Source="{Binding CoverUrl, Converter={StaticResource CoverImageSourceConverter}}"
+                        Source="{Binding CoverUrl, Converter={StaticResource CoverImageSourceConverter}, ConverterParameter=128}"
                         Stretch="UniformToFill" />
                 </Grid>
             </Border>

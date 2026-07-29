@@ -10,11 +10,21 @@ namespace PrismWave_WinUI.Controls.Media;
 
 public sealed class StableCoverImage : Grid
 {
+    private const int MaxCacheEntries = 50;
+    private static readonly Dictionary<string, WeakReference<BitmapImage>> SharedCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly object CacheLock = new();
+
     public static readonly DependencyProperty SourcePathProperty = DependencyProperty.Register(
         nameof(SourcePath),
         typeof(string),
         typeof(StableCoverImage),
         new PropertyMetadata(null, OnSourcePathChanged));
+
+    public static readonly DependencyProperty DecodePixelWidthProperty = DependencyProperty.Register(
+        nameof(DecodePixelWidth),
+        typeof(int),
+        typeof(StableCoverImage),
+        new PropertyMetadata(256));
 
     public static readonly DependencyProperty StretchProperty = DependencyProperty.Register(
         nameof(Stretch),
@@ -43,6 +53,12 @@ public sealed class StableCoverImage : Grid
     {
         get => (string?)GetValue(SourcePathProperty);
         set => SetValue(SourcePathProperty, value);
+    }
+
+    public int DecodePixelWidth
+    {
+        get => (int)GetValue(DecodePixelWidthProperty);
+        set => SetValue(DecodePixelWidthProperty, value);
     }
 
     public Stretch Stretch
@@ -106,10 +122,17 @@ public sealed class StableCoverImage : Grid
             return;
         }
 
-        var bitmap = new BitmapImage(uri);
+        var bitmap = GetOrCreateBitmap(uri, DecodePixelWidth);
+
+        if (bitmap.PixelWidth > 0)
+        {
+            _currentImage.Source = bitmap;
+            return;
+        }
+
         var pending = CreateImage();
         pending.Opacity = 0;
-        pending.Source = bitmap;
+
         pending.ImageOpened += (_, _) =>
         {
             if (revision != _loadRevision || !ReferenceEquals(_pendingImage, pending))
@@ -155,6 +178,7 @@ public sealed class StableCoverImage : Grid
         };
         _pendingImage = pending;
         Children.Add(pending);
+        pending.Source = bitmap;
     }
 
     private Image CreateImage()
@@ -176,6 +200,46 @@ public sealed class StableCoverImage : Grid
 
         Children.Remove(_pendingImage);
         _pendingImage = null;
+    }
+
+    private static BitmapImage GetOrCreateBitmap(Uri uri, int decodePixelWidth)
+    {
+        var key = $"{decodePixelWidth}:{uri.AbsoluteUri}";
+        lock (CacheLock)
+        {
+            if (SharedCache.TryGetValue(key, out var weak) && weak.TryGetTarget(out var cached))
+            {
+                return cached;
+            }
+
+            var bitmap = new BitmapImage(uri) { DecodePixelWidth = decodePixelWidth };
+            SharedCache[key] = new WeakReference<BitmapImage>(bitmap);
+
+            if (SharedCache.Count > MaxCacheEntries)
+            {
+                var deadKeys = new List<string>();
+                foreach (var pair in SharedCache)
+                {
+                    if (!pair.Value.TryGetTarget(out _))
+                    {
+                        deadKeys.Add(pair.Key);
+                    }
+                }
+
+                foreach (var deadKey in deadKeys)
+                {
+                    SharedCache.Remove(deadKey);
+                }
+
+                if (SharedCache.Count > MaxCacheEntries)
+                {
+                    var firstKey = SharedCache.Keys.First();
+                    SharedCache.Remove(firstKey);
+                }
+            }
+
+            return bitmap;
+        }
     }
 
     private static Uri? CreateSourceUri(string source)

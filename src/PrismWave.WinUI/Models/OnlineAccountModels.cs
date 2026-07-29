@@ -45,7 +45,8 @@ public sealed record OnlineAccountSnapshot(
     OnlineProviderAuthState State,
     string? DisplayName = null,
     string? AvatarUrl = null,
-    string? StatusMessage = null)
+    string? StatusMessage = null,
+    bool IsVip = false)
 {
     public override string ToString() =>
         $"OnlineAccountSnapshot {{ ProviderKey = {ProviderKey}, State = {State}, Account = [REDACTED] }}";

@@ -108,3 +108,21 @@ Available output modes on Windows:
 - Compatibility
 - WASAPI Shared
 - WASAPI Exclusive
+
+## Online sources
+
+PrismWave uses [GD Studio's Online Music Platform API](https://music-api.gdstudio.xyz/api.php)
+as a fallback proxy for resolving playback URLs, cross-source search, and cover image retrieval.
+
+- Base URL: `https://music-api.gdstudio.xyz/api.php`
+- Endpoints: `types=search` (search), `types=url` (playback URL), `types=pic` (album art), `types=lyric` (lyrics)
+- Supported sources: netease, tencent, kuwo, joox, bilibili, tidal, qobuz, apple, ytmusic, spotify
+- Rate limit: 50 requests per 5 minutes
+- License: CC BY-NC 4.0 (non-commercial use only)
+
+## Acknowledgments
+
+- [GD Studio's Online Music Platform](https://music.gdstudio.xyz) — provides the fallback music API
+  used for playback URL resolution, cross-source search, and cover retrieval.
+- [QQMusicDecoder](https://github.com/WXRIW/QQMusicDecoder) — helped confirm the QQ QRC lyric processing pipeline.
+- [LDDC](https://github.com/chenmozhijin/LDDC) — reference for word-by-word lyric format details and parsing.

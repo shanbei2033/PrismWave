@@ -8,7 +8,8 @@ public sealed record OnlineProviderTrackModel(
     string Album,
     double DurationSeconds,
     string? CoverUrl = null,
-    string? DirectAudioUrl = null)
+    string? DirectAudioUrl = null,
+    bool RequiresVip = false)
 {
     public string Descriptor =>
         $"online://{Provider.ToLowerInvariant()}/{Uri.EscapeDataString(ProviderTrackId)}";

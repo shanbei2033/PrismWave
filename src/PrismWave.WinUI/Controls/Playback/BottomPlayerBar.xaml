@@ -124,7 +124,8 @@
                                 Foreground="{StaticResource PrismTextSecondaryBrush}" />
                             <media:StableCoverImage
                                 SourcePath="{Binding CurrentCoverPath}"
-                                Stretch="UniformToFill" />
+                                Stretch="UniformToFill"
+                                DecodePixelWidth="128" />
                             </Grid>
                     </Border>
 

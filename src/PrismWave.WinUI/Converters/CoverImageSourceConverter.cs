@@ -13,16 +13,18 @@ public sealed class CoverImageSourceConverter : IValueConverter
             return null;
         }
 
+        var decodeWidth = parameter is int pixels ? pixels : 256;
+
         try
         {
             if (Uri.TryCreate(source, UriKind.Absolute, out var uri))
             {
-                return new BitmapImage(uri);
+                return new BitmapImage(uri) { DecodePixelWidth = decodeWidth };
             }
 
             if (File.Exists(source))
             {
-                return new BitmapImage(new Uri(source));
+                return new BitmapImage(new Uri(source)) { DecodePixelWidth = decodeWidth };
             }
         }
         catch

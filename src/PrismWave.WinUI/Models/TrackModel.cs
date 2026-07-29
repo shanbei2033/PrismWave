@@ -20,7 +20,8 @@ public sealed record TrackModel(
     long FileSizeBytes = 0,
     string? Codec = null,
     string? OnlineCandidateKey = null,
-    string? OnlineProviderTrackId = null)
+    string? OnlineProviderTrackId = null,
+    bool RequiresVip = false)
 {
     public string PlaybackSource => IsRemote && !string.IsNullOrWhiteSpace(PlaybackUrl)
         ? PlaybackUrl.Trim()

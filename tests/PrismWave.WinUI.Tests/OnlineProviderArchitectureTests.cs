@@ -246,7 +246,8 @@ public sealed class OnlineProviderArchitectureTests
 
         public Task<OnlinePlaybackResolution?> ResolveAsync(
             OnlineProviderResolveContext context,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool skipOfficialEndpoint = false)
         {
             ResolveCalls++;
             return Task.FromResult<OnlinePlaybackResolution?>(new(
@@ -272,7 +273,8 @@ public sealed class OnlineProviderArchitectureTests
 
         public Task<OnlinePlaybackResolution?> ResolveAsync(
             OnlineProviderResolveContext context,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool skipOfficialEndpoint = false)
         {
             ResolveCalls++;
             return Task.FromResult<OnlinePlaybackResolution?>(null);
@@ -289,7 +291,7 @@ public sealed class OnlineProviderArchitectureTests
             throw new HttpRequestException("protocol failure");
         }
 
-        public Task<OnlinePlaybackResolution?> ResolveAsync(OnlineProviderResolveContext context, CancellationToken cancellationToken) =>
+        public Task<OnlinePlaybackResolution?> ResolveAsync(OnlineProviderResolveContext context, CancellationToken cancellationToken, bool skipOfficialEndpoint = false) =>
             Task.FromResult<OnlinePlaybackResolution?>(null);
     }
 
@@ -298,7 +300,7 @@ public sealed class OnlineProviderArchitectureTests
         public string ProviderKey => "secret";
         public Task<IReadOnlyList<OnlineProviderTrackModel>> SearchAsync(string query, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<OnlineProviderTrackModel>>([]);
-        public Task<OnlinePlaybackResolution?> ResolveAsync(OnlineProviderResolveContext context, CancellationToken cancellationToken) =>
+        public Task<OnlinePlaybackResolution?> ResolveAsync(OnlineProviderResolveContext context, CancellationToken cancellationToken, bool skipOfficialEndpoint = false) =>
             throw new HttpRequestException(
                 "Cookie=MUSIC_U=token-value uin=10001 https://signed.test/play?token=token-value");
     }
@@ -312,7 +314,7 @@ public sealed class OnlineProviderArchitectureTests
         public string ProviderKey { get; } = provider;
         public Task<IReadOnlyList<OnlineProviderTrackModel>> SearchAsync(string query, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<OnlineProviderTrackModel>>([new(ProviderKey, "candidate", "Song", "Artist", "Album", 180, null)]);
-        public async Task<OnlinePlaybackResolution?> ResolveAsync(OnlineProviderResolveContext context, CancellationToken cancellationToken)
+        public async Task<OnlinePlaybackResolution?> ResolveAsync(OnlineProviderResolveContext context, CancellationToken cancellationToken, bool skipOfficialEndpoint = false)
         {
             await Task.Delay(delay, cancellationToken);
             return new OnlinePlaybackResolution(
@@ -347,7 +349,7 @@ public sealed class OnlineProviderArchitectureTests
         public int ResolveCalls { get; private set; }
         public Task<IReadOnlyList<OnlineProviderTrackModel>> SearchAsync(string query, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<OnlineProviderTrackModel>>([new("netease", "candidate", "Song", "Artist", "Album", 180, null)]);
-        public Task<OnlinePlaybackResolution?> ResolveAsync(OnlineProviderResolveContext context, CancellationToken cancellationToken)
+        public Task<OnlinePlaybackResolution?> ResolveAsync(OnlineProviderResolveContext context, CancellationToken cancellationToken, bool skipOfficialEndpoint = false)
         {
             ResolveCalls++;
             return Task.FromResult<OnlinePlaybackResolution?>(new(

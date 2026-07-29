@@ -34,6 +34,7 @@
                 SourcePath="{Binding CurrentCoverPath}"
                 Stretch="UniformToFill"
                 Opacity="0.34"
+                DecodePixelWidth="512"
                 RenderTransformOrigin="0.5,0.5"
                 AutomationProperties.AutomationId="FullPlayBackdropImage">
                 <media:StableCoverImage.RenderTransform>
@@ -92,6 +93,7 @@
                             <media:StableCoverImage
                                 SourcePath="{Binding CurrentCoverPath}"
                                 Stretch="UniformToFill"
+                                DecodePixelWidth="512"
                                 AutomationProperties.AutomationId="FullPlayCover" />
                         </Grid>
                     </Border>

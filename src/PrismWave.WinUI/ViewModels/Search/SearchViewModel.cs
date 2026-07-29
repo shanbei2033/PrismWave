@@ -393,7 +393,8 @@ public sealed partial class SearchViewModel : ObservableObject
             result.IsLocal ? null : result.PlaybackUrl,
             DurationSeconds: ParseDuration(result.Duration),
             IsFavorite: result.IsFavorite,
-            OnlineProviderTrackId: result.ProviderTrackId);
+            OnlineProviderTrackId: result.ProviderTrackId,
+            RequiresVip: result.RequiresVip);
     }
 
     private static double ParseDuration(string value) =>

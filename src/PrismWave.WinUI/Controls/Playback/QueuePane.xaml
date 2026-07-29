@@ -132,7 +132,8 @@
                                                 Width="48"
                                                 Height="48"
                                                 SourcePath="{Binding CoverPath}"
-                                                Stretch="UniformToFill" />
+                                                Stretch="UniformToFill"
+                                                DecodePixelWidth="128" />
                                         </Grid>
                                     </Border>
 

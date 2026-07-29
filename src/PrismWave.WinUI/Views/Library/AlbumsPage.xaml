@@ -74,7 +74,7 @@
                             </Grid.RowDefinitions>
                             <Grid x:Name="AlbumCover" SizeChanged="AlbumCover_SizeChanged">
                                 <Border CornerRadius="9" Background="{StaticResource PrismSurfaceStrongBrush}">
-                                    <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" />
+                                    <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" DecodePixelWidth="128" />
                                 </Border>
                                 <Border x:Name="AlbumHoverShade" Background="#66000000" CornerRadius="9" Opacity="0" />
                                 <Button

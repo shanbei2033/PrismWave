@@ -124,7 +124,8 @@ public sealed class OnlineSearchService : IOnlineSearchService
         track.CoverUrl,
         track.Provider,
         track.ProviderTrackId,
-        track.DirectAudioUrl);
+        track.DirectAudioUrl,
+        RequiresVip: track.RequiresVip);
 
     private static double ScoreLocal(TrackModel track, string query)
     {

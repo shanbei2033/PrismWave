@@ -7,7 +7,8 @@ public sealed record OnlineProviderResolveContext(
     string? CoverUrl,
     double DurationSeconds,
     OnlineQualityPreference QualityPreference,
-    OnlineProviderSession? Session = null);
+    OnlineProviderSession? Session = null,
+    bool RequiresVip = false);
 
 public interface IOnlineMusicProviderAdapter
 {
@@ -19,5 +20,6 @@ public interface IOnlineMusicProviderAdapter
 
     Task<OnlinePlaybackResolution?> ResolveAsync(
         OnlineProviderResolveContext context,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        bool skipOfficialEndpoint = false);
 }

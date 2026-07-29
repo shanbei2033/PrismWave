@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using PrismWave_WinUI.Infrastructure;
+using PrismWave_WinUI.Infrastructure.Http;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.Services.Contracts;
 
@@ -21,8 +22,8 @@ public sealed class OnlineAudioCache : IOnlineAudioCache, IDisposable
     public OnlineAudioCache(ISettingsService settingsService, HttpClient? httpClient = null)
     {
         _settingsService = settingsService;
-        _httpClient = httpClient ?? new HttpClient();
-        _ownsHttpClient = httpClient is null;
+        _httpClient = SharedHttpClient.Resolve(httpClient);
+        _ownsHttpClient = httpClient is not null;
         _settingsService.SettingsChanged += SettingsService_SettingsChanged;
         Refresh();
     }

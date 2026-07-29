@@ -92,7 +92,7 @@
                                     FontSize="42"
                                     Foreground="{StaticResource PrismTextMutedBrush}" />
                                 <Image
-                                    Source="{Binding ThumbnailUrl, Converter={StaticResource CoverImageSourceConverter}}"
+                                    Source="{Binding ThumbnailUrl, Converter={StaticResource CoverImageSourceConverter}, ConverterParameter=128}"
                                     Stretch="UniformToFill" />
                             </Grid>
                         </Border>

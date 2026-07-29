@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using PrismWave_WinUI.Infrastructure;
+using PrismWave_WinUI.Infrastructure.Http;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.Services.Contracts;
 
@@ -49,7 +50,7 @@ public sealed class CoverService : ICoverService
         string? cacheRoot = null)
     {
         _settingsService = settingsService;
-        _httpClient = httpClient ?? new HttpClient();
+        _httpClient = SharedHttpClient.Resolve(httpClient);
         _cacheRoot = cacheRoot ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "PrismWave",

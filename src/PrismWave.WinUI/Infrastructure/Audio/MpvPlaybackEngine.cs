@@ -50,6 +50,8 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
         SetOption("force-window", "no");
         SetOption("msg-level", "all=v");
         SetOption("cache-secs", "12");
+        SetOption("demuxer-max-bytes", "20MiB");
+        SetOption("demuxer-max-back-bytes", "10MiB");
         SetOption("cache-on-disk", "no");
         SetOption("audio-client-name", "PrismWave");
         ApplyOutputOptions(route, outputDevice);

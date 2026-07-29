@@ -85,7 +85,7 @@
                                 <ColumnDefinition Width="38" />
                             </Grid.ColumnDefinitions>
                             <Border Width="48" Height="48" CornerRadius="7" Background="{StaticResource PrismSurfaceStrongBrush}">
-                                <media:StableCoverImage SourcePath="{Binding CoverPath}" Stretch="UniformToFill" />
+                                <media:StableCoverImage SourcePath="{Binding CoverPath}" Stretch="UniformToFill" DecodePixelWidth="128" />
                             </Border>
                             <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="2" Text="{Binding Artist}" Style="{StaticResource PrismCaptionTextStyle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />

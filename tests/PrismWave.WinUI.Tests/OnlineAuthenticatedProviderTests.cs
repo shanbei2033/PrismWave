@@ -253,7 +253,8 @@ public sealed class OnlineAuthenticatedProviderTests
 
         public Task<OnlinePlaybackResolution?> ResolveAsync(
             OnlineProviderResolveContext context,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool skipOfficialEndpoint = false)
         {
             ResolveCalls++;
             return Task.FromResult<OnlinePlaybackResolution?>(new(

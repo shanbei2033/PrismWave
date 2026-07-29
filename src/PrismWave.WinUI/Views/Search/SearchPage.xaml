@@ -145,14 +145,27 @@
                                         Opacity="0.14"
                                         Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibilityConverter}}" />
                                     <Border Width="46" Height="46" CornerRadius="7" Background="{StaticResource PrismSurfaceStrongBrush}">
-                                        <media:StableCoverImage SourcePath="{Binding Result.CoverPath}" Stretch="UniformToFill" />
+                                        <media:StableCoverImage SourcePath="{Binding Result.CoverPath}" Stretch="UniformToFill" DecodePixelWidth="128" />
                                     </Border>
-                                    <TextBlock
+                                    <StackPanel
                                         Grid.Column="1"
-                                        Text="{Binding Result.Title}"
-                                        FontWeight="SemiBold"
-                                        TextTrimming="CharacterEllipsis"
-                                        VerticalAlignment="Center" />
+                                        Orientation="Horizontal"
+                                        Spacing="6"
+                                        VerticalAlignment="Center">
+                                        <TextBlock
+                                            Text="{Binding Result.Title}"
+                                            FontWeight="SemiBold"
+                                            TextTrimming="CharacterEllipsis"
+                                            VerticalAlignment="Center" />
+                                        <Image
+                                            Height="14"
+                                            VerticalAlignment="Center"
+                                            Visibility="{Binding Result.RequiresVip, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <Image.Source>
+                                                <SvgImageSource UriSource="ms-appx:///Assets/Icons/vip_badge.svg" />
+                                            </Image.Source>
+                                        </Image>
+                                    </StackPanel>
                                     <TextBlock
                                         Grid.Column="2"
                                         Text="{Binding Result.Artist}"

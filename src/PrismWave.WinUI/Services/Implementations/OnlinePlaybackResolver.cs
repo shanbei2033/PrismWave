@@ -95,7 +95,8 @@ public sealed class OnlinePlaybackResolver : IOnlinePlaybackResolver
                 descriptor.ProviderTrackId!,
                 track.CoverPath,
                 track.DurationSeconds,
-                cancellationToken);
+                cancellationToken,
+                track.RequiresVip);
             if (pinned is not null)
             {
                 var pinnedWithContext = pinned with

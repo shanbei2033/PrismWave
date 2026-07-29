@@ -40,7 +40,7 @@
             <Grid>
             <Image
                 Height="220"
-                Source="{Binding BackdropUrl, ElementName=BannerRoot, Converter={StaticResource CoverImageSourceConverter}}"
+                Source="{Binding BackdropUrl, ElementName=BannerRoot, Converter={StaticResource CoverImageSourceConverter}, ConverterParameter=512}"
                 Stretch="UniformToFill"
                 Opacity="0.55"
                 AutomationProperties.AutomationId="HeroBackdrop" />
@@ -140,7 +140,7 @@
                         <Grid>
                             <FontIcon Glyph="&#xE8D6;" FontSize="28" Foreground="{StaticResource PrismTextMutedBrush}" />
                             <Image
-                                Source="{Binding CoverOneUrl, ElementName=BannerRoot, Converter={StaticResource CoverImageSourceConverter}}"
+                                Source="{Binding CoverOneUrl, ElementName=BannerRoot, Converter={StaticResource CoverImageSourceConverter}, ConverterParameter=128}"
                                 Stretch="UniformToFill"
                                 AutomationProperties.AutomationId="HeroCoverOne" />
                         </Grid>
@@ -158,7 +158,7 @@
                         <Grid>
                             <FontIcon Glyph="&#xE8D6;" FontSize="28" Foreground="{StaticResource PrismTextMutedBrush}" />
                             <Image
-                                Source="{Binding CoverTwoUrl, ElementName=BannerRoot, Converter={StaticResource CoverImageSourceConverter}}"
+                                Source="{Binding CoverTwoUrl, ElementName=BannerRoot, Converter={StaticResource CoverImageSourceConverter}, ConverterParameter=128}"
                                 Stretch="UniformToFill"
                                 AutomationProperties.AutomationId="HeroCoverTwo" />
                         </Grid>
@@ -176,7 +176,7 @@
                         <Grid>
                             <FontIcon Glyph="&#xE8D6;" FontSize="30" Foreground="{StaticResource PrismTextMutedBrush}" />
                             <Image
-                                Source="{Binding CoverThreeUrl, ElementName=BannerRoot, Converter={StaticResource CoverImageSourceConverter}}"
+                                Source="{Binding CoverThreeUrl, ElementName=BannerRoot, Converter={StaticResource CoverImageSourceConverter}, ConverterParameter=128}"
                                 Stretch="UniformToFill"
                                 AutomationProperties.AutomationId="HeroCoverThree" />
                         </Grid>
@@ -193,7 +193,7 @@
                         <Grid>
                             <FontIcon Glyph="&#xE8D6;" FontSize="34" Foreground="{StaticResource PrismTextMutedBrush}" />
                             <Image
-                                Source="{Binding CoverFourUrl, ElementName=BannerRoot, Converter={StaticResource CoverImageSourceConverter}}"
+                                Source="{Binding CoverFourUrl, ElementName=BannerRoot, Converter={StaticResource CoverImageSourceConverter}, ConverterParameter=128}"
                                 Stretch="UniformToFill"
                                 AutomationProperties.AutomationId="HeroCoverFour" />
                         </Grid>

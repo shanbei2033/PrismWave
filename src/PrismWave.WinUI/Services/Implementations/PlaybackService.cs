@@ -790,10 +790,16 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         }
 
         _pendingRecoverySeekSeconds = null;
+        // When all recovery attempts are exhausted for remote tracks, show a user-friendly message
+        var isSourceExhausted = failedTrack.IsRemote
+            && failureKind == OnlinePlaybackFailureKind.Source
+            && recoveryAction == RemotePlaybackRecoveryAction.None;
         SetPlaybackFailed(
-            string.IsNullOrWhiteSpace(message)
-                ? "The audio source could not be opened."
-                : message);
+            isSourceExhausted
+                ? "歌曲无法获取音源"
+                : string.IsNullOrWhiteSpace(message)
+                    ? "The audio source could not be opened."
+                    : message);
     }
 
     private void BeginRemoteSourceRecovery(

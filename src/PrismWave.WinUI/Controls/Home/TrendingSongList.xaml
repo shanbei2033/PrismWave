@@ -58,7 +58,7 @@
                             FontSize="18"
                             Foreground="{StaticResource PrismTextMutedBrush}" />
                         <Image
-                            Source="{Binding CoverUrl, Converter={StaticResource CoverImageSourceConverter}}"
+                            Source="{Binding CoverUrl, Converter={StaticResource CoverImageSourceConverter}, ConverterParameter=128}"
                             Stretch="UniformToFill"
                             AutomationProperties.AutomationId="GlobalTrendingCover" />
                     </Grid>

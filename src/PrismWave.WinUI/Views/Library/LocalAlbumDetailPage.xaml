@@ -45,6 +45,7 @@
                     x:Name="HeroCoverImage"
                     SourcePath="{Binding SelectedAlbum.CoverUrl}"
                     Stretch="UniformToFill"
+                    DecodePixelWidth="512"
                     ImageVerticalAlignment="Top" />
                 <Grid
                     x:Name="HeroBlurHost"

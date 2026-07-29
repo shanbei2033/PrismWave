@@ -6,7 +6,7 @@ namespace PrismWave_WinUI.Services.Implementations;
 internal sealed class BuiltInOnlineMusicProviderAdapter(
     string providerKey,
     Func<string, CancellationToken, Task<IReadOnlyList<OnlineProviderTrackModel>>> search,
-    Func<OnlineProviderResolveContext, CancellationToken, Task<OnlinePlaybackResolution?>> resolve)
+    Func<OnlineProviderResolveContext, CancellationToken, bool, Task<OnlinePlaybackResolution?>> resolve)
     : IOnlineMusicProviderAdapter
 {
     public string ProviderKey { get; } = providerKey;
@@ -17,5 +17,6 @@ internal sealed class BuiltInOnlineMusicProviderAdapter(
 
     public Task<OnlinePlaybackResolution?> ResolveAsync(
         OnlineProviderResolveContext context,
-        CancellationToken cancellationToken) => resolve(context, cancellationToken);
+        CancellationToken cancellationToken,
+        bool skipOfficialEndpoint = false) => resolve(context, cancellationToken, skipOfficialEndpoint);
 }

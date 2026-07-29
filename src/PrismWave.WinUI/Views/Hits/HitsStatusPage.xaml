@@ -48,6 +48,7 @@
                 SourcePath="{Binding CurrentCoverPath}"
                 Stretch="UniformToFill"
                 Opacity="0.28"
+                DecodePixelWidth="512"
                 RenderTransformOrigin="0.5,0.5">
                 <media:StableCoverImage.RenderTransform>
                     <ScaleTransform ScaleX="1.12" ScaleY="1.12" />

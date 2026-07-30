@@ -27,6 +27,10 @@ This branch is the active native implementation and includes:
 - Classic solid (Dark) and light Windows 11 Mica (Beta) appearance styles
 - Online songs can be added to library and favorites from search and Home
 
+## Documentation
+
+For detailed usage instructions — cover replacement, lyrics search and offset, playback queue, HITS radio, audio output settings, and more — see the [Usage Guide](./docs/usage-guide.md).
+
 ## Latest release: v1.0.6
 
 This release fixes critical playback reliability issues:

@@ -241,7 +241,14 @@
                                     <TextBlock Text="{Binding ActiveAudioOutputMode}" FontWeight="SemiBold" />
                                     <TextBlock Text="{Binding AudioOutputFallbackReason}" TextWrapping="Wrap" Foreground="#FFFFB4B4" FontSize="12" />
                                 </StackPanel>
-                                <TextBox Header="{Binding Text.OutputDeviceId}" Text="{Binding AudioOutputDevice, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <ComboBox
+                                    Header="{Binding Text.OutputDeviceId}"
+                                    ItemsSource="{Binding AudioOutputDeviceOptions}"
+                                    DisplayMemberPath="DisplayName"
+                                    SelectedValuePath="Id"
+                                    SelectedValue="{Binding AudioOutputDevice, Mode=TwoWay}"
+                                    Width="280"
+                                    HorizontalAlignment="Left" />
                                 <ToggleSwitch Header="{Binding Text.FadeInOut}" IsOn="{Binding FadeEnabled, Mode=TwoWay}" OnContent="{Binding Text.On}" OffContent="{Binding Text.Off}" />
                                 <Slider Header="{Binding Text.FadeDuration}" Minimum="0" Maximum="2000" StepFrequency="10" Value="{Binding FadeDurationMs, Mode=TwoWay}" />
                                 <TextBlock Text="{Binding FadeDuration}" Style="{StaticResource PrismCaptionTextStyle}" />

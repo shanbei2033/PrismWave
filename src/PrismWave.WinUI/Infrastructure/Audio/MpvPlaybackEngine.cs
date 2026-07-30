@@ -13,6 +13,7 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
     private const int MpvEventEndFileId = 7;
     private const int MpvEventFileLoadedId = 8;
     private const int MpvEventPlaybackRestartId = 21;
+    private const int MpvEventPropertyChangeId = 10;
     private const int MpvEndFileReasonEof = 0;
     private const int MpvEndFileReasonStop = 2;
 
@@ -62,12 +63,29 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
             throw new InvalidOperationException($"mpv_initialize failed: {ErrorString(initializeResult)}");
         }
 
+        // Observe property changes so that time updates are triggered instead of only sampled.
+        SubscribeDoubleProperty("time-pos");
+        SubscribeDoubleProperty("duration");
+        SubscribeFlagProperty("pause");
+
         _eventThread = new Thread(EventLoop)
         {
             IsBackground = true,
             Name = "PrismWave mpv event loop"
         };
         _eventThread.Start();
+    }
+
+    private void SubscribeDoubleProperty(string name)
+    {
+        if (_handle == IntPtr.Zero) return;
+        Command("observe-property", name);
+    }
+
+    private void SubscribeFlagProperty(string name)
+    {
+        if (_handle == IntPtr.Zero) return;
+        Command("observe-property", name);
     }
 
     public double PositionSeconds => GetDouble("time-pos");
@@ -234,6 +252,17 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
 
     private void HandleEvent(MpvEvent evt)
     {
+        if (evt.EventId == MpvEventPropertyChangeId)
+        {
+            // Property change events require additional data parsing for the name and format.
+            // These trigger StateChanged to notify UI refresh in RefreshPosition().
+            // For now, just log that we received a property change event so we know it's firing.
+            var engine = GetDouble("time-pos");
+            StartupLog.Write($"mpv property change: time-pos={engine} s");
+            StateChanged?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
         if (evt.EventId == MpvEventEndFileId)
         {
             if (evt.Data != IntPtr.Zero)
@@ -512,6 +541,15 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
     private void ApplyOutputOptions(AudioOutputRoute route, string outputDevice)
     {
         var device = string.IsNullOrWhiteSpace(outputDevice) ? "auto" : outputDevice.Trim();
+        // mpv's canonical device name (as listed by --audio-device=help) is
+        // "wasapi/{0.0.0.00000000}.{guid}" in every AO mode. A value without
+        // the "<ao>/" prefix is parsed as an AO driver name, so the device is
+        // never matched (silent fallback, broken position reporting).
+        if (device.StartsWith("{0.", StringComparison.Ordinal))
+        {
+            device = $"wasapi/{device}";
+        }
+
         if (route is AudioOutputRoute.WasapiShared or AudioOutputRoute.WasapiExclusive)
         {
             SetOption("ao", "wasapi");

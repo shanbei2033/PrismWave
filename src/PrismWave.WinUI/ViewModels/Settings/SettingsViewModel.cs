@@ -1,8 +1,12 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PrismWave_WinUI.Infrastructure;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.Services.Contracts;
 using PrismWave_WinUI.ViewModels.Library;
+using Windows.Devices.Enumeration;
+using Windows.Media.Devices;
 
 namespace PrismWave_WinUI.ViewModels.Settings;
 
@@ -27,6 +31,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     private string _developerLogCount = "0 entries";
     private DateTimeOffset _lastLogRefresh = DateTimeOffset.MinValue;
     private IReadOnlyList<LocalizedOnlineQualityOption> _onlineQualityOptions = [];
+    private ObservableCollection<AudioOutputDeviceOptionModel> _audioOutputDeviceOptions = [];
+    private DeviceWatcher? _deviceWatcher;
+    private CancellationTokenSource? _deviceRefreshDebounce;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
     public SettingsViewModel(
         ISettingsService settingsService,
@@ -67,6 +75,8 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         _onlineQualityOptions = BuildOnlineQualityOptions();
         RefreshLogs();
+        _ = LoadAudioOutputDevicesAsync();
+        StartDeviceWatcher();
     }
 
     public IReadOnlyList<string> LanguageOptions { get; } = new[] { "zh-CN", "zh-TW", "en-US" };
@@ -77,6 +87,127 @@ public sealed partial class SettingsViewModel : ObservableObject
         new(AudioOutputPolicy.WasapiExclusiveId, Text.WasapiExclusiveName, Text.WasapiExclusiveDescription)
     ];
     public IReadOnlyList<LocalizedOnlineQualityOption> OnlineQualityOptions => _onlineQualityOptions;
+    public ObservableCollection<AudioOutputDeviceOptionModel> AudioOutputDeviceOptions => _audioOutputDeviceOptions;
+
+    [RelayCommand]
+    private async Task LoadAudioOutputDevicesAsync()
+    {
+        var options = new List<AudioOutputDeviceOptionModel>();
+        string? defaultDeviceId = null;
+
+        try
+        {
+            // Resolve the system default render device so it can be shown as the
+            // first entry (replacing the opaque "auto" placeholder).
+            var defaultId = MediaDevice.GetDefaultAudioRenderId(AudioDeviceRole.Default);
+            defaultDeviceId = ConvertToMpvDeviceId(defaultId);
+        }
+        catch (Exception exception)
+        {
+            StartupLog.Write($"settings.audio.devices.defaultFailed: {exception.Message}");
+        }
+
+        try
+        {
+            var selector = MediaDevice.GetAudioRenderSelector();
+            var interfaces = await DeviceInformation.FindAllAsync(selector);
+            foreach (var info in interfaces)
+            {
+                if (string.IsNullOrWhiteSpace(info.Name))
+                {
+                    continue;
+                }
+
+                var mpvId = ConvertToMpvDeviceId(info.Id);
+                var isDefault = string.Equals(mpvId, defaultDeviceId, StringComparison.OrdinalIgnoreCase);
+                var displayName = isDefault ? $"{Text.AudioOutputDeviceDefault} \u2013 {info.Name}" : info.Name;
+                options.Add(new AudioOutputDeviceOptionModel(mpvId, displayName));
+            }
+        }
+        catch (Exception exception)
+        {
+            StartupLog.Write($"settings.audio.devices.enumerationFailed: {exception.Message}");
+        }
+
+        // Migrate legacy "auto" value to the actual system-default device GUID.
+        if (string.Equals(_audioOutputDevice, "auto", StringComparison.OrdinalIgnoreCase)
+            && defaultDeviceId is not null)
+        {
+            _audioOutputDevice = defaultDeviceId;
+            Save();
+        }
+
+        // Ensure currently-selected device is always present even if it was disconnected.
+        if (!string.IsNullOrWhiteSpace(_audioOutputDevice)
+            && !options.Any(o => string.Equals(o.Id, _audioOutputDevice, StringComparison.OrdinalIgnoreCase)))
+        {
+            options.Add(new AudioOutputDeviceOptionModel(_audioOutputDevice, _audioOutputDevice));
+        }
+
+        _audioOutputDeviceOptions.Clear();
+        foreach (var option in options)
+        {
+            _audioOutputDeviceOptions.Add(option);
+        }
+        OnPropertyChanged(nameof(AudioOutputDeviceOptions));
+    }
+
+    /// <summary>
+    /// Converts a WinRT DeviceInformation.Id (e.g.
+    /// \\?\SWD#MMDEVAPI#{0.0.0.00000000}.{guid}#{interface})
+    /// to the IMMDevice::GetId() format that mpv's audio-device option expects
+    /// (e.g. {0.0.0.00000000}.{guid}).
+    /// </summary>
+    private static string ConvertToMpvDeviceId(string deviceInformationId)
+    {
+        var parts = deviceInformationId.Split('#');
+        foreach (var part in parts)
+        {
+            if (part.StartsWith("{0.", StringComparison.Ordinal))
+            {
+                return part;
+            }
+        }
+
+        return deviceInformationId;
+    }
+
+    private void StartDeviceWatcher()
+    {
+        try
+        {
+            _deviceWatcher = DeviceInformation.CreateWatcher(MediaDevice.GetAudioRenderSelector());
+            _deviceWatcher.Added += (_, _) => ScheduleDeviceRefresh();
+            _deviceWatcher.Removed += (_, _) => ScheduleDeviceRefresh();
+            _deviceWatcher.Updated += (_, _) => ScheduleDeviceRefresh();
+            _deviceWatcher.Start();
+        }
+        catch (Exception exception)
+        {
+            StartupLog.Write($"settings.audio.devices.watcherFailed: {exception.Message}");
+        }
+    }
+
+    private void ScheduleDeviceRefresh()
+    {
+        _deviceRefreshDebounce?.Cancel();
+        _deviceRefreshDebounce = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+        var token = _deviceRefreshDebounce.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(500), token);
+                if (!token.IsCancellationRequested)
+                {
+                    _dispatcherQueue.TryEnqueue(() => _ = LoadAudioOutputDevicesAsync());
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        });
+    }
 
     private IReadOnlyList<LocalizedOnlineQualityOption> BuildOnlineQualityOptions() =>
     [

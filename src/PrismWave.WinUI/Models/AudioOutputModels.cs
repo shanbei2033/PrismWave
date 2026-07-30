@@ -12,6 +12,10 @@ public sealed record AudioOutputModeOptionModel(
     string DisplayName,
     string Description);
 
+public sealed record AudioOutputDeviceOptionModel(
+    string Id,
+    string DisplayName);
+
 public static class AudioOutputPolicy
 {
     public const string CompatibilityId = "compatibility";

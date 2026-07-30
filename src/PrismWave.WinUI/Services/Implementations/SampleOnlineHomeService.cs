@@ -28,9 +28,16 @@ public sealed class OnlineHomeService : IOnlineHomeService
         }
         else
         {
-            using (document)
+            try
             {
-                ApplyDocument(document, jsonPath);
+                using (document)
+                {
+                    ApplyDocument(document, jsonPath);
+                }
+            }
+            catch (Exception exception) when (exception is InvalidDataException or JsonException or FormatException)
+            {
+                SetUnavailable($"Home data validation failed: {exception.Message}");
             }
         }
 

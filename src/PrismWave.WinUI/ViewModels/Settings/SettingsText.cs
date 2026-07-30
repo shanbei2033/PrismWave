@@ -69,7 +69,9 @@ public sealed class SettingsText
     public string AudioOutput => T("音频输出", "音訊輸出", "Audio output");
     public string OutputMode => T("输出模式", "輸出模式", "Output mode");
     public string ActiveOutput => T("当前输出", "目前輸出", "Active output");
-    public string OutputDeviceId => T("输出设备 ID", "輸出裝置 ID", "Output device id");
+    public string OutputDeviceId => T("输出设备", "輸出裝置", "Output device");
+    public string AudioOutputDeviceAuto => T("自动（由 MPV 选择）", "自動（由 MPV 選擇）", "Automatic (selected by MPV)");
+    public string AudioOutputDeviceDefault => T("默认设备", "預設裝置", "Default device");
     public string FadeInOut => T("淡入 / 淡出", "淡入 / 淡出", "Fade in / out");
     public string FadeDuration => T("淡化时长", "淡化時間", "Fade duration");
     public string DeveloperLogs => T("开发者日志", "開發者日誌", "Developer logs");

@@ -1155,27 +1155,27 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
             return;
         }
 
+        // Use timer-based polling for position updates to ensure consistent behavior.
+        // The previous implementation had a 0.3s debounce that prevented UI refresh when
+        // mpv property-change events didn't fire reliably.
         var enginePosition = Math.Max(0, _mpvHost.Engine.PositionSeconds);
-        var positionChanged = Math.Abs(PositionSeconds - enginePosition) > 0.3;
-        if (PositionSeconds < 1 && enginePosition > 5)
-        {
-            return;
-        }
-
-        PositionSeconds = enginePosition;
         var naturalDuration = _mpvHost.Engine.DurationSeconds;
-        if (naturalDuration > 0)
+        
+        var positionChanged = Math.Abs(PositionSeconds - enginePosition) > 0.05;
+        var durationChanged = DurationSeconds != naturalDuration && naturalDuration > 0;
+        
+        if (positionChanged || durationChanged)
+        {
+            PositionSeconds = enginePosition;
+            if (naturalDuration > 0)
+            {
+                DurationSeconds = naturalDuration;
+            }
+            Notify();
+        }
+        else if (DurationSeconds <= 0 && naturalDuration > 0)
         {
             DurationSeconds = naturalDuration;
-        }
-
-        if (DurationSeconds > 0 && PositionSeconds > DurationSeconds + 1)
-        {
-            PositionSeconds = 0;
-        }
-
-        if (positionChanged)
-        {
             Notify();
         }
     }

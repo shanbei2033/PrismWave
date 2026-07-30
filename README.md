@@ -3,7 +3,7 @@
   <img src="assets/logo.png" alt="logo" width="128">
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
-  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.5-blue" alt="Release"></a>
+  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.6-blue" alt="Release"></a>
   <a href="https://dotnet.microsoft.com"><img src="https://img.shields.io/badge/.NET-10-blue" alt=".NET"></a>
 </div>
 
@@ -27,19 +27,15 @@ This branch is the active native implementation and includes:
 - Classic solid (Dark) and light Windows 11 Mica (Beta) appearance styles
 - Online songs can be added to library and favorites from search and Home
 
-## Latest release: v1.0.5
+## Latest release: v1.0.6
 
-This release fixes home refresh crash, refines appearance options, and improves light mode UI:
+This release fixes critical playback reliability issues:
 
-- Fixes home refresh button crash caused by cross-thread ObservableCollection access
-- Simplifies appearance options: removes Acrylic, renames to "Dark" and "Light (Beta)"
-- Fixes light mode UI inconsistencies: player bar placeholder, trending banner, navigation icons, album detail gradient
-- Replaces HITS navigation icon with a custom radio SVG
-- Enlarges album detail cover area and adds top-aligned cover display
-- Developer log "Open" now launches a real-time PowerShell log tail window
-- Portable build uses Bootstrap API for Windows App SDK runtime initialization
+- Fixes mpv progress bar not updating: switches from unreliable property-change events to timer-based polling with 0.05s debounce for consistent position reporting across all output modes
+- Fixes WASAPI shared/exclusive mode switching failures: properly formats device IDs for mpv's WASAPI backend
+- Fixes "audio output initialization failed" in MPV compatibility mode: uses canonical wasapi device ID format required by mpv in all modes
 
-Downloads are available from the [v1.0.5 release page](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.5).
+Downloads are available from the [v1.0.6 release page](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.6).
 
 ## Features
 

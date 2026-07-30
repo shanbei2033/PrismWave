@@ -1,6 +1,6 @@
 # PrismWave AI 接手文档
 
-更新时间：2026-07-26 (v1.0.5)
+更新时间：2026-07-28 (v1.0.6)
 
 **语言要求：接手 AI 必须全程使用中文与用户沟通。**
 
@@ -21,7 +21,7 @@
 | 便携版打包 | `dotnet publish -c Release -r win-x64 --self-contained true`，从 `publish` 目录复制到 `artifacts/` |
 | 最高优先级 | 本地播放真机矩阵验证、在线链路验证、发布前打磨 |
 
-WinUI 工程是**唯一活跃开发分支**，具备完整的本地曲库扫描、元数据读取、在线搜索和播放、歌词系统、HITS 电台模式、FullPlay 逐字歌词舞台、收藏管理、设置功能、启动动画和版本检测。当前版本 **v1.0.5**。
+WinUI 工程是**唯一活跃开发分支**，具备完整的本地曲库扫描、元数据读取、在线搜索和播放、歌词系统、HITS 电台模式、FullPlay 逐字歌词舞台、收藏管理、设置功能、启动动画和版本检测。当前版本 **v1.0.6**。
 
 ### 构建、测试和启动
 
@@ -145,6 +145,7 @@ python scripts\build_home.py
 
 ### 便携版打包注意事项
 
+- **必须**从 `bin\Release\net10.0-windows10.0.26100.0\win-x64\publish` 目录打包。普通 build 输出目录（非 publish）只有 ~58 个文件（缺 .NET 运行时与 Windows App SDK 运行时），打出的 ZIP 只有 ~12 MB 且无法运行；完整 publish 输出应为 ~251 个文件、ZIP ~120 MB（v1.0.6 曾因此发布过损坏包，务必核对文件数）。
 - **不要**使用 `dotnet publish -o <dir>` 指定输出目录，会导致 `.pri` 文件缺失，应用无法启动。正确做法是先 `dotnet publish`（默认输出到 `publish` 子目录），再 `Copy-Item` 复制到目标目录。
 - **不要**使用 `dotnet clean`，会清除 Windows App SDK 注册信息导致 `REGDB_E_CLASSNOTREG` 错误。如已执行，需通过 `dotnet run` 或 `winapp run` 重新注册。
 - csproj 中 `WindowsAppSdkBootstrapInitialize=true` 和 `WindowsAppSdkDeploymentManagerInitialize=false` 是 portable 版本能直接运行的关键，不要删除。
@@ -152,9 +153,15 @@ python scripts\build_home.py
 
 ---
 
-## 3. 最近修复（2026-07-26 v1.0.5）
+## 3. 最近修复（2026-07-28 v1.0.6）
 
-### v1.0.5 变更
+### v1.0.6 变更
+
+1. **mpv 进度条不更新**：原实现依赖 mpv property-change 事件汇报播放位置，部分输出模式下事件不可靠导致进度条完全静止。修复：改为定时器轮询播放位置，增加 0.05 秒防抖，所有输出模式下进度汇报稳定。
+2. **WASAPI 共享/独占模式切换失败**：切换输出模式时设备 ID 格式未按 mpv WASAPI 后端要求处理。修复：显式 `ao=wasapi` 时自动去除设备 ID 的 `{0.0.0.00000000}.` 前缀。
+3. **MPV 兼容模式"音频输出初始化失败"**：统一使用 mpv 要求的 `wasapi/{0.0.0.00000000}.{guid}` 规范设备 ID 格式，所有模式下均可正常初始化。
+
+### v1.0.5 变更（2026-07-26）
 
 1. **主页刷新闪退修复**：`HomeViewModel` 的 `Notify()` 方法在 `App.DispatcherQueue` 为 null 时直接在后台线程触发事件，导致 `ObservableCollection` 跨线程访问崩溃。修复：添加 `SynchronizationContext` 确保事件处理在 UI 线程执行，`RefreshHomeAsync` 添加 try-catch。
 2. **外观样式精简**：删除"亚克力"选项，"Windows 11 云母"改为"浅色(Beta)"，"经典纯色"改为"深色"。`SettingsModels.cs` 中 `Acrylic` 常量删除，`Normalize` 自动降级为 `Mica`。

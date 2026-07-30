@@ -3,7 +3,7 @@
   <img src="assets/logo.png" alt="logo" width="128">
   <br>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
-  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.5-blue" alt="Release"></a>
+  <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.6-blue" alt="Release"></a>
   <a href="https://dotnet.microsoft.com"><img src="https://img.shields.io/badge/.NET-10-blue" alt=".NET"></a>
 </div>
 
@@ -26,19 +26,15 @@ PrismWave 是一款基于 **WinUI 3 和 .NET 10** 的原生 Windows 11 音乐播
 - 经典深色和浅色 Windows 11 云母（Beta）外观切换
 - 在线歌曲可从搜索页和首页添加到库与收藏
 
-## 最新版本：v1.0.5
+## 最新版本：v1.0.6
 
-本次发布修复主页刷新闪退、精简外观选项、统一浅色模式 UI：
+本次发布修复关键播放可靠性问题：
 
-- 修复主页刷新榜单按钮闪退问题（跨线程 ObservableCollection 访问）
-- 精简外观选项：删除亚克力，重命名为"深色"和"浅色(Beta)"
-- 修复浅色模式下 UI 不统一：播放栏占位图、趋势 Banner、导航图标、专辑详情渐变
-- HITS 导航图标更换为自定义收音机 SVG 图标
-- 专辑详情页封面显示区域加大，封面顶部对齐
-- 开发者日志"打开"改为实时日志输出窗口（PowerShell Get-Content -Wait）
-- 便携版使用 Bootstrap API 自动加载 Windows App SDK 运行时
+- 修复进度条不更新：mpv 播放时进度条偶发完全静止，改为定时器轮询播放位置并增加 0.05 秒防抖，所有输出模式下进度汇报均稳定可靠
+- 修复 WASAPI 共享/独占模式切换失败：切换输出模式时设备 ID 格式未按 mpv WASAPI 后端要求处理，现已自动修正
+- 修复 MPV 兼容模式下"音频输出初始化失败"：统一使用 mpv 要求的规范设备 ID 格式，所有模式下均可正常初始化
 
-下载请前往 [v1.0.5 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.5)。
+下载请前往 [v1.0.6 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.6)。
 
 ## 功能
 

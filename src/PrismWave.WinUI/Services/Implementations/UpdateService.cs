@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Reflection;
 using System.Text.Json;
 using PrismWave_WinUI.Services.Contracts;
 
@@ -16,7 +17,25 @@ public sealed class UpdateService : IUpdateService
         Timeout = TimeSpan.FromSeconds(15)
     };
 
-    public string CurrentVersion => "1.0.5";
+    public string CurrentVersion { get; } = ResolveCurrentVersion();
+
+    /// <summary>
+    /// Reads the version from assembly informational metadata (populated from the
+    /// csproj &lt;Version&gt; property) so releases only need to bump the csproj value.
+    /// </summary>
+    private static string ResolveCurrentVersion()
+    {
+        var assembly = typeof(UpdateService).Assembly;
+        var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        if (!string.IsNullOrWhiteSpace(informational))
+        {
+            // Strip potential "+<commit>" SourceRevisionId suffix.
+            var plusIndex = informational.IndexOf('+');
+            return plusIndex >= 0 ? informational[..plusIndex] : informational;
+        }
+
+        return assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+    }
 
     public string? LatestVersion { get; private set; }
     public string? LatestDownloadUrl { get; private set; }
@@ -58,7 +77,9 @@ public sealed class UpdateService : IUpdateService
                         asset.TryGetProperty("browser_download_url", out var urlProp))
                     {
                         var name = nameProp.GetString();
-                        if (name is not null && name.Contains("win-x64-portable", StringComparison.OrdinalIgnoreCase))
+                        if (name is not null &&
+                            name.Contains("win-x64", StringComparison.OrdinalIgnoreCase) &&
+                            name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                         {
                             downloadUrl = urlProp.GetString();
                             break;

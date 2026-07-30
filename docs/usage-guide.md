@@ -1,359 +1,361 @@
-# PrismWave 使用指南
+# PrismWave Usage Guide
 
-PrismWave 是一款基于 WinUI 3 和 .NET 10 的原生 Windows 音乐播放器，支持本地曲库管理、在线搜索与播放、逐字歌词、HITS 电台等功能。
+[中文使用指南](./usage-guide.zh.md)
 
----
-
-## 目录
-
-- [首次使用](#首次使用)
-- [播放控制](#播放控制)
-- [更换封面](#更换封面)
-- [歌词功能](#歌词功能)
-- [播放队列](#播放队列)
-- [右键上下文菜单](#右键上下文菜单)
-- [收藏管理](#收藏管理)
-- [本地音乐库](#本地音乐库)
-- [在线功能](#在线功能)
-- [HITS 电台模式](#hits-电台模式)
-- [设置](#设置)
-- [开发者模式](#开发者模式)
+PrismWave is a native Windows 11 music player built with WinUI 3 and .NET 10, featuring local library management, online search and playback, word-by-word lyrics, and HITS radio.
 
 ---
 
-## 首次使用
+## Table of Contents
 
-### 添加本地音乐文件夹
-
-1. 进入 **设置 > 基本选项**
-2. 在"音乐文件夹"区域点击 **添加文件夹**
-3. 选择包含音乐文件的目录，点击确认
-4. 添加后应用会自动扫描，扫描完成后可在"音乐库"中查看
-
-一个文件夹可以包含任意层级的子目录，应用会递归扫描所有支持的音频格式（MP3、FLAC、WAV、OGG、M4A、DSF、DFF 等）。
-
-### 重新扫描
-
-当本地音乐有变动（新增、删除、移动文件）时，点击 **重新扫描** 按钮即可刷新曲库。扫描过程中会显示进度环，扫描完成后显示曲目数量。
-
-### 开启在线功能
-
-在线功能默认关闭。开启方法：
-
-1. 进入 **设置 > 在线**
-2. 先打开 **BETA / 实验性功能** 开关
-3. 再打开 **在线模式** 开关
-
-开启后即可使用在线搜索、在线首页推荐、在线歌词匹配等功能。
+- [Getting Started](#getting-started)
+- [Playback Controls](#playback-controls)
+- [Replacing Cover Art](#replacing-cover-art)
+- [Lyrics](#lyrics)
+- [Playback Queue](#playback-queue)
+- [Context Menus](#context-menus)
+- [Favorites](#favorites)
+- [Local Library](#local-library)
+- [Online Features](#online-features)
+- [HITS Radio](#hits-radio)
+- [Settings](#settings)
+- [Developer Mode](#developer-mode)
 
 ---
 
-## 播放控制
+## Getting Started
 
-### 底部播放栏
+### Adding a Music Folder
 
-底部播放栏始终可见，包含：
+1. Go to **Settings > Basic**
+2. Under "Music Folders", click **Add Folder**
+3. Select a directory containing your music files and confirm
+4. The app will automatically scan; once finished, tracks appear in "Library"
 
-- 当前曲目封面、标题、艺术家
-- 播放/暂停按钮
-- 上一首 / 下一首
-- 播放模式切换（列表循环 → 单曲循环 → 随机播放）
-- 音量滑块
-- 进度条（可拖动跳转）
-- 收藏按钮（爱心图标）
-- 播放队列按钮
+A folder may contain subdirectories at any depth — the scanner recurses into all supported audio formats (MP3, FLAC, WAV, OGG, M4A, DSF, DFF, etc.).
 
-### 全屏播放页（FullPlay）
+### Rescan
 
-点击底部播放栏的封面区域，展开进入全屏播放页。全屏播放页分为左右两栏：
+When your local music changes (files added, removed, or moved), click **Rescan** to refresh the library. A progress ring appears during scanning, and the track count is shown when complete.
 
-- **左栏**：大封面、曲目信息、播放控件、进度条、音量、播放队列
-- **右栏**：歌词舞台（逐字/逐行滚动歌词）
+### Enabling Online Features
 
-按 **Esc** 键或点击左上角返回按钮可退出全屏播放页。
+Online features are off by default. To enable:
 
-### 播放模式
+1. Go to **Settings > Online**
+2. First toggle on **BETA / Experimental features**
+3. Then toggle on **Online mode**
 
-点击播放模式按钮可在三种模式间循环切换：
-
-| 图标 | 模式 | 说明 |
-|------|------|------|
-| 列表 | 列表循环 | 播完列表后从头开始 |
-| 单箭头 | 单曲循环 | 当前曲目循环播放 |
-| 随机 | 随机播放 | 随机选取下一首 |
+Once enabled, you can use online search, online home recommendations, and automatic lyrics matching.
 
 ---
 
-## 更换封面
+## Playback Controls
 
-如果某首曲目的封面不正确或缺失，可以手动搜索并更换。
+### Bottom Player Bar
 
-### 操作方法
+The bottom player bar is always visible and includes:
 
-1. 进入全屏播放页（点击底部播放栏封面）
-2. **双击左侧大封面**，弹出封面搜索对话框
-3. 对话框打开后会自动用当前曲目的标题和艺术家进行搜索
-4. 也可以在搜索框中手动输入关键词（如专辑名、歌手名），按 **Enter** 重新搜索
-5. 浏览搜索结果，**点击想要的封面**即可应用
+- Current track cover, title, and artist
+- Play/pause button
+- Previous / Next
+- Playback mode toggle (List loop → Single repeat → Shuffle)
+- Volume slider
+- Progress bar (drag to seek)
+- Favorite button (heart icon)
+- Queue button
 
-### 搜索来源
+### FullPlay Page
 
-封面搜索会同时查询三个来源，合并去重后按匹配度排序：
+Click the cover area in the bottom player bar to expand into the FullPlay page. The FullPlay page has two columns:
 
-- **Apple Music** — 高质量官方封面
-- **Deezer** — 全球音乐数据库
-- **MusicBrainz** — 开源音乐元数据
+- **Left column**: large cover art, track info, playback controls, progress bar, volume, queue
+- **Right column**: lyrics stage (word-by-word or line-by-line scrolling lyrics)
 
-### 说明
+Press **Esc** or click the back button in the top-left to exit FullPlay.
 
-- 更换的封面会持久保存，下次播放同一曲目时自动显示
-- 自定义封面按曲目身份（标题+艺术家）关联，同一曲目的不同文件会共享
-- 更换封面后，播放栏、播放队列、专辑详情页等所有位置的封面都会同步更新
+### Playback Modes
 
----
+Click the mode button to cycle through three modes:
 
-## 歌词功能
-
-### 歌词来源切换
-
-在全屏播放页右下角有一个圆形工具按钮，点击展开歌词工具栏，包含三个功能按钮：
-
-| 按钮 | 功能 |
-|------|------|
-| 来源切换（Local/Online） | 在本地歌词和在线歌词之间切换 |
-| 搜索在线歌词 | 打开歌词搜索对话框 |
-| 调整歌词偏移 | 微调歌词时间轴 |
-
-点击 **来源切换** 按钮（显示 "Local" 或 "Online"），可在本地歌词和在线歌词之间切换。如果切换到的来源没有可用歌词，会自动回退到另一个来源。
-
-### 在线歌词搜索与替换
-
-1. 点击歌词工具栏的 **搜索在线歌词** 按钮
-2. 弹出搜索对话框，自动用当前曲目信息搜索
-3. 可手动输入关键词重新搜索（按 **Enter**）
-4. **点击搜索结果**即可应用为当前曲目的歌词
-
-歌词搜索优先查找网易云 **YRC 逐字歌词**（支持逐字高亮），其次查找普通逐行歌词。应用后歌词舞台会立即更新。
-
-### 歌词偏移调整
-
-当歌词与音乐不同步时，可以调整偏移量：
-
-1. 点击歌词工具栏的 **调整歌词偏移** 按钮
-2. 在弹出的输入框中输入偏移秒数
-   - **正值**（如 `+0.5`）：歌词延后显示
-   - **负值**（如 `-1.0`）：歌词提前显示
-3. 按 **Enter** 或点击 **应用**
-
-偏移量会按曲目保存，下次播放同一曲目时自动应用。
-
-### 点击歌词跳转
-
-在歌词舞台上**点击任意一行歌词**，播放进度会跳转到该行歌词对应的时间点。
+| Icon | Mode | Description |
+|------|------|-------------|
+| List | List loop | Restarts from the beginning after the list ends |
+| Single arrow | Single repeat | Loops the current track |
+| Shuffle | Shuffle | Picks the next track randomly |
 
 ---
 
-## 播放队列
+## Replacing Cover Art
 
-### 打开播放队列
+If a track's cover art is incorrect or missing, you can manually search and replace it.
 
-- **底部播放栏**：点击队列图标按钮
-- **全屏播放页**：点击播放控件区域的队列图标按钮
+### How to Replace
 
-### 操作
+1. Enter the FullPlay page (click the cover in the bottom player bar)
+2. **Double-click the large cover** on the left — a cover search dialog appears
+3. The dialog automatically searches using the current track's title and artist
+4. You can also type custom keywords (album name, artist name) and press **Enter** to search again
+5. Browse the results and **click the desired cover** to apply it
 
-| 操作 | 方法 |
-|------|------|
-| 播放队列中的曲目 | 点击该曲目 |
-| 调整顺序 | 长按拖拽到目标位置 |
-| 移除单曲 | 右键点击 → "从播放队列移除" |
-| 清空队列 | 点击队列底部的删除按钮 |
+### Search Sources
 
-当前播放的曲目在队列中会用高亮背景和播放图标标识。
+Cover search queries three sources simultaneously, merges and deduplicates results ranked by relevance:
 
----
+- **Apple Music** — high-quality official artwork
+- **Deezer** — global music database
+- **MusicBrainz** — open-source music metadata
 
-## 右键上下文菜单
+### Notes
 
-在音乐库、专辑详情页、艺术家详情页、收藏页等列表中，**右键点击任意曲目**会弹出上下文菜单：
-
-| 菜单项 | 说明 |
-|--------|------|
-| 立即播放 | 停止当前播放，立即播放此曲目 |
-| 添加到播放队列 | 将曲目追加到队列末尾 |
-| 下一首播放 | 将曲目插入到当前播放曲目的后面 |
-| 收藏 | 添加到"我最爱"（再次点击取消） |
-| 查看艺术家 | 跳转到该艺术家的详情页 |
-
-在音乐库页面还有额外的菜单项：
-
-| 菜单项 | 说明 |
-|--------|------|
-| 曲目详情 | 查看曲目的元数据信息 |
-| 打开文件位置 | 在资源管理器中定位该文件 |
-| 从库中移除 | 从曲库中移除（不删除源文件） |
+- Replaced covers are persisted — the custom cover displays automatically the next time you play the same track
+- Custom covers are associated by track identity (title + artist), so different files of the same track share the same cover
+- After replacing, the cover updates everywhere: player bar, queue, album detail, etc.
 
 ---
 
-## 收藏管理
+## Lyrics
 
-### 收藏曲目
+### Switching Lyrics Source
 
-- 在**列表中**右键曲目 → "收藏"
-- 在**全屏播放页**点击爱心按钮
-- 在**搜索结果**或**首页推荐**中右键 → "收藏"
-- 在线歌曲也可以收藏，会自动加入本地库
+In the bottom-right corner of the FullPlay page there is a circular tool button. Click it to expand the lyrics toolbar with three buttons:
 
-### 管理收藏
+| Button | Function |
+|--------|----------|
+| Source toggle (Local/Online) | Switch between local and online lyrics |
+| Search online lyrics | Open the lyrics search dialog |
+| Adjust lyrics offset | Fine-tune lyrics timing |
 
-进入导航栏的 **"我最爱"** 页面：
+Click the **Source toggle** button (labeled "Local" or "Online") to switch between local and online lyrics. If the selected source has no available lyrics, it automatically falls back to the other source.
 
-- 查看所有收藏曲目
-- **拖拽排序**自定义顺序
-- 右键曲目可立即播放、添加到队列、下一首播放
-- 再次点击收藏按钮可取消收藏
+### Online Lyrics Search & Replacement
 
----
+1. Click the **Search online lyrics** button in the lyrics toolbar
+2. A search dialog appears and automatically searches using the current track info
+3. Type custom keywords and press **Enter** to search again
+4. **Click a search result** to apply it as the current track's lyrics
 
-## 本地音乐库
+Lyrics search prioritizes NetEase **YRC word-by-word lyrics** (with per-character highlighting), then falls back to standard line-by-line lyrics. The lyrics stage updates immediately after applying.
 
-### 视图切换
+### Lyrics Offset Adjustment
 
-导航栏提供三种本地音乐浏览方式：
+When lyrics are out of sync with the music, you can adjust the offset:
 
-- **音乐库**：全部曲目的列表视图，支持拖拽排序
-- **专辑**：按专辑分组的网格视图，点击进入专辑详情
-- **艺术家**：按艺术家分组，点击进入艺术家详情
+1. Click the **Adjust lyrics offset** button in the lyrics toolbar
+2. Enter the offset in seconds in the input box
+   - **Positive** (e.g. `+0.5`): lyrics appear later
+   - **Negative** (e.g. `-1.0`): lyrics appear earlier
+3. Press **Enter** or click **Apply**
 
-### 专辑详情页
+The offset is saved per-track and automatically applied the next time you play the same track.
 
-点击任意专辑进入详情页：
+### Click-to-Seek on Lyrics
 
-- 顶部显示大封面、专辑名、艺术家
-- 下方为曲目列表
-- 双击曲目或右键选择"立即播放"开始播放
-- 封面区域增高，顶部对齐展示更完整
-
-### 文件夹管理
-
-除了在设置页管理文件夹外，也可以在**音乐库**页面快速打开文件夹管理对话框。
+**Click any line of lyrics** on the lyrics stage to jump playback to that line's timestamp.
 
 ---
 
-## 在线功能
+## Playback Queue
 
-### 在线搜索
+### Opening the Queue
 
-在顶部搜索栏输入关键词，搜索结果会同时包含本地曲目和在线歌曲。在线歌曲可以：
+- **Bottom player bar**: click the queue icon button
+- **FullPlay page**: click the queue icon in the playback controls area
 
-- 直接播放（自动解析音源）
-- 右键"添加到库"
-- 右键"收藏"
+### Operations
 
-搜索历史会保存，可以右键删除单条历史记录。
+| Action | Method |
+|--------|--------|
+| Play a track in the queue | Click the track |
+| Reorder | Press and drag to the desired position |
+| Remove a single track | Right-click → "Remove from queue" |
+| Clear the entire queue | Click the trash button at the bottom of the queue |
 
-### 在线首页
-
-开启在线模式后，首页会显示：
-
-- **今日趋势**：TOP100 趋势横幅
-- **推荐曲目**：每日刷新的推荐歌曲
-- **新专辑**：最新发行的专辑
-- **热门歌曲**：当前热门曲目
-
-点击首页右上角刷新按钮可手动刷新推荐内容。
-
-### 账号登录
-
-在 **设置 > 在线** 中可以登录音乐平台账号，获取更高音质的播放：
-
-- **网易云音乐**：点击"扫码登录"，用手机 App 扫描二维码
-- **QQ 音乐**：点击"扫码登录"，用手机 App 扫描二维码
-
-登录后可显示昵称和头像，并解锁无损音质选项。点击"退出"可注销账号。
-
-### 在线缓存
-
-在线播放的音频会缓存到本地以节省流量：
-
-- 在 **设置 > 在线** 中可设置缓存上限（0.5 GB ~ 1024 GB）
-- 可更改缓存目录位置
-- 可手动清除缓存（仅清除 PrismWave 创建的缓存文件）
+The currently playing track is highlighted with a background tint and a play icon in the queue.
 
 ---
 
-## HITS 电台模式
+## Context Menus
 
-HITS 是基于节目单的在线广播模式，由独立仓库 [prismwave-hits](https://github.com/shanbei2033/prismwave-hits) 每日生成节目单。
+In the Library, Album Detail, Artist Detail, and Favorites pages, **right-click any track** to open a context menu:
 
-### 使用方法
+| Menu item | Description |
+|-----------|-------------|
+| Play now | Stops current playback and plays this track immediately |
+| Add to queue | Appends the track to the end of the queue |
+| Play next | Inserts the track right after the currently playing track |
+| Favorite | Adds to "Favorites" (click again to unfavorite) |
+| View artist | Navigates to this artist's detail page |
 
-1. 确保在线模式已开启
-2. 点击导航栏的 **HITS**（收音机图标）
-3. 进入 HITS 沉浸式播放界面：
-   - 超大封面居中显示
-   - 背景为封面模糊效果
-   - 点击封面可播放/暂停
-4. HITS 会按照节目单自动播放，曲目间自动衔接
+The Library page has additional menu items:
 
-### 说明
-
-- HITS 模式强制使用 WASAPI 共享输出
-- HITS 包含 10 个音源 provider（含 bilibili、YouTube 兜底）
-- 节目单每日北京时间 10:00 更新
-
----
-
-## 设置
-
-### 基本选项
-
-| 设置项 | 说明 |
-|--------|------|
-| 音乐文件夹 | 管理本地扫描目录 |
-| 语言 | 切换界面语言 |
-| 外观样式 | **深色**（经典纯色）/ **浅色(Beta)**（Windows 11 云母） |
-| 版本检测 | 手动检测更新，或开启自动检测 |
-| 项目地址 | GitHub 仓库链接 |
-
-### 在线设置
-
-| 设置项 | 说明 |
-|--------|------|
-| 实验性功能 | 总开关，必须先开启才能使用在线功能 |
-| 在线模式 | 开启在线搜索、首页推荐、在线播放 |
-| 流媒体音质 | 选择在线播放音质（需登录对应账号） |
-| 在线缓存 | 设置缓存上限、目录，清除缓存 |
-| 账号管理 | 网易云/QQ音乐扫码登录与退出 |
-
-### 播放设置
-
-| 设置项 | 说明 |
-|--------|------|
-| 输出模式 | 兼容模式（MPV 自动）/ WASAPI 共享 / WASAPI 独占 |
-| 输出设备 | 选择音频输出设备 |
-| 淡入淡出 | 开启曲目切换时的音量渐变 |
-| 淡入淡出时长 | 0~2000 毫秒可调 |
-
-**输出模式说明**：
-
-- **兼容模式**：使用 mpv 默认音频输出，兼容性最好
-- **WASAPI 共享**：Windows 音频会话 API 共享模式，延迟低
-- **WASAPI 独占**：独占音频设备，最高音质，但其他应用无法同时发声
-
-如果所选模式初始化失败，应用会自动回退到可用模式，设置页会显示回退原因。
+| Menu item | Description |
+|-----------|-------------|
+| Track details | View the track's metadata information |
+| Open file location | Locates the file in File Explorer |
+| Remove from library | Removes from the library (does not delete the source file) |
 
 ---
 
-## 开发者模式
+## Favorites
 
-在 **设置 > 开发者** 标签页中：
+### Favoriting a Track
 
-| 功能 | 说明 |
-|------|------|
-| 开发者日志 | 实时显示播放引擎、在线解析、歌词等内部日志 |
-| 打开 | 启动一个 PowerShell 窗口，实时滚动显示最新日志内容（`Get-Content -Wait`） |
-| 清除 | 清空当前日志缓冲 |
-| 日志路径 | 显示日志文件的完整路径 |
+- **In a list**: right-click the track → "Favorite"
+- **In FullPlay**: click the heart button
+- **In search results or Home**: right-click → "Favorite"
+- Online songs can also be favorited — they are automatically added to the local library
 
-开发者日志用于排查播放问题、在线解析失败、歌词匹配异常等问题。
+### Managing Favorites
+
+Go to the **"Favorites"** page in the navigation bar:
+
+- View all favorited tracks
+- **Drag to reorder** your custom sort order
+- Right-click a track to play now, add to queue, or play next
+- Click the favorite button again to unfavorite
+
+---
+
+## Local Library
+
+### View Switching
+
+The navigation bar offers three ways to browse local music:
+
+- **Library**: list view of all tracks, supports drag-to-reorder
+- **Albums**: grid view grouped by album, click to enter album detail
+- **Artists**: grouped by artist, click to enter artist detail
+
+### Album Detail Page
+
+Click any album to enter its detail page:
+
+- Top section shows large cover, album name, and artist
+- Below is the track list
+- Double-click a track or right-click "Play now" to start playback
+- Cover area is enlarged with top-aligned display for a more complete view
+
+### Folder Management
+
+Besides the Settings page, you can also quickly open the folder management dialog from the **Library** page.
+
+---
+
+## Online Features
+
+### Online Search
+
+Type keywords in the top search bar. Results include both local tracks and online songs. Online songs can be:
+
+- Played directly (audio source is resolved automatically)
+- Right-click "Add to library"
+- Right-click "Favorite"
+
+Search history is saved — right-click a history entry to delete it.
+
+### Online Home
+
+When online mode is enabled, the Home page displays:
+
+- **Today's Trending**: TOP100 trending banner
+- **Recommended tracks**: refreshed daily
+- **New albums**: latest releases
+- **Hot songs**: currently popular tracks
+
+Click the refresh button in the top-right of the Home page to manually refresh recommendations.
+
+### Account Login
+
+In **Settings > Online**, you can log in to music platforms for higher quality playback:
+
+- **NetEase Cloud Music**: click "Scan login" and scan the QR code with the mobile app
+- **QQ Music**: click "Scan login" and scan the QR code with the mobile app
+
+After login, your nickname and avatar are displayed, and lossless quality options are unlocked. Click "Sign out" to log out.
+
+### Online Cache
+
+Audio from online playback is cached locally to save bandwidth:
+
+- In **Settings > Online**, set the cache limit (0.5 GB ~ 1024 GB)
+- Change the cache directory location
+- Manually clear the cache (only PrismWave-owned cache files are removed)
+
+---
+
+## HITS Radio
+
+HITS is a schedule-based online radio mode. Schedules are generated daily by the separate [prismwave-hits](https://github.com/shanbei2033/prismwave-hits) repository.
+
+### How to Use
+
+1. Make sure online mode is enabled
+2. Click **HITS** (radio icon) in the navigation bar
+3. Enter the immersive HITS playback view:
+   - Extra-large cover art centered on screen
+   - Background uses a blurred cover effect
+   - Click the cover to play/pause
+4. HITS plays automatically according to the schedule, with seamless transitions between tracks
+
+### Notes
+
+- HITS mode forces WASAPI Shared output
+- HITS includes 10 audio providers (including bilibili and YouTube as fallbacks)
+- The schedule updates daily at 10:00 AM Beijing time
+
+---
+
+## Settings
+
+### Basic
+
+| Setting | Description |
+|---------|-------------|
+| Music folders | Manage local scan directories |
+| Language | Switch interface language |
+| Appearance style | **Dark** (classic solid) / **Light (Beta)** (Windows 11 Mica) |
+| Version check | Manually check for updates, or enable auto-check |
+| Project URL | GitHub repository link |
+
+### Online
+
+| Setting | Description |
+|---------|-------------|
+| Experimental features | Master switch — must be enabled before online features |
+| Online mode | Enables online search, home recommendations, and online playback |
+| Streaming quality | Select online playback quality (requires login to the corresponding account) |
+| Online cache | Set cache limit, directory, and clear cache |
+| Account management | NetEase / QQ Music scan-to-login and sign out |
+
+### Playback
+
+| Setting | Description |
+|---------|-------------|
+| Output mode | Compatibility (MPV auto) / WASAPI Shared / WASAPI Exclusive |
+| Output device | Select audio output device |
+| Fade in/out | Enable volume fade between track switches |
+| Fade duration | Adjustable from 0 to 2000 ms |
+
+**Output mode details**:
+
+- **Compatibility**: uses mpv's default audio output — best compatibility
+- **WASAPI Shared**: Windows Audio Session API shared mode — low latency
+- **WASAPI Exclusive**: exclusive audio device access — highest quality, but other apps cannot play audio simultaneously
+
+If the selected mode fails to initialize, the app automatically falls back to an available mode, and the Settings page shows the fallback reason.
+
+---
+
+## Developer Mode
+
+In the **Settings > Developer** tab:
+
+| Feature | Description |
+|---------|-------------|
+| Developer logs | Real-time display of playback engine, online resolver, lyrics, and other internal logs |
+| Open | Launches a PowerShell window that tails the latest log output in real time (`Get-Content -Wait`) |
+| Clear | Clears the current log buffer |
+| Log path | Shows the full path to the log file |
+
+Developer logs are useful for diagnosing playback issues, online resolution failures, lyrics matching anomalies, and more.

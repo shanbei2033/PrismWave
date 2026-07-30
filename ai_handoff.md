@@ -146,6 +146,8 @@ python scripts\build_home.py
 ### 便携版打包注意事项
 
 - **必须**从 `bin\Release\net10.0-windows10.0.26100.0\win-x64\publish` 目录打包。普通 build 输出目录（非 publish）只有 ~58 个文件（缺 .NET 运行时与 Windows App SDK 运行时），打出的 ZIP 只有 ~12 MB 且无法运行；完整 publish 输出应为 ~251 个文件、ZIP ~120 MB（v1.0.6 曾因此发布过损坏包，务必核对文件数）。
+- ZIP 命名**必须**为 `PrismWave-vX.Y.Z-win-x64-portable.zip`（带 `-portable` 后缀）。v1.0.6 曾误命名为 `...-win-x64.zip`，导致旧版应用 `UpdateService` 资产过滤匹配不到、下载按钮无反应。v1.0.6 起过滤条件已放宽为 `win-x64` + `.zip`，但保持约定命名。
+- `UpdateService.CurrentVersion` 自 v1.0.6 起从程序集 InformationalVersion 动态读取（csproj `<Version>`），发版只需改 csproj，不要再硬编码版本号。
 - **不要**使用 `dotnet publish -o <dir>` 指定输出目录，会导致 `.pri` 文件缺失，应用无法启动。正确做法是先 `dotnet publish`（默认输出到 `publish` 子目录），再 `Copy-Item` 复制到目标目录。
 - **不要**使用 `dotnet clean`，会清除 Windows App SDK 注册信息导致 `REGDB_E_CLASSNOTREG` 错误。如已执行，需通过 `dotnet run` 或 `winapp run` 重新注册。
 - csproj 中 `WindowsAppSdkBootstrapInitialize=true` 和 `WindowsAppSdkDeploymentManagerInitialize=false` 是 portable 版本能直接运行的关键，不要删除。

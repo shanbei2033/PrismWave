@@ -60,6 +60,7 @@ public sealed class LyricsSceneController
     private bool _isTransitioning;
     private bool _scrollWasRebased;
     private double _outgoingProgress;
+    private double _activeKaraokeProgress;
 
     public int DocumentRevision => _documentRevision;
     public int ActiveIndex => _activeIndex;
@@ -89,6 +90,7 @@ public sealed class LyricsSceneController
         _isTransitioning = false;
         _isManualBrowsing = false;
         _outgoingProgress = 0;
+        _activeKaraokeProgress = 0;
     }
 
     public void SetLineMetrics(IReadOnlyList<double> heights, double gap)
@@ -220,11 +222,28 @@ public sealed class LyricsSceneController
         var visual = _isTransitioning && index < _transitionStarts.Length
             ? Interpolate(_transitionStarts[index], target, EaseInOutCubic(_transitionProgress))
             : target;
-        var karaokeProgress = index == _activeIndex
-            ? CalculateKaraokeProgress(index, _presentationPositionSeconds)
-            : index == _previousActiveIndex && _isTransitioning
-                ? _outgoingProgress
-                : 0;
+        double karaokeProgress;
+        if (index == _activeIndex)
+        {
+            karaokeProgress = CalculateKaraokeProgress(index, _presentationPositionSeconds);
+            // 位置采样抖动防御：同一行内逐字进度只进不退，
+            // 避免强制位置更新（暂停/偏移/采样竞态）导致点亮倒退闪烁。
+            if (karaokeProgress + 0.001 < _activeKaraokeProgress)
+            {
+                karaokeProgress = _activeKaraokeProgress;
+            }
+
+            _activeKaraokeProgress = karaokeProgress;
+        }
+        else if (index == _previousActiveIndex && _isTransitioning)
+        {
+            karaokeProgress = _outgoingProgress;
+        }
+        else
+        {
+            karaokeProgress = 0;
+        }
+
         return visual with { KaraokeProgress = karaokeProgress };
     }
 
@@ -272,6 +291,7 @@ public sealed class LyricsSceneController
         {
             _activeIndex = nextIndex;
             _previousActiveIndex = -1;
+            _activeKaraokeProgress = 0;
             _scrollTarget = nextIndex < 0 ? 0 : GetLineCenter(nextIndex);
             _scrollOffset = _scrollTarget;
             _scrollStart = _scrollTarget;
@@ -304,6 +324,9 @@ public sealed class LyricsSceneController
 
         _previousActiveIndex = previousIndex;
         _activeIndex = nextIndex;
+        // 快照循环会以旧行为 active 更新钳制值，必须在 index 切换后重置，
+        // 否则新行逐字进度被旧行终值（≈1）污染而直接全白。
+        _activeKaraokeProgress = 0;
         _scrollStart = _scrollOffset;
         _scrollTarget = nextIndex < 0 ? _scrollOffset : GetLineCenter(nextIndex);
         var isNatural = updateKind == LyricsPositionUpdateKind.Sample;

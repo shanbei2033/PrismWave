@@ -8,11 +8,20 @@ public sealed record LyricSegmentModel(
     double EndSeconds,
     string Text);
 
+public sealed record LyricCompanionModel(
+    string Text,
+    IReadOnlyList<LyricSegmentModel>? Segments = null)
+{
+    public IReadOnlyList<LyricSegmentModel> TimedSegments => Segments ?? Array.Empty<LyricSegmentModel>();
+    public bool HasTimedSegments => TimedSegments.Count > 0;
+}
+
 public sealed record LyricLineModel(
     double TimeSeconds,
     string TimeLabel,
     string Text,
-    IReadOnlyList<LyricSegmentModel>? Segments = null)
+    IReadOnlyList<LyricSegmentModel>? Segments = null,
+    IReadOnlyList<LyricCompanionModel>? CompanionLines = null)
 {
     public IReadOnlyList<LyricSegmentModel> TimedSegments => Segments ?? Array.Empty<LyricSegmentModel>();
     public bool HasTimedSegments => TimedSegments.Count > 0;
@@ -75,6 +84,9 @@ public sealed record LyricsSearchResultModel(
     private static readonly Regex EnhancedWordTimingPattern = new(
         @"<\d{1,2}:\d{2}(?:[\.:]\d{1,3})?>",
         RegexOptions.Compiled);
+    private static readonly Regex KrcWordTimingPattern = new(
+        @"<\d+,\d+,\d+>",
+        RegexOptions.Compiled);
 
     public string DisplayTitle => string.IsNullOrWhiteSpace(ArtistName)
         ? TrackName
@@ -84,6 +96,7 @@ public sealed record LyricsSearchResultModel(
         ? LyricsSyncKind.Plain
         : QrcWordTimingPattern.IsMatch(SyncedLyrics)
           || YrcWordTimingPattern.IsMatch(SyncedLyrics)
+          || KrcWordTimingPattern.IsMatch(SyncedLyrics)
           || EnhancedWordTimingPattern.IsMatch(SyncedLyrics)
             ? LyricsSyncKind.WordSynced
             : LyricsSyncKind.LineSynced;

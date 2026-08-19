@@ -35,6 +35,7 @@
     <Compile Include="../../src/PrismWave.WinUI/Models/SettingsModels.cs" Link="Models/SettingsModels.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/TrackModel.cs" Link="Models/TrackModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/LibraryModels.cs" Link="Models/LibraryModels.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Models/TrackMetadataModels.cs" Link="Models/TrackMetadataModels.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Models/OnlineLibraryTrackEntry.cs" Link="Models/OnlineLibraryTrackEntry.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/StartupLog.cs" Link="Infrastructure/StartupLog.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Infrastructure/WindowLaunchSize.cs" Link="Infrastructure/WindowLaunchSize.cs" />
@@ -66,6 +67,7 @@
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlineAudioCache.cs" Link="Contracts/IOnlineAudioCache.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IOnlineHomeService.cs" Link="Contracts/IOnlineHomeService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/ILibraryService.cs" Link="Contracts/ILibraryService.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/ITrackMetadataService.cs" Link="Contracts/ITrackMetadataService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/ILocalMusicScanner.cs" Link="Contracts/ILocalMusicScanner.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IUiDispatcher.cs" Link="Contracts/IUiDispatcher.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Contracts/IMusicFolderPicker.cs" Link="Contracts/IMusicFolderPicker.cs" />
@@ -73,6 +75,8 @@
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/LyricsParser.cs" Link="Services/LyricsParser.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/HitsService.cs" Link="Services/HitsService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/QqQrcDecoder.cs" Link="Services/QqQrcDecoder.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/KrcDecoder.cs" Link="Services/KrcDecoder.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/TrackMetadataService.cs" Link="Services/TrackMetadataService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/LyricsService.cs" Link="Services/LyricsService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/CoverService.cs" Link="Services/CoverService.cs" />
     <Compile Include="../../src/PrismWave.WinUI/Services/Implementations/OnlinePlaybackResolver.cs" Link="Services/OnlinePlaybackResolver.cs" />
@@ -102,6 +106,7 @@
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Library/FavoritesViewModel.cs" Link="ViewModels/FavoritesViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Library/LibraryFolderEntryViewModel.cs" Link="ViewModels/LibraryFolderEntryViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Library/LibraryFolderManagerViewModel.cs" Link="ViewModels/LibraryFolderManagerViewModel.cs" />
+    <Compile Include="../../src/PrismWave.WinUI/ViewModels/Library/TrackEditorViewModel.cs" Link="ViewModels/TrackEditorViewModel.cs" />
     <Compile Include="../../src/PrismWave.WinUI/ViewModels/Settings/OnlineAccountSettingsViewModel.cs" Link="ViewModels/OnlineAccountSettingsViewModel.cs" />
   </ItemGroup>
 </Project>

@@ -15,7 +15,8 @@ public sealed partial class ShellViewModel : ObservableObject
         "AlbumDetail",
         "LocalAlbumDetail",
         "ArtistDetail",
-        "TopPlaylist"
+        "TopPlaylist",
+        "TrackEditor"
     };
     private readonly Stack<string> _backStack = new();
     private readonly ISettingsService _settingsService;

@@ -18,6 +18,12 @@ public sealed class LyricsService : ILyricsService
     private static readonly Regex QqLyricContentPattern = new(
         @"<content[^>]*><!\[CDATA\[(?<content>[\s\S]*?)\]\]></content>",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex MiguTitlePattern = new(
+        @"<QrcHeadInfo[^>]*?\bTi=""(?<value>[^""]*)""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex MiguArtistPattern = new(
+        @"<QrcHeadInfo[^>]*?\bAr=""(?<value>[^""]*)""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex HexLyricsPattern = new(
         @"^[0-9a-fA-F]+$",
         RegexOptions.Compiled);
@@ -99,22 +105,37 @@ public sealed class LyricsService : ILyricsService
         var normalizedQuery = string.IsNullOrWhiteSpace(query)
             ? BuildDefaultQuery(track)
             : query.Trim();
+        
         if (normalizedQuery.Length == 0)
         {
             return Array.Empty<LyricsSearchResultModel>();
         }
 
+        StartupLog.Write($"lyrics.search.start: title=\"{track.Title}\", provider={track.Provider}, query=\"{normalizedQuery}\"");
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var lrclibTask = RequestSearchAsync(normalizedQuery, cancellationToken);
         var qqTask = SearchQqLyricsAsync(track, normalizedQuery, cancellationToken);
         var neteaseTask = SearchNeteaseWordLyricsAsync(track, normalizedQuery, cancellationToken);
-        await Task.WhenAll(lrclibTask, qqTask, neteaseTask);
+        var kugouTask = SearchKugouLyricsAsync(track, normalizedQuery, cancellationToken);
+        var miguTask = SearchMiguQrcLyricsAsync(track, normalizedQuery, cancellationToken);
+        await Task.WhenAll(lrclibTask, qqTask, neteaseTask, kugouTask, miguTask);
+        stopwatch.Stop();
 
-        return ScoreResults(
-                lrclibTask.Result.Concat(qqTask.Result).Concat(neteaseTask.Result),
+        var results = ScoreResults(
+                lrclibTask.Result
+                    .Concat(qqTask.Result)
+                    .Concat(neteaseTask.Result)
+                    .Concat(kugouTask.Result)
+                    .Concat(miguTask.Result),
                 track,
                 normalizedQuery)
             .Take(20)
             .ToList();
+
+        StartupLog.Write($"lyrics.search.complete: title=\"{track.Title}\", sources=5, elapsed={stopwatch.ElapsedMilliseconds}ms, matches={results.Count}");
+
+        return results;
     }
 
     public async Task<LyricsDocumentModel> LoadSearchResultAsync(
@@ -154,7 +175,9 @@ public sealed class LyricsService : ILyricsService
         var pending = new List<Task<LyricsDocumentModel?>>
         {
             TryLoadNeteaseWordSyncedLyricsDocumentAsync(track, raceCancellation.Token),
-            TryLoadQqWordSyncedLyricsDocumentAsync(track, raceCancellation.Token)
+            TryLoadQqWordSyncedLyricsDocumentAsync(track, raceCancellation.Token),
+            TryLoadKugouWordSyncedLyricsDocumentAsync(track, raceCancellation.Token),
+            TryLoadMiguWordSyncedLyricsDocumentAsync(track, raceCancellation.Token)
         };
         while (pending.Count > 0)
         {
@@ -264,6 +287,87 @@ public sealed class LyricsService : ILyricsService
         return document;
     }
 
+    private async Task<LyricsDocumentModel?> TryLoadKugouWordSyncedLyricsDocumentAsync(
+        TrackModel track,
+        CancellationToken cancellationToken)
+    {
+        var candidates = await SearchKugouCandidatesAsync(track, BuildDefaultQuery(track), cancellationToken);
+        var filtered = candidates
+            .Where(candidate => (string.IsNullOrWhiteSpace(candidate.Song)
+                    || IsExactIdentity(track.Title, candidate.Song))
+                && (string.IsNullOrWhiteSpace(candidate.Singer)
+                    || IsMatchingArtist(track.Artist, candidate.Singer)))
+            .Take(6)
+            .ToList();
+        if (filtered.Count == 0)
+        {
+            return null;
+        }
+
+        using var raceCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var pending = filtered
+            .Select(candidate => FetchKugouKrcLyricsAsync(candidate, raceCancellation.Token))
+            .ToList();
+        LyricsSearchResultModel? best = null;
+        while (pending.Count > 0 && best is null)
+        {
+            var completed = await Task.WhenAny(pending);
+            pending.Remove(completed);
+            try
+            {
+                var result = await completed;
+                if (result?.LyricsKind == LyricsSyncKind.WordSynced)
+                {
+                    best = result;
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch
+            {
+            }
+        }
+
+        raceCancellation.Cancel();
+        foreach (var remaining in pending)
+        {
+            _ = ObserveAsync(remaining);
+        }
+
+        if (best is null || string.IsNullOrWhiteSpace(best.SyncedLyrics))
+        {
+            return null;
+        }
+
+        var document = LyricsParser.Parse(
+            best.SyncedLyrics,
+            track.DurationSeconds,
+            OnlineSource,
+            best.Provider);
+        return document.IsEmpty || !document.HasTimedSegments ? null : document;
+    }
+
+    private async Task<LyricsDocumentModel?> TryLoadMiguWordSyncedLyricsDocumentAsync(
+        TrackModel track,
+        CancellationToken cancellationToken)
+    {
+        var results = await SearchMiguQrcLyricsAsync(track, BuildDefaultQuery(track), cancellationToken);
+        var best = results.FirstOrDefault(result => result.LyricsKind == LyricsSyncKind.WordSynced);
+        if (best?.SyncedLyrics is null)
+        {
+            return null;
+        }
+
+        var document = LyricsParser.Parse(
+            best.SyncedLyrics,
+            track.DurationSeconds,
+            OnlineSource,
+            best.Provider);
+        return document.IsEmpty || !document.HasTimedSegments ? null : document;
+    }
+
     private static bool IsExactIdentity(string expected, string actual)
     {
         var expectedKey = NormalizeSearchText(expected);
@@ -361,12 +465,13 @@ public sealed class LyricsService : ILyricsService
         }
 
         var sidecar = await ReadSidecarLyricsAsync(track.Path, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(sidecar))
+        if (sidecar is not null)
         {
-            var document = LyricsParser.Parse(sidecar, track.DurationSeconds, LocalSource, "sidecar");
+            var document = LyricsParser.Parse(sidecar.Primary, track.DurationSeconds, LocalSource, "sidecar");
+            document = AttachCompanionLyrics(document, sidecar.Roma, sidecar.Translation);
             if (!document.IsEmpty)
             {
-                StartupLog.Write($"lyrics.local.sidecar: track=\"{track.Title}\", lines={document.Lines.Count}");
+                StartupLog.Write($"lyrics.local.sidecar: track=\"{track.Title}\", lines={document.Lines.Count}, variant={sidecar.Variant}");
                 return document;
             }
         }
@@ -1038,6 +1143,267 @@ public sealed class LyricsService : ILyricsService
             "qqmusic");
     }
 
+    private async Task<IReadOnlyList<LyricsSearchResultModel>> SearchKugouLyricsAsync(
+        TrackModel track,
+        string query,
+        CancellationToken cancellationToken)
+    {
+        var candidates = await SearchKugouCandidatesAsync(track, query, cancellationToken);
+        if (candidates.Count == 0)
+        {
+            return Array.Empty<LyricsSearchResultModel>();
+        }
+
+        var ordered = candidates
+            .OrderByDescending(candidate =>
+                MatchScore(track.Title, candidate.Song, 50, 24)
+                + MatchScore(track.Artist, candidate.Singer, 35, 16))
+            .Take(6)
+            .ToList();
+        var resolved = await Task.WhenAll(ordered.Select(candidate =>
+            FetchKugouKrcLyricsAsync(candidate, cancellationToken)));
+        return resolved
+            .Where(result => result is not null)
+            .Cast<LyricsSearchResultModel>()
+            .ToList();
+    }
+
+    private async Task<IReadOnlyList<KugouLyricCandidate>> SearchKugouCandidatesAsync(
+        TrackModel track,
+        string query,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return Array.Empty<KugouLyricCandidate>();
+        }
+
+        var parameters = new Dictionary<string, string>
+        {
+            ["ver"] = "1",
+            ["man"] = "yes",
+            ["client"] = "pc",
+            ["keyword"] = query,
+            ["hash"] = string.Empty
+        };
+        if (track.DurationSeconds > 0)
+        {
+            parameters["duration"] = Math.Round(track.DurationSeconds * 1000)
+                .ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        var uri = BuildUri("http", "lyrics.kugou.com", "/search", parameters);
+        using var document = await RequestJsonAsync(uri, cancellationToken);
+        if (document is null
+            || !document.RootElement.TryGetProperty("candidates", out var candidates)
+            || candidates.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<KugouLyricCandidate>();
+        }
+
+        var result = new List<KugouLyricCandidate>();
+        foreach (var item in candidates.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var id = ReadString(item, "id");
+            var accessKey = ReadString(item, "accesskey");
+            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(accessKey))
+            {
+                continue;
+            }
+
+            var durationSeconds = ReadDouble(item, "duration") / 1000d;
+            if (track.DurationSeconds > 0 && durationSeconds > 0
+                && Math.Abs(track.DurationSeconds - durationSeconds) > 3)
+            {
+                continue;
+            }
+
+            result.Add(new KugouLyricCandidate(
+                id,
+                accessKey,
+                ReadString(item, "song") ?? string.Empty,
+                ReadString(item, "singer") ?? string.Empty,
+                durationSeconds));
+        }
+
+        return result;
+    }
+
+    private async Task<LyricsSearchResultModel?> FetchKugouKrcLyricsAsync(
+        KugouLyricCandidate candidate,
+        CancellationToken cancellationToken)
+    {
+        var uri = BuildUri(
+            "http",
+            "lyrics.kugou.com",
+            "/download",
+            new Dictionary<string, string>
+            {
+                ["ver"] = "1",
+                ["client"] = "pc",
+                ["id"] = candidate.Id,
+                ["accesskey"] = candidate.AccessKey,
+                ["fmt"] = "krc",
+                ["charset"] = "utf8"
+            });
+        using var document = await RequestJsonAsync(uri, cancellationToken);
+        if (document is null
+            || !document.RootElement.TryGetProperty("content", out var contentValue)
+            || contentValue.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        var resolved = KrcDecoder.Decrypt(contentValue.GetString());
+        if (string.IsNullOrWhiteSpace(resolved))
+        {
+            StartupLog.Write($"lyrics.kugou.decrypt-failed: id={candidate.Id}");
+            return null;
+        }
+
+        var title = string.IsNullOrWhiteSpace(candidate.Song) ? "Unknown track" : candidate.Song;
+        var artist = string.IsNullOrWhiteSpace(candidate.Singer) ? "Unknown artist" : candidate.Singer;
+        return new LyricsSearchResultModel(
+            candidate.Id,
+            title,
+            artist,
+            string.Empty,
+            candidate.DurationSeconds,
+            resolved,
+            null,
+            "kugou-krc");
+    }
+
+    private async Task<IReadOnlyList<LyricsSearchResultModel>> SearchMiguQrcLyricsAsync(
+        TrackModel track,
+        string query,
+        CancellationToken cancellationToken)
+    {
+        var keyword = string.IsNullOrWhiteSpace(track.Title)
+            ? query
+            : string.Join(" ", new[] { track.Title, track.Artist }
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
+        if (string.IsNullOrWhiteSpace(keyword))
+        {
+            return Array.Empty<LyricsSearchResultModel>();
+        }
+
+        var response = await RequestTextAsync(
+            "c.musicapp.migu.cn",
+            "/MIGUM2.0/v1.0/content/qrc_lrc.jsp",
+            new Dictionary<string, string> { ["keyword"] = keyword },
+            cancellationToken);
+        if (string.IsNullOrWhiteSpace(response))
+        {
+            return Array.Empty<LyricsSearchResultModel>();
+        }
+
+        var title = ReadMiguHeadAttribute(response, MiguTitlePattern);
+        var artist = ReadMiguHeadAttribute(response, MiguArtistPattern);
+        if (string.IsNullOrWhiteSpace(title)
+            || !IsExactIdentity(track.Title, title)
+            || (!string.IsNullOrWhiteSpace(artist) && !IsMatchingArtist(track.Artist, artist)))
+        {
+            StartupLog.Write(
+                $"lyrics.migu.identity-mismatch: expected=\"{track.Title} / {track.Artist}\", actual=\"{title} / {artist}\"");
+            return Array.Empty<LyricsSearchResultModel>();
+        }
+
+        var contentMatch = QqLyricContentPattern.Match(response);
+        if (!contentMatch.Success)
+        {
+            return Array.Empty<LyricsSearchResultModel>();
+        }
+
+        var resolved = WebUtility.HtmlDecode(contentMatch.Groups["content"].Value).Trim();
+        if (string.IsNullOrWhiteSpace(resolved))
+        {
+            return Array.Empty<LyricsSearchResultModel>();
+        }
+
+        var parsed = LyricsParser.Parse(resolved, provider: "migu-qrc");
+        if (parsed.IsEmpty || !parsed.HasTimedSegments)
+        {
+            return Array.Empty<LyricsSearchResultModel>();
+        }
+
+        return new List<LyricsSearchResultModel>
+        {
+            new(
+                $"{title}|{artist}",
+                title,
+                string.IsNullOrWhiteSpace(artist) ? "Unknown artist" : artist,
+                string.Empty,
+                0,
+                resolved,
+                null,
+                "migu-qrc")
+        };
+    }
+
+    private static string? ReadMiguHeadAttribute(string response, Regex pattern)
+    {
+        var match = pattern.Match(response);
+        return match.Success ? WebUtility.HtmlDecode(match.Groups["value"].Value).Trim() : null;
+    }
+
+    private static Uri BuildUri(
+        string scheme,
+        string host,
+        string path,
+        IReadOnlyDictionary<string, string> parameters)
+    {
+        var query = string.Join(
+            "&",
+            parameters
+                .Where(entry => !string.IsNullOrWhiteSpace(entry.Value))
+                .Select(entry => $"{Uri.EscapeDataString(entry.Key)}={Uri.EscapeDataString(entry.Value)}"));
+        return new Uri($"{scheme}://{host}{path}?{query}");
+    }
+
+    private async Task<JsonDocument?> RequestJsonAsync(
+        Uri uri,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+        request.Headers.Accept.ParseAdd("application/json");
+        request.Headers.UserAgent.ParseAdd("PrismWave/1.0.0 (+https://github.com/shanbei2033/PrismWave)");
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(DefaultRequestTimeout);
+
+        try
+        {
+            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
+            return await JsonDocument.ParseAsync(stream, cancellationToken: timeout.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            StartupLog.Write($"lyrics.online.timeout: host={uri.Host}, path={uri.AbsolutePath}");
+            return null;
+        }
+        catch (HttpRequestException exception)
+        {
+            StartupLog.Write($"lyrics.online.network: {exception.Message}");
+            return null;
+        }
+        catch (JsonException exception)
+        {
+            StartupLog.Write($"lyrics.online.json: {exception.Message}");
+            return null;
+        }
+    }
+
     private async Task<JsonDocument?> RequestJsonAsync(
         string path,
         IReadOnlyDictionary<string, string> parameters,
@@ -1329,7 +1695,17 @@ public sealed class LyricsService : ILyricsService
         return Path.Combine(_cacheDirectory, $"{Convert.ToHexString(bytes).ToLowerInvariant()}.json");
     }
 
-    private static async Task<string?> ReadSidecarLyricsAsync(
+    private static readonly string[] SidecarPrimarySuffixes =
+    {
+        ".syl.lrc",
+        ".merge.syl.lrc",
+        ".qrc",
+        ".lrc",
+        ".merge.lrc",
+        ".txt"
+    };
+
+    private static async Task<SidecarLyricsBundle?> ReadSidecarLyricsAsync(
         string audioPath,
         CancellationToken cancellationToken)
     {
@@ -1348,19 +1724,161 @@ public sealed class LyricsService : ILyricsService
         };
         foreach (var candidateDirectory in candidateDirectories.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            foreach (var extension in new[] { ".qrc", ".lrc", ".txt" })
+            var bundle = await TryReadSidecarBundleAsync(candidateDirectory, baseName, cancellationToken);
+            if (bundle is not null)
             {
-                var candidate = Path.Combine(candidateDirectory, $"{baseName}{extension}");
-                if (!File.Exists(candidate))
-                {
-                    continue;
-                }
-
-                return await ReadTextFileAsync(candidate, cancellationToken);
+                return bundle;
             }
         }
 
         return null;
+    }
+
+    private static async Task<SidecarLyricsBundle?> TryReadSidecarBundleAsync(
+        string directory,
+        string baseName,
+        CancellationToken cancellationToken)
+    {
+        string? primary = null;
+        var variant = string.Empty;
+        foreach (var suffix in SidecarPrimarySuffixes)
+        {
+            var candidate = Path.Combine(directory, $"{baseName}{suffix}");
+            if (!File.Exists(candidate))
+            {
+                continue;
+            }
+
+            var content = await ReadTextFileAsync(candidate, cancellationToken);
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                continue;
+            }
+
+            primary = content;
+            variant = suffix switch
+            {
+                ".syl.lrc" => "syl",
+                ".merge.syl.lrc" => "merge-syl",
+                ".qrc" => "qrc",
+                ".merge.lrc" => "merge",
+                ".txt" => "txt",
+                _ => "lrc"
+            };
+            break;
+        }
+
+        if (primary is null)
+        {
+            return null;
+        }
+
+        // merge 主文件已内嵌副语言（解析层拆分），不再叠加外部副语言文件。
+        var isMerge = variant is "merge" or "merge-syl";
+        string? roma = null;
+        string? translation = null;
+        if (!isMerge)
+        {
+            roma = await TryReadSidecarVariantAsync(directory, baseName, ".roma.lrc", cancellationToken);
+            translation = await TryReadSidecarVariantAsync(directory, baseName, ".trans.lrc", cancellationToken)
+                ?? await TryReadSidecarVariantAsync(directory, baseName, ".zh.lrc", cancellationToken);
+        }
+
+        if (roma is not null)
+        {
+            variant += "+roma";
+        }
+
+        if (translation is not null)
+        {
+            variant += "+trans";
+        }
+
+        return new SidecarLyricsBundle(primary, roma, translation, variant);
+    }
+
+    private static async Task<string?> TryReadSidecarVariantAsync(
+        string directory,
+        string baseName,
+        string suffix,
+        CancellationToken cancellationToken)
+    {
+        var candidate = Path.Combine(directory, $"{baseName}{suffix}");
+        if (!File.Exists(candidate))
+        {
+            return null;
+        }
+
+        var content = await ReadTextFileAsync(candidate, cancellationToken);
+        return string.IsNullOrWhiteSpace(content) ? null : content;
+    }
+
+    private static LyricsDocumentModel AttachCompanionLyrics(
+        LyricsDocumentModel document,
+        string? roma,
+        string? translation)
+    {
+        if (document.IsEmpty
+            || (string.IsNullOrWhiteSpace(roma) && string.IsNullOrWhiteSpace(translation)))
+        {
+            return document;
+        }
+
+        var romaLines = string.IsNullOrWhiteSpace(roma)
+            ? null
+            : LyricsParser.Parse(roma!).Lines;
+        var translationLines = string.IsNullOrWhiteSpace(translation)
+            ? null
+            : LyricsParser.Parse(translation!).Lines;
+
+        var updated = new List<LyricLineModel>(document.Lines.Count);
+        foreach (var line in document.Lines)
+        {
+            var companions = new List<LyricCompanionModel>(line.CompanionLines ?? Array.Empty<LyricCompanionModel>());
+            AppendNearestCompanion(companions, romaLines, line.TimeSeconds);
+            AppendNearestCompanion(companions, translationLines, line.TimeSeconds);
+            updated.Add(companions.Count == 0
+                ? line
+                : line with { CompanionLines = companions.Take(2).ToList() });
+        }
+
+        return document with { Lines = updated };
+    }
+
+    private static void AppendNearestCompanion(
+        List<LyricCompanionModel> companions,
+        IReadOnlyList<LyricLineModel>? source,
+        double timeSeconds)
+    {
+        if (source is null || source.Count == 0)
+        {
+            return;
+        }
+
+        LyricLineModel? nearest = null;
+        var nearestDelta = double.MaxValue;
+        foreach (var candidate in source)
+        {
+            var delta = Math.Abs(candidate.TimeSeconds - timeSeconds);
+            if (delta < nearestDelta)
+            {
+                nearestDelta = delta;
+                nearest = candidate;
+            }
+        }
+
+        if (nearest is not null && nearestDelta <= 0.35 && nearest.Text.Length > 0)
+        {
+            companions.Add(new LyricCompanionModel(nearest.Text));
+            // 副语言文件中的括号和声/翻译行经解析后存于宿主行的 CompanionLines，一并透传。
+            foreach (var extra in nearest.CompanionLines ?? Array.Empty<LyricCompanionModel>())
+            {
+                if (extra.Text.Length > 0)
+                {
+                    companions.Add(extra);
+                }
+            }
+        }
     }
 
     private static async Task<string> ReadTextFileAsync(string path, CancellationToken cancellationToken)
@@ -1475,6 +1993,17 @@ public sealed class LyricsService : ILyricsService
     };
 
     private sealed record QqSongCandidate(string Id, string Mid, string Title, string Artist);
+    private sealed record KugouLyricCandidate(
+        string Id,
+        string AccessKey,
+        string Song,
+        string Singer,
+        double DurationSeconds);
+    private sealed record SidecarLyricsBundle(
+        string Primary,
+        string? Roma,
+        string? Translation,
+        string Variant);
     private sealed record NeteaseSongCandidate(
         string Id,
         string Title,

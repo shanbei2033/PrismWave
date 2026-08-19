@@ -35,7 +35,8 @@ public sealed record SettingsSnapshot(
     long OnlineCacheMaximumBytes = OnlineAudioCacheDefault.MaximumBytes,
     string OnlineCacheDirectory = "",
     IReadOnlyList<OnlineLibraryTrackEntry>? OnlineLibraryTracks = null,
-    bool AutoCheckUpdate = true);
+    bool AutoCheckUpdate = true,
+    bool ShowLyricsCompanions = true);
 
 public static class OnlineAudioCacheDefault
 {

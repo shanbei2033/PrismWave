@@ -54,14 +54,78 @@ public sealed class DeveloperLogService : IDeveloperLogService, IDisposable
             File.WriteAllText(FilePath, string.Empty);
         }
 
-        // Launch a PowerShell window that tails the log file in real-time
-        Process.Start(new ProcessStartInfo
+        // PowerShell 7+ (pwsh.exe) defaults to UTF-8 for both console output
+        // and Get-Content file reading, so Chinese characters display correctly
+        // without any extra encoding switches.
+        // Windows PowerShell 5.x (powershell.exe) decodes UTF-8-without-BOM as
+        // ANSI/GBK producing mojibake; it is only used as a last-resort fallback.
+        var (shell, arguments) = ResolveLogTailCommand();
+        try
         {
-            FileName = "powershell.exe",
-            Arguments = $"-NoExit -Command \"Write-Host 'PrismWave Developer Log - Live Stream' -ForegroundColor Cyan; Write-Host 'File: {FilePath}' -ForegroundColor DarkGray; Write-Host ''; Get-Content -Path '{FilePath}' -Wait -Tail 50\"",
-            UseShellExecute = true,
-            WindowStyle = ProcessWindowStyle.Normal
-        });
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = shell,
+                Arguments = arguments,
+                UseShellExecute = true,
+                WindowStyle = ProcessWindowStyle.Normal
+            });
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // pwsh.exe not found on this machine — fall back to Windows PowerShell.
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = arguments,
+                UseShellExecute = true,
+                WindowStyle = ProcessWindowStyle.Normal
+            });
+        }
+    }
+
+    private (string Shell, string Arguments) ResolveLogTailCommand()
+    {
+        // Escape single quotes in file path to prevent PowerShell injection
+        var escapedPath = FilePath.Replace("'", "''");
+        
+        // Prefer pwsh (PowerShell 7+) — native UTF-8, no encoding gymnastics needed.
+        if (IsCommandAvailable("pwsh.exe"))
+        {
+            return (
+                "pwsh.exe",
+                $"-NoExit -Command \"Write-Host 'PrismWave Developer Log - Live Stream' -ForegroundColor Cyan; Write-Host 'File: {FilePath}' -ForegroundColor DarkGray; Write-Host ''; Get-Content -Path '{escapedPath}' -Wait -Tail 50 -Encoding UTF8\"");
+        }
+
+        // Windows PowerShell 5.x fallback — must force UTF-8 on both console and pipeline.
+        return (
+            "powershell.exe",
+            $"-NoExit -Command \"chcp 65001 > $null; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; Write-Host 'PrismWave Developer Log - Live Stream' -ForegroundColor Cyan; Write-Host 'File: {FilePath}' -ForegroundColor DarkGray; Write-Host ''; Get-Content -Path '{escapedPath}' -Wait -Tail 50 -Encoding UTF8\"");
+    }
+
+    private static bool IsCommandAvailable(string commandName)
+    {
+        try
+        {
+            var probe = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "where.exe",
+                    Arguments = commandName,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true
+                }
+            };
+            probe.Start();
+            probe.WaitForExit(3000);
+            return probe.ExitCode == 0
+                && !string.IsNullOrWhiteSpace(probe.StandardOutput.ReadLine());
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public void Dispose()

@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Net;
 using System.Diagnostics;
 using System.Text;
@@ -259,6 +260,231 @@ public sealed class LyricsServiceTests : IDisposable
         {
             Directory.Delete(_tempDirectory, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task SearchOnlineLyricsAsync_IncludesKugouKrcWordSyncedResult()
+    {
+        const string krcPlain = "[offset:0]\n[0,3000]你<0,300,0>好<300,400,0>";
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var uri = request.RequestUri!;
+            if (uri.Host == "lyrics.kugou.com" && uri.AbsolutePath == "/search")
+            {
+                return Json("""{"candidates":[{"id":"9001","accesskey":"ak","duration":120000,"song":"Song","singer":"Artist"}]}""");
+            }
+
+            if (uri.Host == "lyrics.kugou.com" && uri.AbsolutePath == "/download")
+            {
+                return Json($"{{\"status\":200,\"content\":\"{EncodeKrc(krcPlain)}\"}}");
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        var service = new LyricsService(
+            new FakeSettingsService(CreateSettings()),
+            new HttpClient(handler),
+            Path.Combine(_tempDirectory, "cache"));
+
+        var results = await service.SearchOnlineLyricsAsync(CreateTrack("C:\\song.mp3"), "Song Artist");
+
+        var kugou = results.SingleOrDefault(result => result.Provider == "kugou-krc");
+        Assert.NotNull(kugou);
+        Assert.Equal(LyricsSyncKind.WordSynced, kugou!.LyricsKind);
+        Assert.Equal("Song", kugou.TrackName);
+        Assert.Equal("Artist", kugou.ArtistName);
+    }
+
+    [Fact]
+    public async Task SearchOnlineLyricsAsync_ReturnsMiguQrcResultForExactIdentity()
+    {
+        const string qrc = "[0,2000]你(0,500)好(500,500)";
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            if (request.RequestUri!.Host == "c.musicapp.migu.cn")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        $"<QrcInfos><QrcHeadInfo Ti=\"Song\" Ar=\"Artist\" Al=\"Album\" offset=\"0\"/><LyricInfo LyricCount=\"1\"><Lyric_1 LyricType=\"1\"><content><![CDATA[{qrc}]]></content></Lyric_1></LyricInfo></QrcInfos>",
+                        Encoding.UTF8,
+                        "text/xml")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        var service = new LyricsService(
+            new FakeSettingsService(CreateSettings()),
+            new HttpClient(handler),
+            Path.Combine(_tempDirectory, "cache"));
+
+        var results = await service.SearchOnlineLyricsAsync(CreateTrack("C:\\song.mp3"), "Song Artist");
+
+        var migu = results.SingleOrDefault(result => result.Provider == "migu-qrc");
+        Assert.NotNull(migu);
+        Assert.Equal(LyricsSyncKind.WordSynced, migu!.LyricsKind);
+        Assert.Equal("Song", migu.TrackName);
+    }
+
+    [Fact]
+    public async Task SearchOnlineLyricsAsync_DropsMiguResultWhenIdentityMismatches()
+    {
+        const string qrc = "[0,2000]你(0,500)好(500,500)";
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            if (request.RequestUri!.Host == "c.musicapp.migu.cn")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        $"<QrcInfos><QrcHeadInfo Ti=\"Another Song\" Ar=\"Someone Else\" offset=\"0\"/><LyricInfo LyricCount=\"1\"><Lyric_1 LyricType=\"1\"><content><![CDATA[{qrc}]]></content></Lyric_1></LyricInfo></QrcInfos>",
+                        Encoding.UTF8,
+                        "text/xml")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        var service = new LyricsService(
+            new FakeSettingsService(CreateSettings()),
+            new HttpClient(handler),
+            Path.Combine(_tempDirectory, "cache"));
+
+        var results = await service.SearchOnlineLyricsAsync(CreateTrack("C:\\song.mp3"), "Song Artist");
+
+        Assert.DoesNotContain(results, result => result.Provider == "migu-qrc");
+    }
+
+    [Fact]
+    public async Task LoadLyricsDocumentAsync_FallsBackToKugouKrcWhenQqAndNeteaseFail()
+    {
+        const string krcPlain = "[offset:0]\n[0,3000]你<0,300,0>好<300,400,0>";
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var uri = request.RequestUri!;
+            if (uri.Host == "lyrics.kugou.com" && uri.AbsolutePath == "/search")
+            {
+                return Json("""{"candidates":[{"id":"9001","accesskey":"ak","duration":120000,"song":"Song","singer":"Artist"}]}""");
+            }
+
+            if (uri.Host == "lyrics.kugou.com" && uri.AbsolutePath == "/download")
+            {
+                return Json($"{{\"status\":200,\"content\":\"{EncodeKrc(krcPlain)}\"}}");
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        var service = new LyricsService(
+            new FakeSettingsService(CreateSettings()),
+            new HttpClient(handler),
+            Path.Combine(_tempDirectory, "cache"));
+
+        var document = await service.LoadLyricsDocumentAsync(CreateTrack("remote://1", isRemote: true), forceOnline: true);
+
+        Assert.Equal("online", document.Source);
+        Assert.Equal("kugou-krc", document.Provider);
+        Assert.True(document.HasTimedSegments);
+        Assert.Equal("你好", document.Lines[0].Text);
+    }
+
+    [Fact]
+    public async Task LoadLyricsDocumentAsync_PrefersSyllableSidecarAndAttachesCompanions()
+    {
+        var audioPath = Path.Combine(_tempDirectory, "Track.mp3");
+        await File.WriteAllBytesAsync(audioPath, Array.Empty<byte>());
+        await File.WriteAllTextAsync(
+            Path.Combine(_tempDirectory, "Track.syl.lrc"),
+            "[00:00.00]<00:00.00>Is <00:00.51>this <00:00.86>the <00:01.27>real <00:02.11>life?");
+        await File.WriteAllTextAsync(
+            Path.Combine(_tempDirectory, "Track.lrc"),
+            "[00:00.00]Is this the real life?");
+        await File.WriteAllTextAsync(
+            Path.Combine(_tempDirectory, "Track.trans.lrc"),
+            "[00:00.00]这是真实的生活吗");
+        var service = new LyricsService(
+            new FakeSettingsService(CreateSettings()),
+            new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound))),
+            Path.Combine(_tempDirectory, "cache"));
+
+        var document = await service.LoadLyricsDocumentAsync(CreateTrack(audioPath));
+
+        Assert.Equal("local", document.Source);
+        Assert.Equal("sidecar", document.Provider);
+        var line = Assert.Single(document.Lines);
+        Assert.True(line.HasTimedSegments);
+        Assert.Equal("这是真实的生活吗", Assert.Single(line.CompanionLines!).Text);
+    }
+
+    [Fact]
+    public async Task LoadLyricsDocumentAsync_SkipsCompanionWhenTimestampOutOfRange()
+    {
+        var audioPath = Path.Combine(_tempDirectory, "Track2.mp3");
+        await File.WriteAllBytesAsync(audioPath, Array.Empty<byte>());
+        await File.WriteAllTextAsync(Path.Combine(_tempDirectory, "Track2.lrc"), "[00:01.00]Line one");
+        await File.WriteAllTextAsync(Path.Combine(_tempDirectory, "Track2.roma.lrc"), "[00:05.00]roma line");
+        var service = new LyricsService(
+            new FakeSettingsService(CreateSettings()),
+            new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound))),
+            Path.Combine(_tempDirectory, "cache"));
+
+        var document = await service.LoadLyricsDocumentAsync(CreateTrack(audioPath));
+
+        var line = Assert.Single(document.Lines);
+        Assert.Equal("Line one", line.Text);
+        Assert.Null(line.CompanionLines);
+    }
+
+    [Fact]
+    public async Task LoadLyricsDocumentAsync_MergeSidecarSplitsBilingualLines()
+    {
+        var audioPath = Path.Combine(_tempDirectory, "Track3.mp3");
+        await File.WriteAllBytesAsync(audioPath, Array.Empty<byte>());
+        await File.WriteAllTextAsync(
+            Path.Combine(_tempDirectory, "Track3.merge.lrc"),
+            "[00:02.91]インターネット・エンジェルという現象は\n[00:02.91]intaanetto enjeru to iu genshou wa\n[00:05.40]仮定された有機交流電燈の\n[00:05.40]katei sareta yuuki kouryuu dentou no");
+        var service = new LyricsService(
+            new FakeSettingsService(CreateSettings()),
+            new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound))),
+            Path.Combine(_tempDirectory, "cache"));
+
+        var document = await service.LoadLyricsDocumentAsync(CreateTrack(audioPath));
+
+        Assert.Equal("sidecar", document.Provider);
+        Assert.Equal(2, document.Lines.Count);
+        Assert.Equal("インターネット・エンジェルという現象は", document.Lines[0].Text);
+        Assert.Equal("intaanetto enjeru to iu genshou wa", Assert.Single(document.Lines[0].CompanionLines!).Text);
+    }
+
+    private static string EncodeKrc(string plain)
+    {
+        using var compressed = new MemoryStream();
+        using (var zlib = new ZLibStream(compressed, CompressionLevel.Optimal, leaveOpen: true))
+        {
+            zlib.Write(Encoding.UTF8.GetBytes(plain));
+        }
+
+        var key = "@Gaw]GtVKn@jRW!An"u8.ToArray();
+        var payload = compressed.ToArray();
+        var encrypted = new byte[4 + payload.Length];
+        encrypted[0] = (byte)'k';
+        encrypted[1] = (byte)'r';
+        encrypted[2] = (byte)'c';
+        encrypted[3] = (byte)'1';
+        for (var index = 0; index < payload.Length; index++)
+        {
+            encrypted[4 + index] = (byte)(payload[index] ^ key[index % key.Length]);
+        }
+
+        return Convert.ToBase64String(encrypted);
+    }
+
+    private static HttpResponseMessage Json(string content)
+    {
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(content, Encoding.UTF8, "application/json")
+        };
     }
 
     private static TrackModel CreateTrack(string path, bool isRemote = false)

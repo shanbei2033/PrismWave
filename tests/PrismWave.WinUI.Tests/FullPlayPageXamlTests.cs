@@ -23,6 +23,23 @@ public sealed class FullPlayPageXamlTests
     }
 
     [Fact]
+    public void FullPlay_LyricsToolbarContainsCompanionToggle()
+    {
+        var document = XDocument.Load(FindRepositoryFile(
+            "src", "PrismWave.WinUI", "Views", "Player", "FullPlayPage.xaml"));
+        var button = Assert.Single(document.Descendants(), element =>
+            element.Attribute("AutomationProperties.AutomationId")?.Value == "LyricsCompanionButton");
+
+        Assert.Equal("LyricsCompanionButton_Click", button.Attribute("Click")?.Value);
+        var fontIcon = Assert.Single(
+            button.Elements(),
+            element => element.Name.LocalName == "FontIcon");
+        Assert.Equal("\uE774", fontIcon.Attribute("Glyph")?.Value);
+        var actions = FindByAutomationId(document, "LyricsToolActions");
+        Assert.Contains(actions.Descendants(), element => element == button);
+    }
+
+    [Fact]
     public void FullPlay_UsesResponsiveTwoColumnImmersiveLayout()
     {
         var document = XDocument.Load(FindRepositoryFile(
@@ -153,7 +170,7 @@ public sealed class FullPlayPageXamlTests
             element.Attribute("Draw")?.Value == "StageCanvas_Draw");
         Assert.Contains("CompositionTarget.Rendering", stageCode, StringComparison.Ordinal);
         Assert.DoesNotContain("DispatcherQueueTimer", stageCode, StringComparison.Ordinal);
-        Assert.Contains("LyricsSceneController.CurrentFontSize", stageCode, StringComparison.Ordinal);
+        Assert.Contains("ResolvePrimaryFontSize", stageCode, StringComparison.Ordinal);
         Assert.Contains("FontWeight = FontWeights.SemiBold", stageCode, StringComparison.Ordinal);
         Assert.Contains("Color.FromArgb(255, 136, 136, 136)", stageCode, StringComparison.Ordinal);
         Assert.Contains("Microsoft.UI.Colors.White", stageCode, StringComparison.Ordinal);

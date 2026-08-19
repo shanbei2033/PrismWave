@@ -29,6 +29,11 @@ public sealed partial class FullPlayPage : Page
         @"^[+-]?\d+(?:\.\d?)?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    private static readonly Microsoft.UI.Xaml.Media.SolidColorBrush CompanionEnabledBrush =
+        new(Windows.UI.Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
+    private static readonly Microsoft.UI.Xaml.Media.SolidColorBrush CompanionDisabledBrush =
+        new(Windows.UI.Color.FromArgb(0x52, 0x00, 0x00, 0x00));
+
     private DispatcherQueueTimer? _lyricsReturnTimer;
     private DispatcherQueueTimer? _backdropCleanupTimer;
     private bool _areLyricsToolsExpanded;
@@ -65,6 +70,7 @@ public sealed partial class FullPlayPage : Page
         _lyricsReturnTimer.Interval = TimeSpan.FromSeconds(4);
         _lyricsReturnTimer.IsRepeating = false;
         _lyricsReturnTimer.Tick += LyricsReturnTimer_Tick;
+        SyncLyricsCompanionButtonState();
         RefreshLyricsStage(LyricsPositionUpdateKind.TrackChanged);
         EnsureBackdropResources();
         LoadBackdrop(ViewModel.CurrentCoverPath);
@@ -126,6 +132,14 @@ public sealed partial class FullPlayPage : Page
                 ViewModel.IsPlaying,
                 LyricsPositionUpdateKind.OffsetChanged);
         }
+        else if (e.PropertyName == nameof(PlaybackViewModel.ShowLyricsCompanions))
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                SyncLyricsCompanionButtonState();
+                RefreshLyricsStage(LyricsPositionUpdateKind.TrackChanged);
+            });
+        }
     }
 
     private double EffectiveLyricsPosition => Math.Max(
@@ -156,7 +170,11 @@ public sealed partial class FullPlayPage : Page
     private void RefreshLyricsStage(LyricsPositionUpdateKind updateKind)
     {
         LyricsStage.SetLyrics(
-            ViewModel.Lyrics.Select(line => line.Line).ToArray(),
+            ViewModel.Lyrics
+                .Select(line => ViewModel.ShowLyricsCompanions
+                    ? line.Line
+                    : line.Line with { CompanionLines = null })
+                .ToArray(),
             ++_lyricsDocumentRevision);
         LyricsStage.UpdatePlaybackSample(EffectiveLyricsPosition, ViewModel.IsPlaying, updateKind);
     }
@@ -498,8 +516,23 @@ public sealed partial class FullPlayPage : Page
     private Button[] GetLyricsToolButtons(bool expanding)
     {
         return expanding
-            ? new[] { LyricsOffsetButton, LyricsSearchButton, LyricsSourceButton }
-            : new[] { LyricsSourceButton, LyricsSearchButton, LyricsOffsetButton };
+            ? new[] { LyricsCompanionButton, LyricsOffsetButton, LyricsSearchButton, LyricsSourceButton }
+            : new[] { LyricsSourceButton, LyricsSearchButton, LyricsOffsetButton, LyricsCompanionButton };
+    }
+
+    private void LyricsCompanionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.ToggleLyricsCompanionsCommand.CanExecute(null))
+        {
+            ViewModel.ToggleLyricsCompanionsCommand.Execute(null);
+        }
+    }
+
+    private void SyncLyricsCompanionButtonState()
+    {
+        LyricsCompanionButton.Background = ViewModel.ShowLyricsCompanions
+            ? CompanionEnabledBrush
+            : CompanionDisabledBrush;
     }
 
     private static void SetLyricsToolButtonState(Button button, bool expanded)

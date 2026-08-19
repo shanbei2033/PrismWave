@@ -103,6 +103,23 @@ public sealed class LyricsSceneControllerTests
         Assert.True(frame.IsTransitioning);
     }
 
+    [Fact]
+    public void LineAdvance_KaraokeProgressRestartsFromZeroOnNewActiveLine()
+    {
+        var controller = CreateController();
+        controller.UpdatePlaybackSample(9.9, true, LyricsPositionUpdateKind.TrackChanged, 0, 600);
+        controller.Advance(0.5, 600);
+        var firstProgress = controller.GetLineVisualState(0).KaraokeProgress;
+        Assert.True(firstProgress > 0.9, $"first line should be nearly complete, got {firstProgress}");
+
+        controller.UpdatePlaybackSample(10.5, true, LyricsPositionUpdateKind.Sample, 0.6, 600);
+        controller.Advance(0.7, 600);
+
+        // 新激活行的逐字进度必须从零开始，不能被旧行终值（≈1）污染而直接全白。
+        var secondProgress = controller.GetLineVisualState(1).KaraokeProgress;
+        Assert.True(secondProgress < 0.5, $"new active line progress should restart, got {secondProgress}");
+    }
+
     private static LyricsSceneController CreateController()
     {
         var controller = new LyricsSceneController();

@@ -1495,6 +1495,9 @@ public sealed class OnlineProviderService : IOnlineProviderService
         CancellationToken cancellationToken,
         bool skipOfficialEndpoint = false)
     {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        StartupLog.Write($"online.resolve.netease.start: track={trackId}, skip-official={skipOfficialEndpoint}");
+        
         // Skip the official anonymous endpoint for VIP tracks without VIP account
         // (it will return null URL anyway, wasting a network round-trip)
         if (!skipOfficialEndpoint)
@@ -1511,6 +1514,9 @@ public sealed class OnlineProviderService : IOnlineProviderService
                     var url = NormalizeUrl(ReadString(item, "url"));
                     if (IsDirectPlayableUrl(url))
                     {
+                        stopwatch.Stop();
+                        StartupLog.Write(
+                            $"online.resolve.netease.direct-success: track={trackId}, elapsed={stopwatch.ElapsedMilliseconds}ms, bitrate=320k");
                         return new OnlinePlaybackResolution(
                             url!,
                             "netease",
@@ -1519,20 +1525,40 @@ public sealed class OnlineProviderService : IOnlineProviderService
                             coverUrl,
                             durationSeconds);
                     }
+                    else
+                    {
+                        StartupLog.Write($"online.resolve.netease.direct-unavailable: track={trackId}, requires-vip=true");
+                    }
+                }
+                else
+                {
+                    StartupLog.Write($"online.resolve.netease.direct-failed: track={trackId}, no-data-response");
                 }
             }
         }
+        else
+        {
+            StartupLog.Write($"online.resolve.netease.skip-official: track={trackId} (VIP-no-account path)");
+        }
 
+        // Fall back to gdstudio / pyncmd
         foreach (var bitrate in new[] { "999", "320" })
         {
             var fallbackUri = new Uri(
                 $"https://music-api.gdstudio.xyz/api.php?types=url&source=netease&id={Uri.EscapeDataString(trackId)}&br={bitrate}");
+            
+            stopwatch.Restart();
             using var document = await GetJsonAsync(fallbackUri, PyncmdHeaders, cancellationToken);
+            stopwatch.Stop();
+            
             var url = document is null
                 ? null
                 : NormalizeUrl(WebUtility.HtmlDecode(ReadString(document.RootElement, "url") ?? string.Empty));
+            
             if (IsDirectPlayableUrl(url))
             {
+                StartupLog.Write(
+                    $"online.resolve.netease.fallback-gdstudio-success: track={trackId}, bitrate={bitrate}, elapsed={stopwatch.ElapsedMilliseconds}ms");
                 return new OnlinePlaybackResolution(
                     url!,
                     "pyncmd",
@@ -1541,8 +1567,13 @@ public sealed class OnlineProviderService : IOnlineProviderService
                     coverUrl,
                     durationSeconds);
             }
+            else
+            {
+                StartupLog.Write($"online.resolve.netease.fallback-gdstudio-failed: track={trackId}, bitrate={bitrate}, elapsed={stopwatch.ElapsedMilliseconds}ms");
+            }
         }
 
+        StartupLog.Write($"online.resolve.netease.all-attempts-failed: track={trackId}");
         return null;
     }
 

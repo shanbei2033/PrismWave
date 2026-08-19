@@ -19,6 +19,7 @@ public sealed partial class PlaybackViewModel : ObservableObject
     private readonly ILyricsService _lyricsService;
     private readonly ICoverService? _coverService;
     private readonly ILibraryService? _libraryService;
+    private readonly ISettingsService? _settingsService;
     private TrackModel? _currentTrack;
     private string? _lyricsTrackId;
     private int _lyricsRevision;
@@ -45,17 +46,21 @@ public sealed partial class PlaybackViewModel : ObservableObject
     private double _lyricsPresentationPositionSeconds;
     private long _observedQueueRevision = long.MinValue;
     private bool _isQueueReorderActive;
+    private bool _showLyricsCompanions = true;
 
     public PlaybackViewModel(
         IPlaybackService playbackService,
         ILyricsService lyricsService,
         ICoverService? coverService = null,
-        ILibraryService? libraryService = null)
+        ILibraryService? libraryService = null,
+        ISettingsService? settingsService = null)
     {
         _playbackService = playbackService;
         _lyricsService = lyricsService;
         _coverService = coverService;
         _libraryService = libraryService;
+        _settingsService = settingsService;
+        _showLyricsCompanions = settingsService?.Current.ShowLyricsCompanions ?? true;
         _playbackService.StateChanged += (_, _) => Refresh();
         if (_coverService is not null)
         {
@@ -379,6 +384,24 @@ public sealed partial class PlaybackViewModel : ObservableObject
             await _lyricsService.SetPreferredSourceAsync(CurrentTrack, previous);
             LyricsSource = previous;
             LyricsStatus = "Online lyrics unavailable";
+        }
+    }
+
+    public bool ShowLyricsCompanions
+    {
+        get => _showLyricsCompanions;
+        private set => SetProperty(ref _showLyricsCompanions, value);
+    }
+
+    [RelayCommand]
+    private async Task ToggleLyricsCompanionsAsync()
+    {
+        var next = !ShowLyricsCompanions;
+        ShowLyricsCompanions = next;
+        if (_settingsService is not null)
+        {
+            await _settingsService.SaveAsync(
+                _settingsService.Current with { ShowLyricsCompanions = next });
         }
     }
 

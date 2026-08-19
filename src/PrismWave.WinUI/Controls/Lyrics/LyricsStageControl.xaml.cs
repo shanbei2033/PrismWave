@@ -35,17 +35,21 @@ public sealed partial class LyricsStageControl : UserControl
     private const float HorizontalPadding = 28f;
     private const float LineGap = 28f;
     private const float MinimumLineHeight = 68f;
+    private const float CompanionLineGap = 6f;
     private const float BlurPaddingMultiplier = 3f;
     private const float CrispOverlayOpacity = 0.18f;
     private const float DragThreshold = 5f;
+    private static readonly Color CompanionTextColor = Color.FromArgb(255, 150, 150, 150);
 
     private readonly LyricsSceneController _scene = new();
     private readonly Stopwatch _clock = new();
     private readonly List<LyricsLayoutEntry> _layoutCache = [];
     private IReadOnlyList<LyricLineModel> _lyrics = Array.Empty<LyricLineModel>();
+    private double _lastPositionSeconds;
     private CanvasSolidColorBrush? _baseBrush;
     private CanvasSolidColorBrush? _highlightBrush;
     private CanvasSolidColorBrush? _partialBrush;
+    private CanvasSolidColorBrush? _companionHighlightBrush;
     private bool _resourcesReady;
     private bool _renderingSubscribed;
     private bool _isDragging;
@@ -88,6 +92,7 @@ public sealed partial class LyricsStageControl : UserControl
         LyricsPositionUpdateKind updateKind)
     {
         EnsureClockStarted();
+        _lastPositionSeconds = positionSeconds;
         _scene.UpdatePlaybackSample(
             positionSeconds,
             isPlaying,
@@ -160,7 +165,8 @@ public sealed partial class LyricsStageControl : UserControl
 
     private void EnsureDeviceResources(CanvasControl resourceCreator)
     {
-        if (_baseBrush is not null && _highlightBrush is not null && _partialBrush is not null)
+        if (_baseBrush is not null && _highlightBrush is not null && _partialBrush is not null
+            && _companionHighlightBrush is not null)
         {
             _resourcesReady = true;
             return;
@@ -170,6 +176,9 @@ public sealed partial class LyricsStageControl : UserControl
         _baseBrush = new CanvasSolidColorBrush(resourceCreator, Color.FromArgb(255, 136, 136, 136));
         _highlightBrush = new CanvasSolidColorBrush(resourceCreator, Microsoft.UI.Colors.White);
         _partialBrush = new CanvasSolidColorBrush(resourceCreator, Microsoft.UI.Colors.White);
+        // 副行高亮画刷与主行独立：部分亮插值进度不同步，共享实例会互相污染；
+        // 副行间的部分亮差异由每个 CompanionEntry 自带的 PartialBrush 承载。
+        _companionHighlightBrush = new CanvasSolidColorBrush(resourceCreator, Microsoft.UI.Colors.White);
         _resourcesReady = true;
     }
 
@@ -245,6 +254,7 @@ public sealed partial class LyricsStageControl : UserControl
         }
 
         ResetAndApplyKaraokeBrushes(entry, visual);
+        ApplyCompanionKaraokeBrushes(entry, visual);
         var x = HorizontalPadding;
         var y = centerY - ((float)entry.Height / 2);
         var originalTransform = drawingSession.Transform;
@@ -257,6 +267,7 @@ public sealed partial class LyricsStageControl : UserControl
             if (visual.BlurAmount <= 0.01)
             {
                 drawingSession.DrawTextLayout(entry.Layout, x, y, Color.FromArgb(255, 136, 136, 136));
+                DrawCompanionLayouts(drawingSession, entry, x, y);
                 return;
             }
 
@@ -298,6 +309,8 @@ public sealed partial class LyricsStageControl : UserControl
                     x,
                     y,
                     ApplyOpacity(Color.FromArgb(255, 136, 136, 136), CrispOverlayOpacity));
+                // 副行不进模糊管线，始终清晰直绘，保证逐字点亮动效在小字号下可见。
+                DrawCompanionLayouts(drawingSession, entry, x, y);
             }
             finally
             {
@@ -355,6 +368,117 @@ public sealed partial class LyricsStageControl : UserControl
         entry.Layout.SetBrush(entry.PaintableIndexes[completed], 1, _partialBrush);
     }
 
+    private void ApplyCompanionKaraokeBrushes(
+        LyricsLayoutEntry entry,
+        LyricsLineVisualState visual)
+    {
+        if (_baseBrush is null || _companionHighlightBrush is null)
+        {
+            return;
+        }
+
+        var position = _lastPositionSeconds;
+        foreach (var companion in entry.Companions)
+        {
+            if (companion.CharacterCount == 0)
+            {
+                continue;
+            }
+
+            companion.Layout.SetBrush(0, companion.CharacterCount, _baseBrush);
+            if (companion.PaintableIndexes.Length == 0 || visual.Activation <= 0.001)
+            {
+                continue;
+            }
+
+            double progress;
+            if (companion.Segments.Count > 0)
+            {
+                // 和声副行：按自身段起止与真实播放位置点亮，
+                // 和声错开主唱时间轴时仍保持正确的点亮节奏。
+                var firstStart = companion.Segments[0].StartSeconds;
+                var lastEnd = companion.Segments[^1].EndSeconds;
+                var span = lastEnd - firstStart;
+                progress = span > 0.001
+                    ? Math.Clamp((position - firstStart) / span, 0d, 1d)
+                    : position >= firstStart ? 1d : 0d;
+            }
+            else
+            {
+                // 行级副行（翻译/罗马音）：跟随主行逐字进度同步点亮。
+                progress = visual.KaraokeProgress;
+            }
+
+            var highlightColor = InterpolateColor(
+                Color.FromArgb(255, 136, 136, 136),
+                Microsoft.UI.Colors.White,
+                visual.Activation);
+            _companionHighlightBrush.Color = highlightColor;
+            var exactProgress = Math.Clamp(progress, 0, 1) * companion.PaintableIndexes.Length;
+            var completed = Math.Min(companion.PaintableIndexes.Length, (int)Math.Floor(exactProgress));
+            for (var index = 0; index < completed; index++)
+            {
+                companion.Layout.SetBrush(companion.PaintableIndexes[index], 1, _companionHighlightBrush);
+            }
+
+            if (completed >= companion.PaintableIndexes.Length)
+            {
+                continue;
+            }
+
+            var partial = exactProgress - completed;
+            if (partial <= 0)
+            {
+                continue;
+            }
+
+            companion.PartialBrush.Color = InterpolateColor(
+                Color.FromArgb(255, 136, 136, 136),
+                highlightColor,
+                partial);
+            companion.Layout.SetBrush(companion.PaintableIndexes[completed], 1, companion.PartialBrush);
+        }
+    }
+
+    private static void DrawCompanionLayouts(
+        CanvasDrawingSession drawingSession,
+        LyricsLayoutEntry entry,
+        float x,
+        float y)
+    {
+        if (entry.Companions.Length == 0)
+        {
+            return;
+        }
+
+        var companionY = y + (float)entry.PrimaryContentHeight + CompanionLineGap;
+        foreach (var companion in entry.Companions)
+        {
+            drawingSession.DrawTextLayout(companion.Layout, x, companionY, CompanionTextColor);
+            companionY += companion.Layout.LineMetrics.Sum(metric => (float)metric.Height);
+        }
+    }
+
+    private static float ResolvePrimaryFontSize(float stageWidth)
+    {
+        if (stageWidth <= 1000f)
+        {
+            return 45f;
+        }
+
+        if (stageWidth <= 1400f)
+        {
+            return 50f;
+        }
+
+        if (stageWidth <= 1800f)
+        {
+            return 56f;
+        }
+
+        return 62f;
+    }
+
     private void RebuildLayoutCache()
     {
         if (!_resourcesReady || !IsLoaded || StageCanvas.ActualWidth <= 0)
@@ -364,10 +488,20 @@ public sealed partial class LyricsStageControl : UserControl
 
         DisposeLayoutCache();
         var layoutWidth = Math.Max(1, (float)StageCanvas.ActualWidth - (HorizontalPadding * 2));
+        var primaryFontSize = ResolvePrimaryFontSize((float)StageCanvas.ActualWidth);
         using var format = new CanvasTextFormat
         {
             FontFamily = "Segoe UI Variable Display",
-            FontSize = (float)LyricsSceneController.CurrentFontSize,
+            FontSize = primaryFontSize,
+            FontWeight = FontWeights.SemiBold,
+            HorizontalAlignment = CanvasHorizontalAlignment.Center,
+            VerticalAlignment = CanvasVerticalAlignment.Top,
+            WordWrapping = CanvasWordWrapping.Wrap
+        };
+        using var companionFormat = new CanvasTextFormat
+        {
+            FontFamily = "Segoe UI Variable Display",
+            FontSize = MathF.Round(primaryFontSize * 0.42f),
             FontWeight = FontWeights.SemiBold,
             HorizontalAlignment = CanvasHorizontalAlignment.Center,
             VerticalAlignment = CanvasVerticalAlignment.Top,
@@ -379,19 +513,51 @@ public sealed partial class LyricsStageControl : UserControl
             var text = _lyrics[index].Text ?? string.Empty;
             var layout = new CanvasTextLayout(StageCanvas, text, format, layoutWidth, 4096);
             var contentHeight = layout.LineMetrics.Sum(metric => (double)metric.Height);
-            var height = Math.Max(MinimumLineHeight, contentHeight + 16);
+
+            var companionTexts = _lyrics[index].CompanionLines ?? Array.Empty<LyricCompanionModel>();
+            var companions = new CompanionEntry[companionTexts.Count];
+            var companionContentHeight = 0d;
+            for (var companionIndex = 0; companionIndex < companionTexts.Count; companionIndex++)
+            {
+                var companionText = companionTexts[companionIndex].Text ?? string.Empty;
+                var companionLayout = new CanvasTextLayout(
+                    StageCanvas,
+                    companionText,
+                    companionFormat,
+                    layoutWidth,
+                    512);
+                companions[companionIndex] = new CompanionEntry(
+                    companionLayout,
+                    companionText.Length,
+                    companionText
+                        .Select((character, characterIndex) => (character, characterIndex))
+                        .Where(item => !char.IsWhiteSpace(item.character))
+                        .Select(item => item.characterIndex)
+                        .ToArray(),
+                    companionTexts[companionIndex].TimedSegments,
+                    new CanvasSolidColorBrush(StageCanvas, Microsoft.UI.Colors.White));
+                companionContentHeight += companionLayout.LineMetrics.Sum(metric => (double)metric.Height);
+            }
+
+            var hasCompanions = companions.Length > 0;
+            var height = Math.Max(
+                MinimumLineHeight,
+                contentHeight + 16 + (hasCompanions ? CompanionLineGap + companionContentHeight + 6 : 0));
             var staticCommandList = new CanvasCommandList(StageCanvas);
             using (var staticSession = staticCommandList.CreateDrawingSession())
             {
                 staticSession.Clear(Microsoft.UI.Colors.Transparent);
                 staticSession.DrawTextLayout(layout, 0, 0, Color.FromArgb(255, 136, 136, 136));
             }
+
             heights[index] = height;
             _layoutCache.Add(new LyricsLayoutEntry(
                 text,
                 layout,
+                companions,
                 staticCommandList,
                 height,
+                contentHeight,
                 text.Select((character, characterIndex) => (character, characterIndex))
                     .Where(item => !char.IsWhiteSpace(item.character))
                     .Select(item => item.characterIndex)
@@ -570,9 +736,11 @@ public sealed partial class LyricsStageControl : UserControl
         _baseBrush?.Dispose();
         _highlightBrush?.Dispose();
         _partialBrush?.Dispose();
+        _companionHighlightBrush?.Dispose();
         _baseBrush = null;
         _highlightBrush = null;
         _partialBrush = null;
+        _companionHighlightBrush = null;
     }
 
     private static double Distance(Point first, Point second)
@@ -598,23 +766,51 @@ public sealed partial class LyricsStageControl : UserControl
         color.G,
         color.B);
 
+    private sealed class CompanionEntry(
+        CanvasTextLayout layout,
+        int characterCount,
+        int[] paintableIndexes,
+        IReadOnlyList<LyricSegmentModel> segments,
+        CanvasSolidColorBrush partialBrush) : IDisposable
+    {
+        public CanvasTextLayout Layout { get; } = layout;
+        public int CharacterCount { get; } = characterCount;
+        public int[] PaintableIndexes { get; } = paintableIndexes;
+        public IReadOnlyList<LyricSegmentModel> Segments { get; } = segments;
+        public CanvasSolidColorBrush PartialBrush { get; } = partialBrush;
+
+        public void Dispose()
+        {
+            Layout.Dispose();
+            PartialBrush.Dispose();
+        }
+    }
+
     private sealed class LyricsLayoutEntry(
         string text,
         CanvasTextLayout layout,
+        CompanionEntry[] companions,
         CanvasCommandList staticCommandList,
         double height,
+        double primaryContentHeight,
         int[] paintableIndexes) : IDisposable
     {
         public string Text { get; } = text;
         public CanvasTextLayout Layout { get; } = layout;
+        public CompanionEntry[] Companions { get; } = companions;
         public CanvasCommandList StaticCommandList { get; } = staticCommandList;
         public double Height { get; } = height;
+        public double PrimaryContentHeight { get; } = primaryContentHeight;
         public int[] PaintableIndexes { get; } = paintableIndexes;
 
         public void Dispose()
         {
             StaticCommandList.Dispose();
             Layout.Dispose();
+            foreach (var companion in Companions)
+            {
+                companion.Dispose();
+            }
         }
     }
 

@@ -408,6 +408,23 @@
                             </Flyout>
                         </Button.Flyout>
                     </Button>
+                    <Button
+                        x:Name="LyricsCompanionButton"
+                        Width="44"
+                        Height="44"
+                        Padding="0"
+                        Opacity="0"
+                        Click="LyricsCompanionButton_Click"
+                        Background="#52000000"
+                        BorderThickness="0"
+                        CornerRadius="22"
+                        AutomationProperties.Name="显示翻译/注音"
+                        AutomationProperties.AutomationId="LyricsCompanionButton">
+                        <Button.RenderTransform>
+                            <TranslateTransform Y="18" />
+                        </Button.RenderTransform>
+                        <FontIcon Glyph="&#xE774;" FontSize="17" />
+                    </Button>
                 </StackPanel>
                 <Button
                     x:Name="LyricsToolsToggleButton"

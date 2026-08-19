@@ -3,6 +3,7 @@ namespace PrismWave_WinUI.Infrastructure;
 public static class StartupLog
 {
     private static readonly object Gate = new();
+    private static readonly System.Text.Encoding Utf8NoBom = new System.Text.UTF8Encoding(false);
 
     public static event EventHandler<string>? LineWritten;
 
@@ -23,7 +24,8 @@ public static class StartupLog
                 var payload = exception is null
                     ? line + Environment.NewLine
                     : $"{line}{Environment.NewLine}{exception}{Environment.NewLine}";
-                File.AppendAllText(FilePath, payload);
+                // Explicit UTF-8 (no BOM) so Chinese characters stay intact for all readers.
+                File.AppendAllText(FilePath, payload, Utf8NoBom);
             }
 
             LineWritten?.Invoke(null, line);

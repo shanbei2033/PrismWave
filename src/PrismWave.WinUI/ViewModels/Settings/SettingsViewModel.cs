@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PrismWave_WinUI.Infrastructure;
@@ -595,6 +596,29 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        await Windows.System.Launcher.LaunchUriAsync(new Uri(url));
+        // Security: Validate URL scheme and host to prevent protocol injection
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            StartupLog.Write("settings.download.invalid-url: url={url}");
+            return;
+        }
+
+        // Only allow HTTP and HTTPS protocols
+        if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+        {
+            StartupLog.Write($"settings.download.blocked-protocol: scheme={uri.Scheme}, url={url}");
+            return;
+        }
+
+        // Whitelist trusted hosts for update downloads
+        var host = uri.IdnHost.ToLowerInvariant();
+        var trustedHosts = new[] { "github.com", "www.github.com" };
+        if (!trustedHosts.Any(h => h == host || host.EndsWith($".{h}")))
+        {
+            StartupLog.Write($"settings.download.domain-not-whitelisted: host={host}, url={url}");
+            return;
+        }
+
+        await Windows.System.Launcher.LaunchUriAsync(uri);
     }
 }

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using PrismWave_WinUI.Infrastructure;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.ViewModels.Library;
 using PrismWave_WinUI.Views.Dialogs;
@@ -94,6 +95,20 @@ public sealed partial class LibraryPage : Page
         }
     }
 
+    private async void EditMetadata_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuFlyoutItem { Tag: TrackModel track })
+        {
+            return;
+        }
+
+        await App.Services.TrackEditor.LoadAsync(track);
+        if (App.Services.Shell.NavigateCommand.CanExecute("TrackEditor"))
+        {
+            App.Services.Shell.NavigateCommand.Execute("TrackEditor");
+        }
+    }
+
     private static void OpenLocation(TrackModel track)
     {
         if (!File.Exists(track.Path))
@@ -101,8 +116,27 @@ public sealed partial class LibraryPage : Page
             return;
         }
 
+        // Security: Validate file path and prevent command injection
+        var normalizedPath = Path.GetFullPath(track.Path);
+        
+        // Check for path traversal attempts
+        if (normalizedPath.Contains(".."))
+        {
+            StartupLog.Write($"library.location.security-block.path-traversal: path={normalizedPath}");
+            return;
+        }
+        
+        // Validate file is an audio file
+        var extension = Path.GetExtension(normalizedPath).ToLowerInvariant();
+        var allowedAudioExtensions = new[] { ".mp3", ".flac", ".wav", ".ogg", ".wma", ".m4a", ".aac" };
+        if (!allowedAudioExtensions.Contains(extension))
+        {
+            StartupLog.Write($"library.location.security-block-invalid-type: path={normalizedPath}, extension={extension}");
+            return;
+        }
+
         var startInfo = new ProcessStartInfo("explorer.exe") { UseShellExecute = true };
-        startInfo.ArgumentList.Add($"/select,{track.Path}");
+        startInfo.ArgumentList.Add($"/select,{normalizedPath}");
         Process.Start(startInfo);
     }
 }

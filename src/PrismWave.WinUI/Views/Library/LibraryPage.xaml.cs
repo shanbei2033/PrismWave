@@ -95,20 +95,6 @@ public sealed partial class LibraryPage : Page
         }
     }
 
-    private async void EditMetadata_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not MenuFlyoutItem { Tag: TrackModel track })
-        {
-            return;
-        }
-
-        await App.Services.TrackEditor.LoadAsync(track);
-        if (App.Services.Shell.NavigateCommand.CanExecute("TrackEditor"))
-        {
-            App.Services.Shell.NavigateCommand.Execute("TrackEditor");
-        }
-    }
-
     private static void OpenLocation(TrackModel track)
     {
         if (!File.Exists(track.Path))

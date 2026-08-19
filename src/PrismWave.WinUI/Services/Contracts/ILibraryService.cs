@@ -23,9 +23,6 @@ public interface ILibraryService
     Task RemoveFolderAsync(string folder, CancellationToken cancellationToken) => RemoveFolderAsync(folder);
     Task RescanAsync();
     Task RescanAsync(CancellationToken cancellationToken) => RescanAsync();
-
-    /// <summary>局部刷新单曲（重读该文件元数据并重建派生集合），避免全库重扫。返回是否找到并刷新。</summary>
-    Task<bool> RefreshTrackAsync(TrackModel track) => Task.FromResult(false);
     Task ToggleFavoriteAsync(TrackModel track);
     Task AddOnlineTrackAsync(TrackModel track) => Task.CompletedTask;
     bool IsOnlineTrackInLibrary(string descriptor) => false;

@@ -31,11 +31,6 @@ public sealed class LocalMusicScanner : ILocalMusicScanner
             cancellationToken);
     }
 
-    public TrackModel ScanFile(string file, string? customCover = null)
-    {
-        return FromFile(file, customCover);
-    }
-
     private static LibraryScanResult Scan(
         IReadOnlyList<string> folders,
         IReadOnlyDictionary<string, string> customCoverPaths,

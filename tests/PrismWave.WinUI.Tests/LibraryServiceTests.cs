@@ -301,45 +301,6 @@ public sealed class LibraryServiceTests
         Assert.Contains("Could not delete", service.Error, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task RefreshTrackAsync_ReplacesTrackInPlaceAndKeepsFavoritesAndOrder()
-    {
-        using var library = new TemporaryMusicLibrary();
-        var first = CreateTrack(Path.Combine(library.Root, "a.mp3"));
-        var second = CreateTrack(Path.Combine(library.Root, "b.mp3"));
-        var firstFavorite = first with { IsFavorite = true };
-        var scanner = new FakeScanner((folders, _, _) => Task.FromResult(Success(
-            folders,
-            [firstFavorite, second])))
-        {
-            ScanFileResult = first with { Title = "Renamed", Album = "New Album" }
-        };
-        var settings = CreateSettings(favoritePaths: [first.Path]);
-        var service = CreateService(settings, scanner);
-        await service.AddFolderAsync(library.Root);
-
-        var refreshed = await service.RefreshTrackAsync(first);
-
-        Assert.True(refreshed);
-        Assert.Equal(2, service.Tracks.Count);
-        Assert.Equal(first.Path, service.Tracks[0].Path);
-        Assert.Equal("Renamed", service.Tracks[0].Title);
-        Assert.Equal("New Album", service.Tracks[0].Album);
-        Assert.True(service.Tracks[0].IsFavorite);
-        Assert.Equal(1, scanner.CallCount); // 无全量重扫
-        Assert.Contains(service.Tracks[0], service.Favorites);
-    }
-
-    [Fact]
-    public async Task RefreshTrackAsync_UnknownTrackReturnsFalse()
-    {
-        var service = CreateService(CreateSettings(), new FakeScanner());
-
-        var refreshed = await service.RefreshTrackAsync(CreateTrack("C:\\missing.mp3"));
-
-        Assert.False(refreshed);
-    }
-
     private static LibraryService CreateService(
         FakeSettingsService settings,
         ILocalMusicScanner scanner,
@@ -394,13 +355,6 @@ public sealed class LibraryServiceTests
         }
 
         public int CallCount { get; private set; }
-
-        public TrackModel? ScanFileResult { get; set; }
-
-        public TrackModel ScanFile(string file, string? customCover = null)
-        {
-            return ScanFileResult ?? CreateTrack(file);
-        }
 
         public void Enqueue(Func<IReadOnlyList<string>, IReadOnlyDictionary<string, string>, CancellationToken, Task<LibraryScanResult>> response) =>
             _responses.Enqueue(response);

@@ -18,12 +18,6 @@ public sealed class LyricsService : ILyricsService
     private static readonly Regex QqLyricContentPattern = new(
         @"<content[^>]*><!\[CDATA\[(?<content>[\s\S]*?)\]\]></content>",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex MiguTitlePattern = new(
-        @"<QrcHeadInfo[^>]*?\bTi=""(?<value>[^""]*)""",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex MiguArtistPattern = new(
-        @"<QrcHeadInfo[^>]*?\bAr=""(?<value>[^""]*)""",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex HexLyricsPattern = new(
         @"^[0-9a-fA-F]+$",
         RegexOptions.Compiled);
@@ -118,22 +112,22 @@ public sealed class LyricsService : ILyricsService
         var qqTask = SearchQqLyricsAsync(track, normalizedQuery, cancellationToken);
         var neteaseTask = SearchNeteaseWordLyricsAsync(track, normalizedQuery, cancellationToken);
         var kugouTask = SearchKugouLyricsAsync(track, normalizedQuery, cancellationToken);
-        var miguTask = SearchMiguQrcLyricsAsync(track, normalizedQuery, cancellationToken);
-        await Task.WhenAll(lrclibTask, qqTask, neteaseTask, kugouTask, miguTask);
+        // 咪咕 qrc_lrc.jsp 端点已失效（code 299996 路由请求不支持，2026-08 验证），
+        // 暂停该源接入，待有可用端点后再恢复。
+        await Task.WhenAll(lrclibTask, qqTask, neteaseTask, kugouTask);
         stopwatch.Stop();
 
         var results = ScoreResults(
                 lrclibTask.Result
                     .Concat(qqTask.Result)
                     .Concat(neteaseTask.Result)
-                    .Concat(kugouTask.Result)
-                    .Concat(miguTask.Result),
+                    .Concat(kugouTask.Result),
                 track,
                 normalizedQuery)
             .Take(20)
             .ToList();
 
-        StartupLog.Write($"lyrics.search.complete: title=\"{track.Title}\", sources=5, elapsed={stopwatch.ElapsedMilliseconds}ms, matches={results.Count}");
+        StartupLog.Write($"lyrics.search.complete: title=\"{track.Title}\", sources=4, elapsed={stopwatch.ElapsedMilliseconds}ms, matches={results.Count}");
 
         return results;
     }
@@ -176,8 +170,7 @@ public sealed class LyricsService : ILyricsService
         {
             TryLoadNeteaseWordSyncedLyricsDocumentAsync(track, raceCancellation.Token),
             TryLoadQqWordSyncedLyricsDocumentAsync(track, raceCancellation.Token),
-            TryLoadKugouWordSyncedLyricsDocumentAsync(track, raceCancellation.Token),
-            TryLoadMiguWordSyncedLyricsDocumentAsync(track, raceCancellation.Token)
+            TryLoadKugouWordSyncedLyricsDocumentAsync(track, raceCancellation.Token)
         };
         while (pending.Count > 0)
         {
@@ -337,25 +330,6 @@ public sealed class LyricsService : ILyricsService
         }
 
         if (best is null || string.IsNullOrWhiteSpace(best.SyncedLyrics))
-        {
-            return null;
-        }
-
-        var document = LyricsParser.Parse(
-            best.SyncedLyrics,
-            track.DurationSeconds,
-            OnlineSource,
-            best.Provider);
-        return document.IsEmpty || !document.HasTimedSegments ? null : document;
-    }
-
-    private async Task<LyricsDocumentModel?> TryLoadMiguWordSyncedLyricsDocumentAsync(
-        TrackModel track,
-        CancellationToken cancellationToken)
-    {
-        var results = await SearchMiguQrcLyricsAsync(track, BuildDefaultQuery(track), cancellationToken);
-        var best = results.FirstOrDefault(result => result.LyricsKind == LyricsSyncKind.WordSynced);
-        if (best?.SyncedLyrics is null)
         {
             return null;
         }
@@ -1192,12 +1166,15 @@ public sealed class LyricsService : ILyricsService
                 .ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
 
-        var uri = BuildUri("http", "lyrics.kugou.com", "/search", parameters);
+        // 酷狗歌词接口 HTTPS 可用；明文 HTTP 在代理环境下易被拦截导致 12s 超时。
+        var uri = BuildUri("https", "lyrics.kugou.com", "/search", parameters);
         using var document = await RequestJsonAsync(uri, cancellationToken);
         if (document is null
             || !document.RootElement.TryGetProperty("candidates", out var candidates)
-            || candidates.ValueKind != JsonValueKind.Array)
+            || candidates.ValueKind != JsonValueKind.Array
+            || candidates.GetArrayLength() == 0)
         {
+            StartupLog.Write($"lyrics.kugou.search-empty-or-failed: query=\"{query}\"");
             return Array.Empty<KugouLyricCandidate>();
         }
 
@@ -1239,7 +1216,7 @@ public sealed class LyricsService : ILyricsService
         CancellationToken cancellationToken)
     {
         var uri = BuildUri(
-            "http",
+            "https",
             "lyrics.kugou.com",
             "/download",
             new Dictionary<string, string>
@@ -1277,79 +1254,6 @@ public sealed class LyricsService : ILyricsService
             resolved,
             null,
             "kugou-krc");
-    }
-
-    private async Task<IReadOnlyList<LyricsSearchResultModel>> SearchMiguQrcLyricsAsync(
-        TrackModel track,
-        string query,
-        CancellationToken cancellationToken)
-    {
-        var keyword = string.IsNullOrWhiteSpace(track.Title)
-            ? query
-            : string.Join(" ", new[] { track.Title, track.Artist }
-                .Where(value => !string.IsNullOrWhiteSpace(value)));
-        if (string.IsNullOrWhiteSpace(keyword))
-        {
-            return Array.Empty<LyricsSearchResultModel>();
-        }
-
-        var response = await RequestTextAsync(
-            "c.musicapp.migu.cn",
-            "/MIGUM2.0/v1.0/content/qrc_lrc.jsp",
-            new Dictionary<string, string> { ["keyword"] = keyword },
-            cancellationToken);
-        if (string.IsNullOrWhiteSpace(response))
-        {
-            return Array.Empty<LyricsSearchResultModel>();
-        }
-
-        var title = ReadMiguHeadAttribute(response, MiguTitlePattern);
-        var artist = ReadMiguHeadAttribute(response, MiguArtistPattern);
-        if (string.IsNullOrWhiteSpace(title)
-            || !IsExactIdentity(track.Title, title)
-            || (!string.IsNullOrWhiteSpace(artist) && !IsMatchingArtist(track.Artist, artist)))
-        {
-            StartupLog.Write(
-                $"lyrics.migu.identity-mismatch: expected=\"{track.Title} / {track.Artist}\", actual=\"{title} / {artist}\"");
-            return Array.Empty<LyricsSearchResultModel>();
-        }
-
-        var contentMatch = QqLyricContentPattern.Match(response);
-        if (!contentMatch.Success)
-        {
-            return Array.Empty<LyricsSearchResultModel>();
-        }
-
-        var resolved = WebUtility.HtmlDecode(contentMatch.Groups["content"].Value).Trim();
-        if (string.IsNullOrWhiteSpace(resolved))
-        {
-            return Array.Empty<LyricsSearchResultModel>();
-        }
-
-        var parsed = LyricsParser.Parse(resolved, provider: "migu-qrc");
-        if (parsed.IsEmpty || !parsed.HasTimedSegments)
-        {
-            return Array.Empty<LyricsSearchResultModel>();
-        }
-
-        return new List<LyricsSearchResultModel>
-        {
-            new(
-                $"{title}|{artist}",
-                title,
-                string.IsNullOrWhiteSpace(artist) ? "Unknown artist" : artist,
-                string.Empty,
-                0,
-                resolved,
-                null,
-                "migu-qrc")
-        };
-    }
-
-    private static string? ReadMiguHeadAttribute(string response, Regex pattern)
-    {
-        var match = pattern.Match(response);
-        return match.Success ? WebUtility.HtmlDecode(match.Groups["value"].Value).Trim() : null;
     }
 
     private static Uri BuildUri(

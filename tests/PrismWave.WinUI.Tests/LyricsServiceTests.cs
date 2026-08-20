@@ -296,67 +296,6 @@ public sealed class LyricsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task SearchOnlineLyricsAsync_ReturnsMiguQrcResultForExactIdentity()
-    {
-        const string qrc = "[0,2000]你(0,500)好(500,500)";
-        var handler = new StubHttpMessageHandler(request =>
-        {
-            if (request.RequestUri!.Host == "c.musicapp.migu.cn")
-            {
-                return new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent(
-                        $"<QrcInfos><QrcHeadInfo Ti=\"Song\" Ar=\"Artist\" Al=\"Album\" offset=\"0\"/><LyricInfo LyricCount=\"1\"><Lyric_1 LyricType=\"1\"><content><![CDATA[{qrc}]]></content></Lyric_1></LyricInfo></QrcInfos>",
-                        Encoding.UTF8,
-                        "text/xml")
-                };
-            }
-
-            return new HttpResponseMessage(HttpStatusCode.NotFound);
-        });
-        var service = new LyricsService(
-            new FakeSettingsService(CreateSettings()),
-            new HttpClient(handler),
-            Path.Combine(_tempDirectory, "cache"));
-
-        var results = await service.SearchOnlineLyricsAsync(CreateTrack("C:\\song.mp3"), "Song Artist");
-
-        var migu = results.SingleOrDefault(result => result.Provider == "migu-qrc");
-        Assert.NotNull(migu);
-        Assert.Equal(LyricsSyncKind.WordSynced, migu!.LyricsKind);
-        Assert.Equal("Song", migu.TrackName);
-    }
-
-    [Fact]
-    public async Task SearchOnlineLyricsAsync_DropsMiguResultWhenIdentityMismatches()
-    {
-        const string qrc = "[0,2000]你(0,500)好(500,500)";
-        var handler = new StubHttpMessageHandler(request =>
-        {
-            if (request.RequestUri!.Host == "c.musicapp.migu.cn")
-            {
-                return new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent(
-                        $"<QrcInfos><QrcHeadInfo Ti=\"Another Song\" Ar=\"Someone Else\" offset=\"0\"/><LyricInfo LyricCount=\"1\"><Lyric_1 LyricType=\"1\"><content><![CDATA[{qrc}]]></content></Lyric_1></LyricInfo></QrcInfos>",
-                        Encoding.UTF8,
-                        "text/xml")
-                };
-            }
-
-            return new HttpResponseMessage(HttpStatusCode.NotFound);
-        });
-        var service = new LyricsService(
-            new FakeSettingsService(CreateSettings()),
-            new HttpClient(handler),
-            Path.Combine(_tempDirectory, "cache"));
-
-        var results = await service.SearchOnlineLyricsAsync(CreateTrack("C:\\song.mp3"), "Song Artist");
-
-        Assert.DoesNotContain(results, result => result.Provider == "migu-qrc");
-    }
-
-    [Fact]
     public async Task LoadLyricsDocumentAsync_FallsBackToKugouKrcWhenQqAndNeteaseFail()
     {
         const string krcPlain = "[offset:0]\n[0,3000]你<0,300,0>好<300,400,0>";

@@ -38,7 +38,9 @@ PrismWave 是一款基于 **WinUI 3 和 .NET 10** 的原生 Windows 11 音乐播
 - 修复 WASAPI 共享/独占模式切换失败：切换输出模式时设备 ID 格式未按 mpv WASAPI 后端要求处理，现已自动修正
 - 修复 MPV 兼容模式下"音频输出初始化失败"：统一使用 mpv 要求的规范设备 ID 格式，所有模式下均可正常初始化
 
-下载请前往 [v1.0.6 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.6)。
+下载请前往 [v1.1.0 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.1.0)。
+
+> ⚠️ **重要说明 (自 v1.1.0)**: PrismWave 现在需要 **.NET 10 Desktop Runtime** 才能运行。安装程序会自动检测并引导安装，用户无需手动操作。
 
 ## 功能
 

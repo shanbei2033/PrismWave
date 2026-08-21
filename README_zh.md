@@ -30,17 +30,17 @@ PrismWave 是一款基于 **WinUI 3 和 .NET 10** 的原生 Windows 11 音乐播
 
 详细的功能使用说明——更换封面、歌词搜索与偏移调整、播放队列、HITS 电台、音频输出设置等——请参阅[使用指南](./docs/usage-guide.zh.md)。
 
-## 最新版本：v1.0.6
+## 最新版本：v1.1.0
 
-本次发布修复关键播放可靠性问题：
+- 新增 Inno Setup 安装向导，替代便携版 zip 解压方式，安装至 Program Files 并自动创建开始菜单快捷方式
+- 安装程序启动时自动检测 .NET 10 Desktop Runtime，缺失时弹窗引导下载安装
+- 安装程序自动检测 Windows App Runtime 2.2，缺失时在向导内静默下载安装
+- 剔除未使用的 AI 相关组件（onnxruntime / DirectML / ML.OnnxRuntime / Windows AI Platform），安装包体积从 120MB 降至约 42MB
+- 部署模式改为 Framework-Dependent，不再捆绑运行时 DLL
+- 新增一键打包脚本 `tools/build_installer.ps1` 和安装脚本 `tools/setup.iss`
+- 自本版本起，运行 PrismWave 需要系统预装 .NET 10 Desktop Runtime（安装程序会自动检测并提示安装）
 
-- 修复进度条不更新：mpv 播放时进度条偶发完全静止，改为定时器轮询播放位置并增加 0.05 秒防抖，所有输出模式下进度汇报均稳定可靠
-- 修复 WASAPI 共享/独占模式切换失败：切换输出模式时设备 ID 格式未按 mpv WASAPI 后端要求处理，现已自动修正
-- 修复 MPV 兼容模式下"音频输出初始化失败"：统一使用 mpv 要求的规范设备 ID 格式，所有模式下均可正常初始化
-
-下载请前往 [v1.1.0 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.1.0)。
-
-> ⚠️ **重要说明 (自 v1.1.0)**: PrismWave 现在需要 **.NET 10 Desktop Runtime** 才能运行。安装程序会自动检测并引导安装，用户无需手动操作。
+SHA-256: `B69EB7878A5ADB74D6F312EDDC571A9A3DC5FFFC636B148CDA05F226076D3D8D`
 
 ## 功能
 

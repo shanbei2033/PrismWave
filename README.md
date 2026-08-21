@@ -31,15 +31,17 @@ This branch is the active native implementation and includes:
 
 For detailed usage instructions — cover replacement, lyrics search and offset, playback queue, HITS radio, audio output settings, and more — see the [Usage Guide](./docs/usage-guide.md).
 
-## Latest release: v1.0.6
+## Latest release: v1.1.0
 
-This release fixes critical playback reliability issues:
+- Added Inno Setup installer wizard replacing the portable zip; installs to Program Files with Start Menu shortcut
+- Installer auto-detects .NET 10 Desktop Runtime and guides installation if missing
+- Installer auto-detects Windows App Runtime 2.2 and silently installs it in-wizard if missing
+- Removed unused AI components (onnxruntime / DirectML / ML.OnnxRuntime / Windows AI Platform), reducing package size from ~120 MB to ~42 MB
+- Switched to Framework-Dependent deployment; runtime DLLs are no longer bundled
+- Added one-click build script `tools/build_installer.ps1` and Inno Setup script `tools/setup.iss`
+- Starting from this version, .NET 10 Desktop Runtime is required (the installer detects and prompts automatically)
 
-- Fixes mpv progress bar not updating: switches from unreliable property-change events to timer-based polling with 0.05s debounce for consistent position reporting across all output modes
-- Fixes WASAPI shared/exclusive mode switching failures: properly formats device IDs for mpv's WASAPI backend
-- Fixes "audio output initialization failed" in MPV compatibility mode: uses canonical wasapi device ID format required by mpv in all modes
-
-Downloads are available from the [v1.0.6 release page](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.6).
+SHA-256: `B69EB7878A5ADB74D6F312EDDC571A9A3DC5FFFC636B148CDA05F226076D3D8D`
 
 ## Features
 

@@ -27,7 +27,7 @@ public static class LyricsParser
         RegexOptions.Compiled);
 
     private static readonly Regex KrcWordPattern = new(
-        @"(?<text>.*?)<(?<start>\d+),(?<duration>\d+),\d+>",
+        @"<(?<start>\d+),(?<duration>\d+),\d+>(?<text>[^<]*)",
         RegexOptions.Compiled);
 
     private static readonly Regex QrcAttributePattern = new(

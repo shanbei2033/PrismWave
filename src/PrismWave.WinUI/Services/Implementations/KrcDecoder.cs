@@ -5,7 +5,13 @@ namespace PrismWave_WinUI.Services.Implementations;
 
 public static class KrcDecoder
 {
-    private static readonly byte[] Key = "@Gaw]GtVKn@jRW!An"u8.ToArray();
+    // 2026-08 酷狗升级后的新密钥（16 字节，来源：Pure-music krc_decryptor.dart）。
+    // 旧密钥 "@Gaw]GtVKn@jRW!An" 已失效。
+    private static readonly byte[] Key =
+    {
+        0x40, 0x47, 0x61, 0x77, 0x5E, 0x32, 0x74, 0x47,
+        0x51, 0x36, 0x31, 0x2D, 0xCE, 0xD2, 0x6E, 0x69
+    };
 
     public static string? Decrypt(string? base64Content)
     {

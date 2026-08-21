@@ -1152,60 +1152,107 @@ public sealed class LyricsService : ILyricsService
             return Array.Empty<KugouLyricCandidate>();
         }
 
-        var parameters = new Dictionary<string, string>
+        // 酷狗歌词接口的 keyword 通道已不可用（仅对个别词返回 song/singer 同名的兜底数据），
+        // 正确链路是：歌曲搜索接口取 FileHash → 歌词接口按 hash 检索。
+        var songParameters = new Dictionary<string, string>
         {
-            ["ver"] = "1",
-            ["man"] = "yes",
-            ["client"] = "pc",
+            ["format"] = "json",
             ["keyword"] = query,
-            ["hash"] = string.Empty
+            ["page"] = "1",
+            ["pagesize"] = "8"
         };
-        if (track.DurationSeconds > 0)
+        JsonDocument? songDocument = null;
+        foreach (var songUri in new[]
         {
-            parameters["duration"] = Math.Round(track.DurationSeconds * 1000)
-                .ToString(System.Globalization.CultureInfo.InvariantCulture);
+            BuildUri("https", "mobilecdn.kugou.com", "/api/v3/search/song", songParameters),
+            BuildUri("http", "mobilecdn.kugou.com", "/api/v3/search/song", songParameters)
+        })
+        {
+            songDocument = await RequestJsonAsync(songUri, cancellationToken);
+            if (songDocument is not null)
+            {
+                break;
+            }
         }
 
-        // 酷狗歌词接口 HTTPS 可用；明文 HTTP 在代理环境下易被拦截导致 12s 超时。
-        var uri = BuildUri("https", "lyrics.kugou.com", "/search", parameters);
-        using var document = await RequestJsonAsync(uri, cancellationToken);
-        if (document is null
-            || !document.RootElement.TryGetProperty("candidates", out var candidates)
-            || candidates.ValueKind != JsonValueKind.Array
-            || candidates.GetArrayLength() == 0)
+        if (songDocument is null
+            || !songDocument.RootElement.TryGetProperty("data", out var data)
+            || !data.TryGetProperty("info", out var songs)
+            || songs.ValueKind != JsonValueKind.Array
+            || songs.GetArrayLength() == 0)
         {
-            StartupLog.Write($"lyrics.kugou.search-empty-or-failed: query=\"{query}\"");
+            StartupLog.Write($"lyrics.kugou.song-search-empty-or-failed: query=\"{query}\"");
             return Array.Empty<KugouLyricCandidate>();
         }
 
         var result = new List<KugouLyricCandidate>();
-        foreach (var item in candidates.EnumerateArray())
+        foreach (var song in songs.EnumerateArray())
         {
-            if (item.ValueKind != JsonValueKind.Object)
+            if (song.ValueKind != JsonValueKind.Object)
             {
                 continue;
             }
 
-            var id = ReadString(item, "id");
-            var accessKey = ReadString(item, "accesskey");
-            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(accessKey))
+            var fileHash = ReadString(song, "hash");
+            if (string.IsNullOrWhiteSpace(fileHash))
             {
                 continue;
             }
 
-            var durationSeconds = ReadDouble(item, "duration") / 1000d;
+            var songName = ReadString(song, "songname") ?? string.Empty;
+            var singerName = ReadString(song, "singername") ?? string.Empty;
+            var durationSeconds = ReadDouble(song, "duration"); // 歌曲接口返回秒
             if (track.DurationSeconds > 0 && durationSeconds > 0
                 && Math.Abs(track.DurationSeconds - durationSeconds) > 3)
             {
                 continue;
             }
 
-            result.Add(new KugouLyricCandidate(
-                id,
-                accessKey,
-                ReadString(item, "song") ?? string.Empty,
-                ReadString(item, "singer") ?? string.Empty,
-                durationSeconds));
+            var lyricUri = BuildUri(
+                "https",
+                "lyrics.kugou.com",
+                "/search",
+                new Dictionary<string, string>
+                {
+                    ["ver"] = "1",
+                    ["man"] = "yes",
+                    ["client"] = "pc",
+                    ["keyword"] = string.Empty,
+                    ["duration"] = string.Empty,
+                    ["hash"] = fileHash
+                });
+            using var lyricDocument = await RequestJsonAsync(lyricUri, cancellationToken);
+            if (lyricDocument is null
+                || !lyricDocument.RootElement.TryGetProperty("candidates", out var candidates)
+                || candidates.ValueKind != JsonValueKind.Array
+                || candidates.GetArrayLength() == 0)
+            {
+                continue;
+            }
+
+            var first = candidates[0];
+            if (first.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var id = ReadString(first, "id");
+            var accessKey = ReadString(first, "accesskey");
+            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(accessKey))
+            {
+                continue;
+            }
+
+            result.Add(new KugouLyricCandidate(id, accessKey, songName, singerName, durationSeconds));
+            if (result.Count >= 6)
+            {
+                break;
+            }
+        }
+
+        if (result.Count == 0)
+        {
+            StartupLog.Write($"lyrics.kugou.no-lyrics-for-hashes: query=\"{query}\"");
         }
 
         return result;
@@ -1237,6 +1284,13 @@ public sealed class LyricsService : ILyricsService
         }
 
         var resolved = KrcDecoder.Decrypt(contentValue.GetString());
+        var provider = "kugou-krc";
+        if (string.IsNullOrWhiteSpace(resolved))
+        {
+            // KRC 加密已升级（旧 XOR 密钥失效，2026-08 验证），尝试明文 lrc 通道兜底。
+            (resolved, provider) = await TryFetchKugouLrcFallbackAsync(candidate, cancellationToken);
+        }
+
         if (string.IsNullOrWhiteSpace(resolved))
         {
             StartupLog.Write($"lyrics.kugou.decrypt-failed: id={candidate.Id}");
@@ -1253,7 +1307,48 @@ public sealed class LyricsService : ILyricsService
             candidate.DurationSeconds,
             resolved,
             null,
-            "kugou-krc");
+            provider);
+    }
+
+    private async Task<(string? Lyrics, string Provider)> TryFetchKugouLrcFallbackAsync(
+        KugouLyricCandidate candidate,
+        CancellationToken cancellationToken)
+    {
+        var uri = BuildUri(
+            "https",
+            "lyrics.kugou.com",
+            "/download",
+            new Dictionary<string, string>
+            {
+                ["ver"] = "1",
+                ["client"] = "pc",
+                ["id"] = candidate.Id,
+                ["accesskey"] = candidate.AccessKey,
+                ["fmt"] = "lrc",
+                ["charset"] = "utf8"
+            });
+        using var document = await RequestJsonAsync(uri, cancellationToken);
+        if (document is null
+            || !document.RootElement.TryGetProperty("content", out var contentValue)
+            || contentValue.ValueKind != JsonValueKind.String)
+        {
+            return (null, "kugou-lrc");
+        }
+
+        try
+        {
+            var text = Encoding.UTF8.GetString(Convert.FromBase64String(contentValue.GetString()!));
+            // 至少要有一行时间戳才算可用歌词。
+            if (!string.IsNullOrWhiteSpace(text) && text.Contains('[', StringComparison.Ordinal))
+            {
+                return (text, "kugou-lrc");
+            }
+        }
+        catch (FormatException)
+        {
+        }
+
+        return (null, "kugou-lrc");
     }
 
     private static Uri BuildUri(

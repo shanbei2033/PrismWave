@@ -265,12 +265,18 @@ public sealed class LyricsServiceTests : IDisposable
     [Fact]
     public async Task SearchOnlineLyricsAsync_IncludesKugouKrcWordSyncedResult()
     {
-        const string krcPlain = "[offset:0]\n[0,3000]你<0,300,0>好<300,400,0>";
+        const string krcPlain = "[offset:0]\n[0,3000]<0,300,0>你<300,400,0>好";
         var handler = new StubHttpMessageHandler(request =>
         {
             var uri = request.RequestUri!;
+            if (uri.Host == "mobilecdn.kugou.com" && uri.AbsolutePath == "/api/v3/search/song")
+            {
+                return Json("""{"data":{"info":[{"songname":"Song","singername":"Artist","duration":120,"hash":"filehash01"}]}}""");
+            }
+
             if (uri.Host == "lyrics.kugou.com" && uri.AbsolutePath == "/search")
             {
+                Assert.Contains("hash=filehash01", uri.Query, StringComparison.Ordinal);
                 return Json("""{"candidates":[{"id":"9001","accesskey":"ak","duration":120000,"song":"Song","singer":"Artist"}]}""");
             }
 
@@ -298,13 +304,18 @@ public sealed class LyricsServiceTests : IDisposable
     [Fact]
     public async Task LoadLyricsDocumentAsync_FallsBackToKugouKrcWhenQqAndNeteaseFail()
     {
-        const string krcPlain = "[offset:0]\n[0,3000]你<0,300,0>好<300,400,0>";
+        const string krcPlain = "[offset:0]\n[0,3000]<0,300,0>你<300,400,0>好";
         var handler = new StubHttpMessageHandler(request =>
         {
             var uri = request.RequestUri!;
+            if (uri.Host == "mobilecdn.kugou.com")
+            {
+                return Json("""{"data":{"info":[{"songname":"Song","singername":"Artist","duration":120,"hash":"filehash01"}]}}""");
+            }
+
             if (uri.Host == "lyrics.kugou.com" && uri.AbsolutePath == "/search")
             {
-                return Json("""{"candidates":[{"id":"9001","accesskey":"ak","duration":120000,"song":"Song","singer":"Artist"}]}""");
+                return Json("""{"candidates":[{"id":"9001","accesskey":"ak","duration":120000}]}""");
             }
 
             if (uri.Host == "lyrics.kugou.com" && uri.AbsolutePath == "/download")
@@ -403,7 +414,7 @@ public sealed class LyricsServiceTests : IDisposable
             zlib.Write(Encoding.UTF8.GetBytes(plain));
         }
 
-        var key = "@Gaw]GtVKn@jRW!An"u8.ToArray();
+        var key = new byte[] { 0x40, 0x47, 0x61, 0x77, 0x5E, 0x32, 0x74, 0x47, 0x51, 0x36, 0x31, 0x2D, 0xCE, 0xD2, 0x6E, 0x69 };
         var payload = compressed.ToArray();
         var encrypted = new byte[4 + payload.Length];
         encrypted[0] = (byte)'k';

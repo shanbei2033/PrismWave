@@ -97,7 +97,8 @@ public sealed class LyricsParserTests
     [Fact]
     public void ParseKrc_CreatesWordTimedSegmentsWithTrailingTags()
     {
-        const string raw = "[offset:0]\n[0,3000]你<0,300,0>好<300,400,0>世<700,500,0>\n[3000,2000]第二行<3000,500,0>";
+        // 真实 KRC 格式：时间标签在字之前，行尾最后一个字后面没有标签。
+        const string raw = "[offset:0]\n[0,3000]<0,300,0>你<300,400,0>好<700,500,0>世\n[3000,2000]<3000,500,0>第二行";
 
         var document = LyricsParser.Parse(raw, provider: "kugou-krc");
 
@@ -108,8 +109,26 @@ public sealed class LyricsParserTests
         Assert.Equal(3, first.TimedSegments.Count);
         Assert.Equal((0d, 0.3, "你"), (first.TimedSegments[0].StartSeconds, first.TimedSegments[0].EndSeconds, first.TimedSegments[0].Text));
         Assert.Equal((0.3, 0.7, "好"), (first.TimedSegments[1].StartSeconds, first.TimedSegments[1].EndSeconds, first.TimedSegments[1].Text));
-        Assert.Equal(3d, document.Lines[1].TimeSeconds);
+        Assert.Equal((0.7, 1.2, "世"), (first.TimedSegments[2].StartSeconds, first.TimedSegments[2].EndSeconds, first.TimedSegments[2].Text));
+        var second = document.Lines[1];
+        Assert.Equal(3d, second.TimeSeconds);
+        Assert.Equal("第二行", second.Text);
         Assert.True(document.HasTimedSegments);
+    }
+
+    [Fact]
+    public void ParseKrc_IncludesLastWordWithoutTrailingTag()
+    {
+        // 行尾字后面没有标签也必须被捕获（曾因标签方向假设错误而丢字）。
+        const string raw = "[0,3000]<0,300,0>1<300,300,0>2<600,300,0>3<900,300,0>4<1200,300,0>5<1500,300,0>6";
+
+        var document = LyricsParser.Parse(raw);
+
+        var line = Assert.Single(document.Lines);
+        Assert.Equal("123456", line.Text);
+        Assert.Equal(6, line.TimedSegments.Count);
+        Assert.Equal("6", line.TimedSegments[5].Text);
+        Assert.Equal(1.5, line.TimedSegments[5].StartSeconds, 3);
     }
 
     [Fact]
@@ -218,7 +237,7 @@ public sealed class LyricsParserTests
             "Artist",
             string.Empty,
             0,
-            "[0,3000]你<0,300,0>好<300,400,0>",
+            "[0,3000]<0,300,0>你<300,400,0>好",
             null,
             "kugou-krc");
 

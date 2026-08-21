@@ -123,6 +123,47 @@ public sealed class LibraryService : ILibraryService
 
     public Task RescanAsync() => RescanAsync(CancellationToken.None);
 
+    public async Task<bool> RefreshTrackAsync(TrackModel track)
+    {
+        ArgumentNullException.ThrowIfNull(track);
+        var index = -1;
+        for (var candidate = 0; candidate < _tracks.Count; candidate++)
+        {
+            if (PathsEqual(_tracks[candidate].Path, track.Path))
+            {
+                index = candidate;
+                break;
+            }
+        }
+
+        if (index < 0)
+        {
+            return false;
+        }
+
+        var settings = _settingsService.Current;
+        string? customCover = null;
+        settings.CustomCoverPaths?.TryGetValue(track.Path, out customCover);
+        var refreshed = await Task.Run(() => _scanner.ScanFile(track.Path, customCover));
+        var identity = TrackCoverIdentity.CreateKey(refreshed.Title, refreshed.Artist);
+        if (identity.Length > 0
+            && settings.CustomCoverPaths is not null
+            && settings.CustomCoverPaths.TryGetValue(identity, out var identityCover)
+            && File.Exists(identityCover))
+        {
+            refreshed = refreshed with { CoverPath = Path.GetFullPath(identityCover) };
+        }
+
+        // 保留原位置的排序与收藏标记，仅替换该单曲元数据。
+        refreshed = refreshed with { IsFavorite = _tracks[index].IsFavorite };
+        var tracks = _tracks.ToList();
+        tracks[index] = refreshed;
+        ReplaceTracks(tracks, settings.FavoriteOrderPaths);
+        StartupLog.Write($"library.track.refreshed: path={track.Path}, title=\"{refreshed.Title}\"");
+        Notify();
+        return true;
+    }
+
     public async Task RescanAsync(CancellationToken cancellationToken)
     {
         var (revision, scanCancellation) = BeginScan(cancellationToken);

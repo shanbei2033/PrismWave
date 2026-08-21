@@ -112,6 +112,7 @@
                             <Grid.ContextFlyout>
                                 <MenuFlyout>
                                     <MenuFlyoutItem Text="Track details" Tag="{Binding}" Click="TrackDetails_Click" />
+                                    <MenuFlyoutItem Text="Edit metadata..." Tag="{Binding}" Click="EditMetadata_Click" />
                                     <MenuFlyoutItem Text="Open file location" Tag="{Binding}" Click="OpenLocation_Click" />
                                     <MenuFlyoutSeparator />
                                     <MenuFlyoutItem Text="Remove from library..." Tag="{Binding}" Click="RemoveTrack_Click" />

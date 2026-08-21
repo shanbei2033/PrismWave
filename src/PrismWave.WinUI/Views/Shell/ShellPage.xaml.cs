@@ -1143,6 +1143,7 @@ public sealed partial class ShellPage : Page
             "TopPlaylist" or "AlbumDetail" => "Home",
             "LocalAlbumDetail" => "Albums",
             "ArtistDetail" => "Artists",
+            "TrackEditor" => "Library",
             _ => route
         };
 
@@ -1172,6 +1173,7 @@ public sealed partial class ShellPage : Page
         "LocalAlbumDetail" => typeof(LocalAlbumDetailPage),
         "Artists" => typeof(ArtistsPage),
         "ArtistDetail" => typeof(ArtistDetailPage),
+        "TrackEditor" => typeof(TrackEditorPage),
         "Favorites" => typeof(FavoritesPage),
         "FullPlay" => typeof(FullPlayPage),
         "Hits" => typeof(HitsStatusPage),

@@ -29,6 +29,7 @@ public sealed class AppServices
     public required IHitsService HitsService { get; init; }
     public required ILyricsService LyricsService { get; init; }
     public required ICoverService CoverService { get; init; }
+    public required ITrackMetadataService TrackMetadataService { get; init; }
     public required IThemeService ThemeService { get; init; }
     public required IDeveloperLogService DeveloperLogService { get; init; }
     public required IUpdateService UpdateService { get; init; }
@@ -44,6 +45,7 @@ public sealed class AppServices
     public required FavoritesViewModel Favorites { get; init; }
     public required SettingsViewModel Settings { get; init; }
     public required HitsStatusViewModel Hits { get; init; }
+    public required TrackEditorViewModel TrackEditor { get; init; }
 
     public static AppServices Create()
     {
@@ -69,6 +71,7 @@ public sealed class AppServices
         var lyricsService = new LyricsService(settingsService);
         var themeService = new ThemeService(settingsService);
         var updateService = new UpdateService();
+        var trackMetadataService = new TrackMetadataService();
 
         var playback = new PlaybackViewModel(
             playbackService,
@@ -89,6 +92,7 @@ public sealed class AppServices
         var albums = new AlbumsViewModel(libraryService, playbackService);
         var artists = new ArtistsViewModel(libraryService, playbackService);
         var favorites = new FavoritesViewModel(libraryService, playbackService);
+        var trackEditor = new TrackEditorViewModel(trackMetadataService, libraryService, playbackService, coverService);
         // Keep the shared settings construction explicit; the cache and folder picker are
         // additional services owned by this same SettingsViewModel instance.
         // new SettingsViewModel(settingsService, libraryFolders, playbackService, themeService, developerLogService, onlineAccountService)
@@ -109,6 +113,7 @@ public sealed class AppServices
             HitsService = hitsService,
             LyricsService = lyricsService,
             CoverService = coverService,
+            TrackMetadataService = trackMetadataService,
             ThemeService = themeService,
             DeveloperLogService = developerLogService,
             UpdateService = updateService,
@@ -121,6 +126,7 @@ public sealed class AppServices
             Albums = albums,
             Artists = artists,
             Favorites = favorites,
+            TrackEditor = trackEditor,
             Settings = settings,
             Hits = hits
         };

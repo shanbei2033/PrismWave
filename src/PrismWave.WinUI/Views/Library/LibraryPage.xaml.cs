@@ -13,7 +13,9 @@ public sealed partial class LibraryPage : Page
     public LibraryPage()
     {
         InitializeComponent();
-        DataContext = App.Services.Library;
+        // 每次页面加载（包括从导航缓存恢复）都重新绑定 DataContext，
+        // 否则从 TrackEditor 等嵌套路由返回时 DataContext 为 null 导致列表空白。
+        Loaded += (_, _) => DataContext = App.Services.Library;
         Unloaded += (_, _) => DataContext = null;
     }
 
@@ -60,6 +62,20 @@ public sealed partial class LibraryPage : Page
         if (sender is MenuFlyoutItem { Tag: TrackModel track })
         {
             OpenLocation(track);
+        }
+    }
+
+    private async void EditMetadata_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuFlyoutItem { Tag: TrackModel track })
+        {
+            return;
+        }
+
+        await App.Services.TrackEditor.LoadAsync(track);
+        if (App.Services.Shell.NavigateCommand.CanExecute("TrackEditor"))
+        {
+            App.Services.Shell.NavigateCommand.Execute("TrackEditor");
         }
     }
 

@@ -36,7 +36,7 @@
 ## 🔍 SHA-256 校验
 
 ```
-PrismWave-Setup-1.1.0.exe: <SHA256 将在上传后自动计算>
+PrismWave-Setup-1.1.0.exe: B69EB7878A5ADB74D6F312EDDC571A9A3DC5FFFC636B148CDA05F226076D3D8D
 ```
 
 ---

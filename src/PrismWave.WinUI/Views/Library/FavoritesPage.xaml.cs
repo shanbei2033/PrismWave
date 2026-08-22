@@ -11,6 +11,7 @@ public sealed partial class FavoritesPage : Page
     {
         InitializeComponent();
         DataContext = App.Services.Favorites;
+        Loaded += (_, _) => DataContext = App.Services.Favorites;
         Unloaded += (_, _) => DataContext = null;
     }
 

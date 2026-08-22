@@ -9,6 +9,9 @@ public sealed partial class ArtistsPage : Page
     {
         InitializeComponent();
         DataContext = App.Services.Artists;
+        // Re-bind on Loaded: cached by nested navigation (ArtistDetail), restored
+        // without re-running the constructor.
+        Loaded += (_, _) => DataContext = App.Services.Artists;
         Unloaded += (_, _) => DataContext = null;
     }
 

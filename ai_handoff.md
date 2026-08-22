@@ -1,6 +1,6 @@
 # PrismWave AI 接手文档
 
-更新时间：2026-08-21 (v1.1.0)
+更新时间：2026-08-22 (v1.1.0 + 首页返回骨架 bug 修复)
 
 **语言要求：接手 AI 必须全程使用中文与用户沟通。**
 
@@ -91,6 +91,7 @@ MVVM 模式：View 负责 XAML，ViewModel 基于 CommunityToolkit.Mvvm，服务
 - 每轮 UI 修改后验证 1280/1440/1600/1920 宽度 + 侧栏展开/折叠 + 快速连续点击导航。
 - **不要使用 WinAppSDK self-contained 部署**：捆绑的原生 DLL（如 CoreMessagingXP.dll）在编译期拷贝到应用目录时会触发 FailFast(0xC0000602)。必须使用 framework-dependent 部署模式，运行时依赖系统级 Windows App Runtime 2.2 MSIX 包。
 - **不要禁用 .NET 依赖检测**：自 v1.1.0 起，PrismWave 需要 .NET 10 Desktop Runtime。setup.iss 会在安装向导内自动检测并引导下载安装，移除该检测会导致安装失败。
+- **不要给页面只加 Unloaded 清空 DataContext 而不加 Loaded 重绑**：Nested 导航会把源页面实例缓存进 `BackNavigationPageCache`，返回时直接复用旧实例（不执行构造函数）。若 Unloaded 清空 DataContext 而 Loaded 不重绑，缓存恢复的页面所有 Binding 失效、只剩骨架（2026-08-22 首页返回空白 bug 根因）。`PageDataContextRebindTests.cs` 有 8 项回归测试守护该模式。
 
 ---
 
@@ -196,7 +197,37 @@ python scripts\build_home.py
 
 ---
 
-## 7. 最近修复（2026-08-21 v1.1.0）
+## 7. 最近修复（2026-08-22 首页返回骨架 bug）
+
+### 现象
+
+首页点击"今日趋势"Banner 或流派标签进入 TopPlaylist 二级页，返回后首页所有数据消失只剩骨架，必须点其他菜单再回首页才能恢复。Artists → ArtistDetail 返回路径同样存在此问题。
+
+### 根因
+
+Nested 导航时 `ShellPage.CompleteTransitionVisual` 把源页面实例推入 `BackNavigationPageCache`，随后 `ResetFrame` 移出可视化树触发 Unloaded → 页面 code-behind 的 `Unloaded` 处理器把 `DataContext` 置 null（防泄漏模式）。返回时 `PrepareIncoming` 直接复用缓存实例（`frame.Content = cachedPage`），不执行构造函数，也没有代码重绑 DataContext → 所有 Binding 失效。
+
+LibraryPage 当时已有 `Loaded += (_, _) => DataContext = ...` 重绑所以免疫；其余 7 个页面缺这一行。
+
+### 修复
+
+8 个页面统一"构造绑定 + Loaded 重绑 + Unloaded 清空"模式：
+- HomePage / TopPlaylistPage / AlbumDetailPage（App.Services.Home）
+- ArtistsPage / ArtistDetailPage（App.Services.Artists）
+- FavoritesPage（App.Services.Favorites）
+- SearchPage（App.Services.Search）
+- LibraryPage（原有，不动）
+
+新增 `tests\PrismWave.WinUI.Tests\PageDataContextRebindTests.cs`（8 项 Theory 回归测试，已验证 8/8 通过）守护该模式。
+
+### 经验
+
+- 给页面加 `Unloaded += (_, _) => DataContext = null` 防泄漏时，**必须同时加 Loaded 重绑**，否则被 `BackNavigationPageCache` 缓存恢复的页面会骨架化。
+- 新增页面若使用该防泄漏模式，记得加入 `PageDataContextRebindTests` 的 TheoryData 列表。
+
+---
+
+## 8. v1.1.0 变更（2026-08-21）
 
 ### v1.1.0 变更
 
@@ -219,7 +250,7 @@ python scripts\build_home.py
 
 ---
 
-## 8. v1.0.7 变更（2026-07-28）
+## 9. v1.0.7 变更（2026-07-28）
 
 1. **mpv 进度条不更新**：原实现依赖 mpv property-change 事件汇报播放位置，部分输出模式下事件不可靠导致进度条完全静止。修复：改为定时器轮询播放位置，增加 0.05 秒防抖，所有输出模式下进度汇报稳定。
 2. **WASAPI 共享/独占模式切换失败**：切换输出模式时设备 ID 格式未按 mpv WASAPI 后端要求处理。修复：显式 `ao=wasapi` 时自动去除设备 ID 的 `{0.0.0.00000000}.` 前缀。
@@ -227,7 +258,7 @@ python scripts\build_home.py
 
 ---
 
-## 9. v1.0.6 变更（2026-07-26）
+## 10. v1.0.6 变更（2026-07-26）
 
 1. **主页刷新闪退修复**：`HomeViewModel` 的 `Notify()` 方法在 `App.DispatcherQueue` 为 null 时直接在后台线程触发事件，导致 `ObservableCollection` 跨线程访问崩溃。修复：添加 `SynchronizationContext` 确保事件处理在 UI 线程执行，`RefreshHomeAsync` 添加 try-catch。
 2. **外观样式精简**：删除"亚克力"选项，"Windows 11 云母"改为"浅色 (Beta)"，"经典纯色"改为"深色"。`SettingsModels.cs` 中 `Acrylic` 常量删除，`Normalize` 自动降级为 `Mica`。
@@ -239,7 +270,7 @@ python scripts\build_home.py
 
 ---
 
-## 10. v1.0.5 变更（2026-07-24）
+## 11. v1.0.5 变更（2026-07-24）
 
 1. **单曲循环无法重播**：`HandleMediaEnded` 中单曲循环用 `Seek(0) + Play()` 不创建 MPV load context，`_loaded` 恒为 false，`IsPlaying` 返回 false。修复：改为 `LoadCurrentTrack(autoplay: true)` 重新加载文件，正确重置所有 MPV 状态。
 2. **进度条滑块未归位**：WinUI 3 Slider OneWay 绑定在用户交互（拖动 seek）后不更新 thumb 视觉。修复：在 `BottomPlayerBar` 和 `FullPlayPage` 的 code-behind 中显式 `Slider.Value = 0`，监听 `CurrentTrack` 变化和 `PositionSeconds == 0` 两种触发（后者覆盖单曲循环同一曲目不切换的场景）。
@@ -250,7 +281,7 @@ python scripts\build_home.py
 
 ---
 
-## 11. v1.0.4 变更（2026-07-22）
+## 12. v1.0.4 变更（2026-07-22）
 
 1. **封面替换 Bug**：`CoverService` 文件名仅基于曲目身份，同格式不同封面产生同路径，导致 `StableCoverImage` 和 `PlaybackViewModel` 路径守卫跳过更新。修复：文件名加入图片内容 SHA-256。
 2. **导航动画闪烁**：`ShellPage.xaml.cs` 的 `PrepareIncoming` 用 `intent.HostWidth`（始终为 0）定位传入 Frame。修复：改用 `PageTransitionHost.ActualWidth`。
@@ -263,7 +294,7 @@ python scripts\build_home.py
 
 ---
 
-## 12. v1.0.3 变更（2026-07-21）
+## 13. v1.0.3 变更（2026-07-21）
 
 1. **启动动画**：新增 `SplashPage` 启动页，"Prism" 从左侧滑入中心（0.4s），"Wave" 从上方落下（0.5s），停留 0.3s 后整体向右飞出渐隐（0.55s），过渡到首页。`App.OnLaunched` 中 `async void` 流程控制，添加 `_isWindowClosed` 标志防止关闭后访问已释放 UI。
 2. **搜索历史右键删除**：`SearchPage.xaml` 历史记录项添加 `Grid.ContextFlyout` + `MenuFlyout`，`Tag` 绑定移到 Grid 上（MenuFlyoutItem 不在可视化树中无法绑定），code-behind 通过 `VisualTreeHelper` 遍历查找父级 Grid 的 Tag。
@@ -274,7 +305,7 @@ python scripts\build_home.py
 
 ---
 
-## 13. 清理 Flutter 代码库（2026-07-24）
+## 14. 清理 Flutter 代码库（2026-07-24）
 
 清理了 Flutter 代码库，释放 ~2.4 GB 空间：
 - 删除 `app/` (Flutter 源代码 + 资源 + 构建产物)
@@ -292,6 +323,6 @@ python scripts\build_home.py
 
 ---
 
-## 14. Flutter 基线参考
+## 15. Flutter 基线参考
 
 R503（`pubspec.yaml` 503.0.0+505）是行为对照基线。技术栈：Flutter 3.41.4 / Riverpod / just_audio_media_kit → libmpv。构建：`tools\flutter\bin\flutter.bat build windows --release`，产物 `app/build/windows/x64/runner/Release/prismwave_demo.exe`。WASAPI Exclusive 破音已通过二进制修补 `native/libmpv/libmpv-2.dll`（端点缓冲 3ms→50ms）修复，切换 media_kit 版本需重新核对。

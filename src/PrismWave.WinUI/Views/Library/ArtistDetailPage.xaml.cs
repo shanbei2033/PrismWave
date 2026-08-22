@@ -11,6 +11,7 @@ public sealed partial class ArtistDetailPage : Page
     {
         InitializeComponent();
         DataContext = App.Services.Artists;
+        Loaded += (_, _) => DataContext = App.Services.Artists;
         Unloaded += (_, _) => DataContext = null;
     }
 

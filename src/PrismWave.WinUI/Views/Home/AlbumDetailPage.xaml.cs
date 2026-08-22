@@ -9,6 +9,7 @@ public sealed partial class AlbumDetailPage : Page
     {
         InitializeComponent();
         DataContext = App.Services.Home;
+        Loaded += (_, _) => DataContext = App.Services.Home;
         Unloaded += (_, _) => DataContext = null;
     }
 

@@ -1,6 +1,19 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:PrismWave.Avalonia.Views.Shell"
         x:Class="PrismWave.Avalonia.MainWindow"
-        Title="PrismWave" Width="1280" Height="720">
-  <TextBlock Text="PrismWave Avalonia" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        Title="PrismWave"
+        Width="1600" Height="900" MinWidth="980" MinHeight="620"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="PreferSystemChrome"
+        ExtendClientAreaTitleBarHeightHint="42"
+        Background="#FF292A2D">
+  <Panel>
+    <views:ShellPage />
+    <!-- 顶部 42px 标题栏拖动区（对齐 WinUI ExtendsContentIntoTitleBar 行为） -->
+    <Border x:Name="TitleBarDragRegion" Height="42" VerticalAlignment="Top"
+            Background="Transparent"
+            PointerPressed="TitleBarDragRegion_PointerPressed"
+            DoubleTapped="TitleBarDragRegion_DoubleTapped" />
+  </Panel>
 </Window>

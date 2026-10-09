@@ -1,0 +1,78 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:uic="using:FluentAvalonia.UI.Controls"
+             x:Class="PrismWave.Avalonia.Views.Shell.ShellPage">
+  <Grid Background="{StaticResource PrismBackgroundBrush}">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <uic:NavigationView
+        x:Name="Nav"
+        Grid.Row="0"
+        Margin="0,42,0,0"
+        PaneDisplayMode="Left"
+        OpenPaneLength="220"
+        CompactPaneLength="48"
+        IsPaneOpen="True"
+        IsPaneToggleButtonVisible="True"
+        IsSettingsVisible="True"
+        ItemInvoked="Nav_ItemInvoked">
+      <uic:NavigationView.MenuItems>
+        <uic:NavigationViewItem Content="{Binding HomeLabel}" Tag="Home" IsVisible="{Binding IsOnlineNavigationVisible}">
+          <uic:NavigationViewItem.IconSource>
+            <uic:FontIconSource FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" Glyph="&#xE80F;" />
+          </uic:NavigationViewItem.IconSource>
+        </uic:NavigationViewItem>
+        <uic:NavigationViewItem Content="{Binding SearchLabel}" Tag="Search" IsVisible="{Binding IsOnlineNavigationVisible}">
+          <uic:NavigationViewItem.IconSource>
+            <uic:FontIconSource FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" Glyph="&#xE721;" />
+          </uic:NavigationViewItem.IconSource>
+        </uic:NavigationViewItem>
+        <uic:NavigationViewItem Content="{Binding LibraryLabel}" Tag="Library">
+          <uic:NavigationViewItem.IconSource>
+            <uic:FontIconSource FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" Glyph="&#xE8D6;" />
+          </uic:NavigationViewItem.IconSource>
+        </uic:NavigationViewItem>
+        <uic:NavigationViewItem Content="{Binding AlbumsLabel}" Tag="Albums">
+          <uic:NavigationViewItem.IconSource>
+            <uic:FontIconSource FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" Glyph="&#xE90B;" />
+          </uic:NavigationViewItem.IconSource>
+        </uic:NavigationViewItem>
+        <uic:NavigationViewItem Content="{Binding ArtistsLabel}" Tag="Artists">
+          <uic:NavigationViewItem.IconSource>
+            <uic:FontIconSource FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" Glyph="&#xE77B;" />
+          </uic:NavigationViewItem.IconSource>
+        </uic:NavigationViewItem>
+        <uic:NavigationViewItem Content="{Binding FavoritesLabel}" Tag="Favorites">
+          <uic:NavigationViewItem.IconSource>
+            <uic:FontIconSource FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" Glyph="&#xEB51;" />
+          </uic:NavigationViewItem.IconSource>
+        </uic:NavigationViewItem>
+        <uic:NavigationViewItem Content="HITS" Tag="Hits" IsVisible="{Binding IsOnlineNavigationVisible}">
+          <uic:NavigationViewItem.IconSource>
+            <uic:FontIconSource FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" Glyph="&#xE8D8;" />
+          </uic:NavigationViewItem.IconSource>
+        </uic:NavigationViewItem>
+      </uic:NavigationView.MenuItems>
+
+      <Panel>
+        <ContentControl x:Name="ContentHost" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+      </Panel>
+    </uic:NavigationView>
+
+    <!-- 底部播放栏（Phase 2 实装 BottomPlayerBar，先占位保持布局结构） -->
+    <Border
+        x:Name="BottomPlayerSlot"
+        Grid.Row="1"
+        Margin="8,16,8,8"
+        Background="{StaticResource PrismSurfaceBrush}"
+        BorderBrush="{StaticResource PrismCardBorderBrush}"
+        BorderThickness="1"
+        CornerRadius="8"
+        Padding="16,12">
+      <TextBlock Text="正在播放" Foreground="{StaticResource PrismTextSecondaryBrush}" />
+    </Border>
+  </Grid>
+</UserControl>

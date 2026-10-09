@@ -1,0 +1,28 @@
+<ResourceDictionary
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Prism 调色板（与 WinUI 版 PrismTokens/MainWindow AppearancePalette Dark 分支对齐） -->
+    <SolidColorBrush x:Key="PrismBackgroundBrush" Color="#FF292A2D" />
+    <SolidColorBrush x:Key="PrismSurfaceBrush" Color="#FF303134" />
+    <SolidColorBrush x:Key="PrismSurfaceElevatedBrush" Color="#FF38393D" />
+    <SolidColorBrush x:Key="PrismSurfaceStrongBrush" Color="#FF45464A" />
+    <SolidColorBrush x:Key="PrismTextPrimaryBrush" Color="#FFF6F6F7" />
+    <SolidColorBrush x:Key="PrismTextSecondaryBrush" Color="#FFB9BEC8" />
+    <SolidColorBrush x:Key="PrismTextMutedBrush" Color="#FF7F8794" />
+    <SolidColorBrush x:Key="PrismCardBorderBrush" Color="#2BFFFFFF" />
+    <SolidColorBrush x:Key="PrismCardHoverBrush" Color="#18FFFFFF" />
+    <SolidColorBrush x:Key="PrismGlassBrush" Color="#F238393D" />
+    <SolidColorBrush x:Key="PrismGlassSoftBrush" Color="#E8414246" />
+    <SolidColorBrush x:Key="PrismSelectionBrush" Color="#24FFFFFF" />
+    <SolidColorBrush x:Key="PrismControlBrush" Color="#12FFFFFF" />
+
+    <!-- 布局令牌 -->
+    <Thickness x:Key="PrismPagePadding">24,18,24,18</Thickness>
+
+    <!-- 动效令牌（从简：仅功能性过渡） -->
+    <x:Double x:Key="MotionFast">120</x:Double>
+    <x:Double x:Key="MotionNormal">240</x:Double>
+    <x:Double x:Key="MotionSlow">280</x:Double>
+    <x:Double x:Key="MotionNestedOffset">72</x:Double>
+</ResourceDictionary>

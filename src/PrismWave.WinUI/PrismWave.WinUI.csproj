@@ -78,6 +78,17 @@
     <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
   </PropertyGroup>
 
+  <!--
+    未打包 WinUI 应用的 MRT Core 在运行时按固定名称查找 exe 旁的 resources.pri。
+    WinAppSDK 2.2 + dotnet CLI 构建只会生成 $(AssemblyName).pri，导致启动时
+    XamlParseException: Cannot locate resource 'ms-appx:///Microsoft.UI.Xaml/Themes/themeresources.xaml'。
+    此处补一份 resources.pri 副本；若构建已正确生成 resources.pri 则为空操作。
+  -->
+  <Target Name="EnsureResourcesPriForUnpackagedMrt" AfterTargets="Build"
+          Condition="Exists('$(OutDir)$(AssemblyName).pri') and !Exists('$(OutDir)resources.pri')">
+    <Copy SourceFiles="$(OutDir)$(AssemblyName).pri" DestinationFiles="$(OutDir)resources.pri" />
+  </Target>
+
   <!-- Publish Properties -->
   <PropertyGroup>
     <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>

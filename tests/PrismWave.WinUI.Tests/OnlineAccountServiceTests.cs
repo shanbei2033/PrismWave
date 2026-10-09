@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.Services.Contracts;
@@ -707,22 +707,7 @@ public sealed class OnlineAccountServiceTests
             random: () => 0.25,
             utcNow: utcNow);
 
-    private static string FindRepositoryFile(params string[] relativeSegments)
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            var candidate = Path.Combine(new[] { directory.FullName }.Concat(relativeSegments).ToArray());
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new FileNotFoundException("Could not locate repository source file.");
-    }
+    private static string FindRepositoryFile(params string[] relativeSegments) => TestSourceFiles.Resolve(relativeSegments);
 
     private static HttpResponseMessage Response(HttpStatusCode status, string body)
         => new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };

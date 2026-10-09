@@ -402,10 +402,31 @@ public sealed class LibraryServiceTests
     {
         public int EnqueueCount { get; private set; }
 
+        public bool HasThreadAccess => true;
+
         public void Enqueue(Action action)
         {
             EnqueueCount++;
             action();
+        }
+
+        public IUiDispatcherTimer CreateTimer(TimeSpan interval) => new ImmediateTimer();
+
+        private sealed class ImmediateTimer : IUiDispatcherTimer
+        {
+            public event EventHandler? Tick { add { } remove { } }
+
+            public void Start()
+            {
+            }
+
+            public void Stop()
+            {
+            }
+
+            public void Dispose()
+            {
+            }
         }
     }
 

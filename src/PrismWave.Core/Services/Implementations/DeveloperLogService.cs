@@ -10,11 +10,14 @@ public sealed class DeveloperLogService : IDeveloperLogService, IDisposable
     private readonly object _gate = new();
     private readonly List<string> _lines;
 
-    public DeveloperLogService()
+    public DeveloperLogService(IUiDispatcher uiDispatcher)
     {
+        _uiDispatcher = uiDispatcher;
         _lines = StartupLog.ReadRecent(MaxLines).ToList();
         StartupLog.LineWritten += StartupLog_LineWritten;
     }
+
+    private readonly IUiDispatcher _uiDispatcher;
 
     public IReadOnlyList<string> Lines
     {
@@ -79,14 +82,6 @@ public sealed class DeveloperLogService : IDeveloperLogService, IDisposable
 
     private void RaiseChanged()
     {
-        var dispatcher = App.DispatcherQueue;
-        if (dispatcher is null || dispatcher.HasThreadAccess)
-        {
-            LogsChanged?.Invoke(this, EventArgs.Empty);
-        }
-        else
-        {
-            dispatcher.TryEnqueue(() => LogsChanged?.Invoke(this, EventArgs.Empty));
-        }
+        _uiDispatcher.Enqueue(() => LogsChanged?.Invoke(this, EventArgs.Empty));
     }
 }

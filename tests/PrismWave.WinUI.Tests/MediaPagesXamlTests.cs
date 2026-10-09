@@ -1,4 +1,4 @@
-using System.Xml.Linq;
+﻿using System.Xml.Linq;
 using Xunit;
 
 namespace PrismWave_WinUI.Tests;
@@ -252,20 +252,5 @@ public sealed class MediaPagesXamlTests
         Assert.Contains("PlayTrackNextCommand", code, StringComparison.Ordinal);
     }
 
-    private static string FindFile(params string[] relativeSegments)
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            var candidate = Path.Combine(new[] { directory.FullName }.Concat(relativeSegments).ToArray());
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new FileNotFoundException(string.Join(Path.DirectorySeparatorChar, relativeSegments));
-    }
+    private static string FindFile(params string[] relativeSegments) => TestSourceFiles.Resolve(relativeSegments);
 }

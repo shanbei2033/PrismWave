@@ -1,4 +1,4 @@
-using PrismWave_WinUI.Models;
+﻿using PrismWave_WinUI.Models;
 using PrismWave_WinUI.Services.Contracts;
 using PrismWave_WinUI.ViewModels.Hits;
 using Xunit;
@@ -96,16 +96,7 @@ public sealed class HitsPlaybackIsolationTests
         false,
         false);
 
-    private static string ReadSource(params string[] segments)
-    {
-        var path = Path.Combine(
-            new[]
-            {
-                AppContext.BaseDirectory,
-                "..", "..", "..", "..", "..", "src", "PrismWave.WinUI"
-            }.Concat(segments).ToArray());
-        return File.ReadAllText(Path.GetFullPath(path));
-    }
+    private static string ReadSource(params string[] segments) => TestSourceFiles.Read(segments);
 
     private sealed class FakeHitsService(HitsStateSnapshot state) : IHitsService
     {

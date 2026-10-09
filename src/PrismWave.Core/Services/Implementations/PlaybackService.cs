@@ -14,8 +14,8 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
     private readonly MpvPlaybackEngineHost _mpvHost;
     private readonly RemotePlaybackRecoveryPolicy _remoteRecoveryPolicy = new();
     private readonly PlaybackLoadEventGuard _mpvLoadEventGuard = new();
-    private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcherQueue;
-    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _positionTimer;
+    private readonly IUiDispatcher _uiDispatcher;
+    private readonly IUiDispatcherTimer _positionTimer;
     private readonly Random _random = new();
     private int _loadRevision;
     private CancellationTokenSource? _loadCancellationSource;
@@ -46,12 +46,13 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         ISettingsService settingsService,
         IOnlinePlaybackResolver onlinePlaybackResolver,
         IOnlineAudioCache onlineAudioCache,
+        IUiDispatcher uiDispatcher,
         IPlaybackEngineFactory? playbackEngineFactory = null)
     {
         _settingsService = settingsService;
         _onlinePlaybackResolver = onlinePlaybackResolver;
         _onlineAudioCache = onlineAudioCache;
-        _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+        _uiDispatcher = uiDispatcher;
         var settings = _settingsService.Current;
         _mpvHost = new MpvPlaybackEngineHost(
             playbackEngineFactory ?? new MpvPlaybackEngineFactory(),
@@ -83,8 +84,7 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
         };
         _settingsService.SettingsChanged += (_, _) => Dispatch(ApplyAudioSettings);
 
-        _positionTimer = _dispatcherQueue.CreateTimer();
-        _positionTimer.Interval = TimeSpan.FromMilliseconds(500);
+        _positionTimer = _uiDispatcher.CreateTimer(TimeSpan.FromMilliseconds(500));
         _positionTimer.Tick += (_, _) => RefreshPosition();
         _positionTimer.Start();
     }
@@ -1231,14 +1231,7 @@ public sealed partial class PlaybackService : IPlaybackService, IHitsPlaybackSes
 
     private void Dispatch(Action action)
     {
-        if (_dispatcherQueue.HasThreadAccess)
-        {
-            action();
-        }
-        else
-        {
-            _dispatcherQueue.TryEnqueue(() => action());
-        }
+        _uiDispatcher.Enqueue(action);
     }
 
     private sealed record MpvPlaybackSnapshot(

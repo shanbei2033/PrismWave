@@ -46,11 +46,11 @@ public sealed class AppServices
 
     public static AppServices Create()
     {
+        var uiDispatcher = new WinUiDispatcher(App.DispatcherQueue);
         var migration = new FlutterPreferencesMigrationService();
-        var developerLogService = new DeveloperLogService();
+        var developerLogService = new DeveloperLogService(uiDispatcher);
         var settingsService = new SettingsService(migration);
         var coverService = new CoverService(settingsService);
-        var uiDispatcher = new WinUiDispatcher(App.DispatcherQueue);
         var localMusicScanner = new LocalMusicScanner();
         var musicFolderPicker = new WindowsMusicFolderPicker(() => App.WindowHandle);
         var libraryService = new LibraryService(settingsService, coverService, localMusicScanner, uiDispatcher);
@@ -60,9 +60,9 @@ public sealed class AppServices
             qualityPreference: () => settingsService.Current.OnlineQualityPreference);
         var onlinePlaybackResolver = new OnlinePlaybackResolver(onlineProviderService);
         var onlineAudioCache = new OnlineAudioCache(settingsService);
-        var playbackService = new PlaybackService(settingsService, onlinePlaybackResolver, onlineAudioCache);
+        var playbackService = new PlaybackService(settingsService, onlinePlaybackResolver, onlineAudioCache, uiDispatcher);
         IHitsPlaybackSession hitsPlaybackSession = playbackService;
-        var onlineHomeService = new OnlineHomeService();
+        var onlineHomeService = new OnlineHomeService(uiDispatcher);
         var onlineSearchService = new OnlineSearchService(libraryService, onlineProviderService);
         var hitsService = new HitsService();
         var lyricsService = new LyricsService(settingsService);

@@ -167,20 +167,7 @@ public sealed class HitsImmersivePageStructureTests
         return source[start..end];
     }
 
-    private static string Read(params string[] segments)
-    {
-        var path = Path.Combine(
-            new[] { AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "PrismWave.WinUI" }
-                .Concat(segments)
-                .ToArray());
-        return File.ReadAllText(Path.GetFullPath(path));
-    }
+    private static string Read(params string[] segments) => TestSourceFiles.Read(segments);
 
-    private static string ReadRoot(string fileName)
-    {
-        var path = Path.Combine(
-            AppContext.BaseDirectory,
-            "..", "..", "..", "..", "..", "src", "PrismWave.WinUI", fileName);
-        return File.ReadAllText(Path.GetFullPath(path));
-    }
+    private static string ReadRoot(string fileName) => TestSourceFiles.Read(fileName);
 }

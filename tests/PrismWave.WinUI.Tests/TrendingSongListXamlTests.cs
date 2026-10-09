@@ -1,4 +1,4 @@
-using System.Xml.Linq;
+﻿using System.Xml.Linq;
 using Xunit;
 
 namespace PrismWave_WinUI.Tests;
@@ -120,20 +120,5 @@ public sealed class TrendingSongListXamlTests
                 attribute.Name.LocalName == "Name" && attribute.Value == name));
     }
 
-    private static string FindRepositoryFile(params string[] relativeSegments)
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            var candidate = Path.Combine(new[] { directory.FullName }.Concat(relativeSegments).ToArray());
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new FileNotFoundException("Could not locate repository source file.");
-    }
+    private static string FindRepositoryFile(params string[] relativeSegments) => TestSourceFiles.Resolve(relativeSegments);
 }

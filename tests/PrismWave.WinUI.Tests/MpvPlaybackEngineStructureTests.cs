@@ -32,8 +32,6 @@ public sealed class MpvPlaybackEngineStructureTests
         Assert.DoesNotContain("ConfigureOutput(", Source, StringComparison.Ordinal);
     }
 
-    private static string FindSource() => Path.GetFullPath(Path.Combine(
-        AppContext.BaseDirectory,
-        "..", "..", "..", "..", "..",
-        "src", "PrismWave.WinUI", "Infrastructure", "Audio", "MpvPlaybackEngine.cs"));
+    private static string FindSource() => TestSourceFiles.Resolve(
+        "src", "PrismWave.WinUI", "Infrastructure", "Audio", "MpvPlaybackEngine.cs");
 }

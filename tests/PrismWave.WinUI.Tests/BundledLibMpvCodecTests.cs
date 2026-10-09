@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Text;
 using System.IO.Compression;
 using System.Xml.Linq;
@@ -66,22 +66,7 @@ public sealed class BundledLibMpvCodecTests
         Assert.Equal("Always", item.Attribute("CopyToOutputDirectory")?.Value);
     }
 
-    private static string FindRepositoryFile(params string[] segments)
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            var candidate = Path.Combine(new[] { directory.FullName }.Concat(segments).ToArray());
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new FileNotFoundException(string.Join(Path.DirectorySeparatorChar, segments));
-    }
+    private static string FindRepositoryFile(params string[] segments) => TestSourceFiles.Resolve(segments);
 
     private static string WriteEac3Fixture()
     {

@@ -1,4 +1,4 @@
-using Xunit;
+﻿using Xunit;
 
 namespace PrismWave_WinUI.Tests;
 
@@ -54,7 +54,7 @@ public sealed class PlaybackQueueServiceStructureTests
     }
 
     private static string ReadPlaybackService() => File.ReadAllText(FindRepositoryFile(
-        "src", "PrismWave.WinUI", "Services", "Implementations", "PlaybackService.cs"));
+        "src", "PrismWave.Core", "Services", "Implementations", "PlaybackService.cs"));
 
     private static string ExtractMethod(string source, string methodName)
     {
@@ -83,20 +83,5 @@ public sealed class PlaybackQueueServiceStructureTests
         throw new InvalidDataException($"Could not find closing brace for {methodName}.");
     }
 
-    private static string FindRepositoryFile(params string[] relativeSegments)
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            var candidate = Path.Combine(new[] { directory.FullName }.Concat(relativeSegments).ToArray());
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new FileNotFoundException("Could not locate repository source file.");
-    }
+    private static string FindRepositoryFile(params string[] relativeSegments) => TestSourceFiles.Resolve(relativeSegments);
 }

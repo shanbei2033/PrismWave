@@ -1,4 +1,4 @@
-using Xunit;
+﻿using Xunit;
 
 namespace PrismWave_WinUI.Tests;
 
@@ -78,19 +78,8 @@ public sealed class PlaybackServiceAudioOutputStructureTests
         Assert.DoesNotContain("_hitsLoadEventGuard", hits);
     }
 
-    private static string SourcePath() => Path.GetFullPath(Path.Combine(
-        AppContext.BaseDirectory,
-        "..", "..", "..", "..", "..",
-        "src", "PrismWave.WinUI", "Services", "Implementations", "PlaybackService.cs"));
+    private static string SourcePath() => TestSourceFiles.Resolve(
+        "src", "PrismWave.WinUI", "Services", "Implementations", "PlaybackService.cs");
 
-    private static string Read(params string[] segments)
-    {
-        var path = Path.Combine(
-            new[]
-            {
-                AppContext.BaseDirectory,
-                "..", "..", "..", "..", "..", "src", "PrismWave.WinUI"
-            }.Concat(segments).ToArray());
-        return File.ReadAllText(Path.GetFullPath(path));
-    }
+    private static string Read(params string[] segments) => TestSourceFiles.Read(segments);
 }

@@ -19,9 +19,11 @@ public sealed class OnlineHomeService : IOnlineHomeService
     };
 
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private readonly IUiDispatcher _uiDispatcher;
 
-    public OnlineHomeService()
+    public OnlineHomeService(IUiDispatcher uiDispatcher)
     {
+        _uiDispatcher = uiDispatcher;
         if (!TryLoadHomeJson(out var jsonPath, out var document))
         {
             SetUnavailable("No valid schema 8 home data is available.");
@@ -384,15 +386,7 @@ public sealed class OnlineHomeService : IOnlineHomeService
 
     private void Notify()
     {
-        var dispatcher = App.DispatcherQueue;
-        if (dispatcher is null || dispatcher.HasThreadAccess)
-        {
-            HomeChanged?.Invoke(this, EventArgs.Empty);
-        }
-        else
-        {
-            dispatcher.TryEnqueue(() => HomeChanged?.Invoke(this, EventArgs.Empty));
-        }
+        _uiDispatcher.Enqueue(() => HomeChanged?.Invoke(this, EventArgs.Empty));
     }
 
     private static IReadOnlyList<HomeSectionModel> ParseSections(JsonElement root)

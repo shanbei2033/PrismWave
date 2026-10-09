@@ -135,12 +135,5 @@ public sealed class ExperiencePolishTests
         document.Descendants().Single(element =>
             element.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml"))?.Value == name);
 
-    private static string Read(params string[] segments)
-    {
-        var path = Path.Combine(
-            new[] { AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "PrismWave.WinUI" }
-                .Concat(segments)
-                .ToArray());
-        return Path.GetFullPath(path);
-    }
+    private static string Read(params string[] segments) => TestSourceFiles.Resolve(segments);
 }

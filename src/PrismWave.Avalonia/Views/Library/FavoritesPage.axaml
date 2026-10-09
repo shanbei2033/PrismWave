@@ -1,0 +1,99 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:media="using:PrismWave.Avalonia.Controls.Media"
+             x:Class="PrismWave.Avalonia.Views.Library.FavoritesPage">
+  <Grid Margin="{StaticResource PrismPagePadding}" RowSpacing="14">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <TextBlock Text="我最爱的" Classes="pageTitle" />
+
+    <TextBox
+        Grid.Row="1"
+        Watermark="搜索收藏歌曲"
+        Text="{Binding SearchQuery, Mode=TwoWay}" />
+
+    <Grid Grid.Row="2" Margin="12,4" ColumnSpacing="12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="56" />
+        <ColumnDefinition Width="1.6*" />
+        <ColumnDefinition Width="1.1*" />
+        <ColumnDefinition Width="1.1*" />
+        <ColumnDefinition Width="64" />
+        <ColumnDefinition Width="38" />
+      </Grid.ColumnDefinitions>
+      <TextBlock Grid.Column="1" Text="歌曲" Classes="caption" />
+      <TextBlock Grid.Column="2" Text="艺术家" Classes="caption" />
+      <TextBlock Grid.Column="3" Text="专辑" Classes="caption" />
+      <TextBlock Grid.Column="4" Text="时长" Classes="caption" HorizontalAlignment="Right" />
+    </Grid>
+
+    <Grid Grid.Row="3">
+      <ListBox
+          x:Name="FavoriteTracksList"
+          ItemsSource="{Binding VisibleTracks}"
+          SelectionMode="Single"
+          Background="Transparent">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <Grid Margin="12,6" ColumnSpacing="12" MinHeight="56" Tag="{Binding}" DoubleTapped="TrackRow_DoubleTapped">
+              <Grid.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="立即播放" Tag="{Binding}" Click="PlayTrack_Click" />
+                  <MenuItem Header="添加到播放队列" Tag="{Binding}" Click="AddTrackToQueue_Click" />
+                  <MenuItem Header="下一首播放" Tag="{Binding}" Click="PlayTrackNext_Click" />
+                  <MenuItem Header="取消收藏" Tag="{Binding}" Click="Favorite_Click" />
+                </ContextMenu>
+              </Grid.ContextMenu>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="56" />
+                <ColumnDefinition Width="1.6*" />
+                <ColumnDefinition Width="1.1*" />
+                <ColumnDefinition Width="1.1*" />
+                <ColumnDefinition Width="64" />
+                <ColumnDefinition Width="38" />
+              </Grid.ColumnDefinitions>
+              <Border Width="48" Height="48" CornerRadius="7" Background="{StaticResource PrismSurfaceStrongBrush}">
+                <media:StableCoverImage SourcePath="{Binding CoverPath}" Stretch="UniformToFill" />
+              </Border>
+              <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="{StaticResource PrismTextPrimaryBrush}" />
+              <TextBlock Grid.Column="2" Text="{Binding Artist}" Classes="caption" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="3" Text="{Binding Album}" Classes="caption" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="4" Text="{Binding Duration}" Classes="caption" HorizontalAlignment="Right" VerticalAlignment="Center" />
+              <Button
+                  Grid.Column="5"
+                  Width="38"
+                  Height="38"
+                  Padding="0"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  Command="{Binding $parent[ListBox].DataContext.ToggleFavoriteCommand}"
+                  CommandParameter="{Binding}">
+                <TextBlock Text="&#xEB52;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Button>
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <StackPanel
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+          Spacing="8"
+          IsVisible="{Binding IsEmpty}">
+        <TextBlock
+            Text="&#xEB51;"
+            FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+            FontSize="34"
+            Foreground="{StaticResource PrismTextSecondaryBrush}"
+            HorizontalAlignment="Center" />
+        <TextBlock Text="没有匹配的收藏歌曲" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{StaticResource PrismTextPrimaryBrush}" />
+        <TextBlock Text="收藏歌曲后会显示在这里" Classes="caption" HorizontalAlignment="Center" />
+      </StackPanel>
+    </Grid>
+  </Grid>
+</UserControl>

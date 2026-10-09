@@ -31,6 +31,11 @@
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Foreground" Value="{StaticResource PrismTextSecondaryBrush}" />
     </Style>
+    <Style x:Key="PrismPageTitleTextStyle" Selector="TextBlock.pageTitle">
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource PrismTextPrimaryBrush}" />
+    </Style>
     <Style x:Key="PrismSectionTitleTextStyle" Selector="TextBlock.sectionTitle">
         <Setter Property="FontSize" Value="18" />
         <Setter Property="FontWeight" Value="SemiBold" />

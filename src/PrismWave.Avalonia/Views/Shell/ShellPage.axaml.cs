@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using FluentAvalonia.UI.Controls;
+using PrismWave.Avalonia.Infrastructure;
 using PrismWave.Avalonia.Views.Placeholders;
 using PrismWave_WinUI.Infrastructure;
 using PrismWave_WinUI.Infrastructure.Navigation;
@@ -61,6 +62,13 @@ public partial class ShellPage : UserControl
         SyncSelection(Shell.SelectedRoute);
         ShowRoute(Shell.SelectedRoute);
         StartupLog.Write($"[Avalonia] shell initial route: {Shell.SelectedRoute}");
+        ApplyLaunchGoto();
+    }
+
+    /// <summary>测试钩子：dotnet run -- --goto Library 直达指定路由。</summary>
+    private void ApplyLaunchGoto()
+    {
+        DevLaunch.Apply(Shell);
     }
 
     private void ShellPage_Unloaded(object? sender, RoutedEventArgs e)

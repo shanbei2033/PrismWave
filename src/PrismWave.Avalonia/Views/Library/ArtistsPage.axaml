@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PrismWave.Avalonia.Views.Library.ArtistsPage">
+  <Grid Margin="{StaticResource PrismPagePadding}" RowSpacing="14">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <TextBlock Text="艺术家" Classes="pageTitle" />
+    <TextBox
+        Grid.Row="1"
+        Watermark="搜索艺术家"
+        Text="{Binding SearchQuery, Mode=TwoWay}" />
+
+    <Grid Grid.Row="2">
+      <ListBox
+          x:Name="ArtistsList"
+          ItemsSource="{Binding FilteredArtists}"
+          SelectionMode="Single"
+          SelectionChanged="Artists_SelectionChanged"
+          Background="Transparent">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <Grid Margin="12,10" ColumnSpacing="12" MinHeight="38">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="32" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="{StaticResource PrismTextPrimaryBrush}" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                <TextBlock Text="{Binding TrackCount}" Classes="caption" />
+                <TextBlock Text="首歌曲" Classes="caption" />
+              </StackPanel>
+              <TextBlock
+                  Grid.Column="2"
+                  Text="&#xE76C;"
+                  FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                  FontSize="13"
+                  Foreground="{StaticResource PrismTextSecondaryBrush}"
+                  VerticalAlignment="Center" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <StackPanel
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+          Spacing="8"
+          IsVisible="{Binding IsEmpty}">
+        <TextBlock
+            Text="&#xE77B;"
+            FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+            FontSize="34"
+            Foreground="{StaticResource PrismTextSecondaryBrush}"
+            HorizontalAlignment="Center" />
+        <TextBlock Text="没有匹配的艺术家" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{StaticResource PrismTextPrimaryBrush}" />
+      </StackPanel>
+    </Grid>
+  </Grid>
+</UserControl>

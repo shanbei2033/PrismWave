@@ -1,0 +1,104 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PrismWave.Avalonia.Views.Library.ArtistDetailPage">
+  <Grid Margin="{StaticResource PrismPagePadding}" RowSpacing="14">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <Grid ColumnSpacing="14">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <Button Click="Back_Click">
+        <TextBlock Text="&#xE72B;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="18" />
+      </Button>
+      <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+        <TextBlock Text="{Binding SelectedArtist.Name}" Classes="pageTitle" TextTrimming="CharacterEllipsis" />
+        <TextBlock Text="{Binding SelectedArtistMetadata}" Classes="caption" />
+      </StackPanel>
+      <Button
+          Grid.Column="2"
+          Command="{Binding PlaySelectedCommand}"
+          Background="{StaticResource PrismAccentBrush}"
+          VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <TextBlock Text="&#xE768;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" />
+          <TextBlock Text="播放全部" />
+        </StackPanel>
+      </Button>
+    </Grid>
+
+    <TextBlock Grid.Row="1" Text="歌曲" Classes="sectionTitle" Margin="4,8,0,0" />
+
+    <Grid Grid.Row="2" Margin="14,4" ColumnSpacing="12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="42" />
+        <ColumnDefinition Width="1.7*" />
+        <ColumnDefinition Width="1.1*" />
+        <ColumnDefinition Width="64" />
+        <ColumnDefinition Width="38" />
+      </Grid.ColumnDefinitions>
+      <TextBlock Grid.Column="1" Text="歌曲" Classes="caption" />
+      <TextBlock Grid.Column="2" Text="专辑" Classes="caption" />
+      <TextBlock Grid.Column="3" Text="时长" Classes="caption" HorizontalAlignment="Right" />
+    </Grid>
+
+    <ListBox
+        x:Name="ArtistTracksList"
+        Grid.Row="3"
+        ItemsSource="{Binding #PageRoot.IndexedTracks}"
+        SelectionMode="Single"
+        Background="Transparent">
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <Grid
+              Margin="14,7"
+              ColumnSpacing="12"
+              MinHeight="44"
+              Tag="{Binding Track}"
+              DoubleTapped="TrackRow_DoubleTapped">
+            <Grid.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="立即播放" Tag="{Binding Track}" Click="PlayTrack_Click" />
+                <MenuItem Header="添加到播放队列" Tag="{Binding Track}" Click="AddTrackToQueue_Click" />
+                <MenuItem Header="下一首播放" Tag="{Binding Track}" Click="PlayTrackNext_Click" />
+                <MenuItem Header="收藏" Tag="{Binding Track}" Click="FavoriteTrack_Click" />
+                <MenuItem Header="查看专辑" Tag="{Binding Track}" Click="ViewTrackAlbum_Click" />
+              </ContextMenu>
+            </Grid.ContextMenu>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="42" />
+              <ColumnDefinition Width="1.7*" />
+              <ColumnDefinition Width="1.1*" />
+              <ColumnDefinition Width="64" />
+              <ColumnDefinition Width="38" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding IndexLabel}" Classes="caption" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Binding Track.Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="{StaticResource PrismTextPrimaryBrush}" />
+            <TextBlock Grid.Column="2" Text="{Binding Track.Album}" Classes="caption" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="3" Text="{Binding Track.Duration}" Classes="caption" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            <Button
+                Grid.Column="4"
+                Width="38"
+                Height="38"
+                Padding="0"
+                Background="Transparent"
+                BorderThickness="0"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Command="{Binding $parent[ListBox].DataContext.ToggleFavoriteCommand}"
+                CommandParameter="{Binding Track}">
+              <TextBlock Text="{Binding Track.FavoriteGlyph}" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Button>
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+  </Grid>
+</UserControl>

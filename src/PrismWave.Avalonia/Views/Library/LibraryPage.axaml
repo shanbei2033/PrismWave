@@ -1,0 +1,155 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:media="using:PrismWave.Avalonia.Controls.Media"
+             x:Class="PrismWave.Avalonia.Views.Library.LibraryPage">
+  <Grid Margin="{StaticResource PrismPagePadding}" RowSpacing="14">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <Grid ColumnSpacing="16">
+      <StackPanel Spacing="3">
+        <TextBlock Text="Local Music" Classes="pageTitle" />
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <TextBlock Text="{Binding TrackCount}" Classes="caption" />
+          <TextBlock Text="tracks" Classes="caption" />
+          <TextBlock Text="·" Classes="caption" />
+          <TextBlock Text="{Binding FolderCount}" Classes="caption" />
+          <TextBlock Text="folders" Classes="caption" />
+        </StackPanel>
+      </StackPanel>
+      <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
+        <ProgressBar Width="18" Height="18" IsIndeterminate="True" IsVisible="{Binding LibraryFolders.IsScanning}" />
+        <Button Click="OpenFolderManager_Click">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <TextBlock Text="&#xE8B7;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" />
+            <TextBlock Text="Folders" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Command="{Binding LibraryFolders.AddFolderCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <TextBlock Text="&#xE710;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" />
+            <TextBlock Text="Add folder" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Command="{Binding LibraryFolders.RescanCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <TextBlock Text="&#xE895;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" />
+            <TextBlock Text="Rescan" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Command="{Binding PlayAllCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <TextBlock Text="&#xE768;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" />
+            <TextBlock Text="Play all" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+    </Grid>
+
+    <TextBox
+        Grid.Row="1"
+        Watermark="Search tracks, artists, or albums"
+        Text="{Binding SearchQuery, Mode=TwoWay}" />
+
+    <Border
+        Grid.Row="2"
+        Background="#33FF6B7A"
+        BorderBrush="#66FF6B7A"
+        BorderThickness="1"
+        CornerRadius="6"
+        Padding="12,8"
+        IsVisible="{Binding LibraryFolders.HasError}">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Text="&#xE783;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource PrismDangerBrush}" VerticalAlignment="Center" />
+        <StackPanel>
+          <TextBlock Text="Library scan failed" FontWeight="SemiBold" Foreground="{StaticResource PrismTextPrimaryBrush}" />
+          <TextBlock Text="{Binding LibraryFolders.Error}" Classes="caption" TextWrapping="Wrap" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <Grid Grid.Row="3" Margin="8,4" ColumnSpacing="12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="44" />
+        <ColumnDefinition Width="2*" />
+        <ColumnDefinition Width="1.25*" />
+        <ColumnDefinition Width="1.15*" />
+        <ColumnDefinition Width="64" />
+        <ColumnDefinition Width="44" />
+      </Grid.ColumnDefinitions>
+      <TextBlock Grid.Column="1" Text="Title" Classes="caption" />
+      <TextBlock Grid.Column="2" Text="Artist" Classes="caption" />
+      <TextBlock Grid.Column="3" Text="Album" Classes="caption" />
+      <TextBlock Grid.Column="4" Text="Time" Classes="caption" HorizontalAlignment="Right" />
+    </Grid>
+
+    <Grid Grid.Row="4">
+      <ListBox
+          x:Name="TracksList"
+          ItemsSource="{Binding VisibleTracks}"
+          SelectionMode="Single"
+          SelectionChanged="Tracks_SelectionChanged"
+          Background="Transparent">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <Grid Margin="8,6" ColumnSpacing="12" MinHeight="52">
+              <Grid.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="打开文件位置" Tag="{Binding}" Click="OpenLocation_Click" />
+                  <MenuItem Header="从曲库移除..." Tag="{Binding}" Click="RemoveTrack_Click" />
+                </ContextMenu>
+              </Grid.ContextMenu>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="44" />
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="1.25*" />
+                <ColumnDefinition Width="1.15*" />
+                <ColumnDefinition Width="64" />
+                <ColumnDefinition Width="44" />
+              </Grid.ColumnDefinitions>
+              <Border Width="44" Height="44" CornerRadius="6" Background="{StaticResource PrismSurfaceStrongBrush}">
+                <media:StableCoverImage SourcePath="{Binding CoverPath}" Stretch="UniformToFill" />
+              </Border>
+              <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="{StaticResource PrismTextPrimaryBrush}" />
+              <TextBlock Grid.Column="2" Text="{Binding Artist}" TextTrimming="CharacterEllipsis" Classes="caption" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="3" Text="{Binding Album}" TextTrimming="CharacterEllipsis" Classes="caption" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="4" Text="{Binding Duration}" Classes="caption" HorizontalAlignment="Right" VerticalAlignment="Center" />
+              <Button
+                  Grid.Column="5"
+                  Width="40"
+                  Height="40"
+                  Padding="0"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  Command="{Binding $parent[ListBox].DataContext.ToggleFavoriteCommand}"
+                  CommandParameter="{Binding}">
+                <TextBlock Text="{Binding FavoriteGlyph}" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Button>
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <StackPanel
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+          Spacing="8"
+          IsVisible="{Binding IsEmpty}">
+        <TextBlock
+            Text="&#xE8D6;"
+            FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+            FontSize="34"
+            Foreground="{StaticResource PrismTextSecondaryBrush}"
+            HorizontalAlignment="Center" />
+        <TextBlock Text="No music found" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{StaticResource PrismTextPrimaryBrush}" />
+        <TextBlock Text="Add a music folder or clear the current search." Classes="caption" HorizontalAlignment="Center" />
+        <Button Command="{Binding LibraryFolders.AddFolderCommand}" Content="Add folder" HorizontalAlignment="Center" />
+      </StackPanel>
+    </Grid>
+  </Grid>
+</UserControl>

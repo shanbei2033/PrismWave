@@ -1,0 +1,125 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:media="using:PrismWave.Avalonia.Controls.Media"
+             x:Class="PrismWave.Avalonia.Views.Library.LocalAlbumDetailPage">
+  <ScrollViewer Background="{StaticResource PrismBackgroundBrush}">
+    <StackPanel>
+      <!-- Hero：封面全幅 + 渐变压暗 -->
+      <Grid Height="430" Background="{StaticResource PrismSurfaceBrush}">
+        <media:StableCoverImage SourcePath="{Binding SelectedAlbum.CoverUrl}" Stretch="UniformToFill" />
+        <Rectangle IsHitTestVisible="False">
+          <Rectangle.Fill>
+            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+              <GradientStop Color="#B8000000" Offset="0" />
+              <GradientStop Color="#52000000" Offset="0.46" />
+              <GradientStop Color="#08000000" Offset="1" />
+            </LinearGradientBrush>
+          </Rectangle.Fill>
+        </Rectangle>
+        <Rectangle Height="160" VerticalAlignment="Bottom" IsHitTestVisible="False">
+          <Rectangle.Fill>
+            <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+              <GradientStop Color="#00292A2D" Offset="0" />
+              <GradientStop Color="#5C292A2D" Offset="0.34" />
+              <GradientStop Color="#D4292A2D" Offset="0.72" />
+              <GradientStop Color="#FF292A2D" Offset="1" />
+            </LinearGradientBrush>
+          </Rectangle.Fill>
+        </Rectangle>
+
+        <Button
+            Margin="24,22,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Click="Back_Click">
+          <TextBlock Text="&#xE72B;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="18" />
+        </Button>
+
+        <Grid Margin="28,0,28,34" VerticalAlignment="Bottom" ColumnSpacing="20">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel Spacing="7" MaxWidth="760" HorizontalAlignment="Left">
+            <TextBlock
+                Text="{Binding SelectedAlbum.Title}"
+                FontSize="36"
+                FontWeight="SemiBold"
+                TextTrimming="CharacterEllipsis" />
+            <TextBlock
+                Text="{Binding SelectedAlbum.Artist}"
+                FontSize="17"
+                Foreground="#E8FFFFFF"
+                TextTrimming="CharacterEllipsis" />
+            <TextBlock
+                Text="{Binding SelectedAlbumMetadata}"
+                Foreground="#B8FFFFFF"
+                TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+          <Button
+              Grid.Column="1"
+              Command="{Binding PlaySelectedCommand}"
+              Background="{StaticResource PrismAccentBrush}"
+              VerticalAlignment="Bottom">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <TextBlock Text="&#xE768;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center" />
+              <TextBlock Text="播放全部" />
+            </StackPanel>
+          </Button>
+        </Grid>
+      </Grid>
+
+      <!-- 曲目列表 -->
+      <ListBox
+          x:Name="AlbumTracksList"
+          SelectionMode="Single"
+          Background="Transparent">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <Grid
+                Margin="18,7"
+                ColumnSpacing="12"
+                MinHeight="44"
+                Tag="{Binding Track}"
+                DoubleTapped="TrackRow_DoubleTapped">
+              <Grid.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="立即播放" Tag="{Binding Track}" Click="PlayTrack_Click" />
+                  <MenuItem Header="添加到播放队列" Tag="{Binding Track}" Click="AddTrackToQueue_Click" />
+                  <MenuItem Header="下一首播放" Tag="{Binding Track}" Click="PlayTrackNext_Click" />
+                  <MenuItem Header="收藏" Tag="{Binding Track}" Click="FavoriteTrack_Click" />
+                  <MenuItem Header="查看艺术家" Tag="{Binding Track}" Click="ViewTrackArtist_Click" />
+                </ContextMenu>
+              </Grid.ContextMenu>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="42" />
+                <ColumnDefinition Width="1.7*" />
+                <ColumnDefinition Width="1.1*" />
+                <ColumnDefinition Width="64" />
+                <ColumnDefinition Width="44" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding IndexLabel}" Classes="caption" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="{Binding Track.Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="{StaticResource PrismTextPrimaryBrush}" />
+              <TextBlock Grid.Column="2" Text="{Binding Track.Artist}" Classes="caption" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="3" Text="{Binding Track.Duration}" Classes="caption" HorizontalAlignment="Right" VerticalAlignment="Center" />
+              <Button
+                  Grid.Column="4"
+                  Width="38"
+                  Height="38"
+                  Padding="0"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  HorizontalContentAlignment="Center"
+                  VerticalContentAlignment="Center"
+                  Command="{Binding $parent[ListBox].DataContext.ToggleFavoriteCommand}"
+                  CommandParameter="{Binding Track}">
+                <TextBlock Text="{Binding Track.FavoriteGlyph}" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Button>
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <Border Height="36" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

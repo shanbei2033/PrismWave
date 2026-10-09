@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:media="using:PrismWave.Avalonia.Controls.Media"
+             x:Class="PrismWave.Avalonia.Views.Library.AlbumsPage">
+  <Grid Margin="{StaticResource PrismPagePadding}" RowSpacing="14">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <TextBlock Text="专辑" Classes="pageTitle" />
+    <TextBox
+        Grid.Row="1"
+        Watermark="搜索专辑 / 艺术家 / 歌名"
+        Text="{Binding SearchQuery, Mode=TwoWay}" />
+
+    <Grid Grid.Row="2">
+      <ListBox
+          x:Name="AlbumGrid"
+          ItemsSource="{Binding FilteredAlbums}"
+          SelectionMode="Single"
+          SelectionChanged="Albums_SelectionChanged"
+          Background="Transparent">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel Orientation="Horizontal" />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <Grid Width="168" Margin="0,0,14,18" RowSpacing="7">
+              <Grid.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="播放全部"
+                            Command="{Binding $parent[ListBox].DataContext.PlayAlbumCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="添加到播放队列"
+                            Command="{Binding $parent[ListBox].DataContext.AddAlbumToQueueCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="收藏专辑歌曲"
+                            Command="{Binding $parent[ListBox].DataContext.ToggleAlbumFavoriteCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="查看艺术家" Tag="{Binding}" Click="ViewAlbumArtist_Click" />
+                </ContextMenu>
+              </Grid.ContextMenu>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+              <Border CornerRadius="9" Background="{StaticResource PrismSurfaceStrongBrush}" Height="158" ClipToBounds="True">
+                <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" />
+              </Border>
+              <TextBlock
+                  Grid.Row="1"
+                  Text="{Binding Title}"
+                  FontWeight="SemiBold"
+                  TextTrimming="CharacterEllipsis"
+                  MaxLines="1"
+                  Foreground="{StaticResource PrismTextPrimaryBrush}" />
+              <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="{Binding TrackCount}" Classes="caption" />
+                <TextBlock Text="首 ·" Classes="caption" />
+                <TextBlock Text="{Binding Artist}" TextTrimming="CharacterEllipsis" Classes="caption" />
+              </StackPanel>
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <StackPanel
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+          Spacing="8"
+          IsVisible="{Binding IsEmpty}">
+        <TextBlock
+            Text="&#xE93C;"
+            FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+            FontSize="34"
+            Foreground="{StaticResource PrismTextSecondaryBrush}"
+            HorizontalAlignment="Center" />
+        <TextBlock Text="没有匹配的专辑" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{StaticResource PrismTextPrimaryBrush}" />
+        <TextBlock Text="添加音乐或调整搜索关键词" Classes="caption" HorizontalAlignment="Center" />
+      </StackPanel>
+    </Grid>
+  </Grid>
+</UserControl>

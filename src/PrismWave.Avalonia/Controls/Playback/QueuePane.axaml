@@ -1,0 +1,189 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:media="using:PrismWave.Avalonia.Controls.Media"
+             x:Class="PrismWave.Avalonia.Controls.Playback.QueuePane">
+  <Border
+      x:Name="QueueSurface"
+      Margin="0,12,12,12"
+      Padding="16,14,12,12"
+      Background="{StaticResource PrismSurfaceElevatedBrush}"
+      BorderBrush="{StaticResource PrismCardBorderBrush}"
+      BorderThickness="1"
+      CornerRadius="16"
+      BoxShadow="0 8 24 0 #66000000">
+    <Grid RowSpacing="10">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+
+      <Grid MinHeight="52" ColumnSpacing="8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel VerticalAlignment="Center" Spacing="2">
+          <TextBlock Text="播放队列" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource PrismTextPrimaryBrush}" />
+          <TextBlock Text="{Binding QueueCountLabel}" FontSize="12" Foreground="{StaticResource PrismTextSecondaryBrush}" />
+        </StackPanel>
+        <Button
+            x:Name="QueueCloseButton"
+            Grid.Column="1"
+            Width="44"
+            Height="44"
+            Padding="0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Center"
+            Click="Close_Click">
+          <TextBlock
+              Text="&#xE711;"
+              FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+              FontSize="14"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center" />
+        </Button>
+      </Grid>
+
+      <Grid Grid.Row="1">
+        <ListBox
+            x:Name="QueueList"
+            ItemsSource="{Binding QueueItems}"
+            SelectionMode="Single"
+            SelectionChanged="QueueList_SelectionChanged"
+            Background="Transparent">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <Grid MinHeight="64" Tag="{Binding}">
+                <Grid.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem
+                        Header="从播放队列移除"
+                        Command="{Binding $parent[ListBox].DataContext.RemoveFromQueueCommand}"
+                        CommandParameter="{Binding Track}" />
+                  </ContextMenu>
+                </Grid.ContextMenu>
+                <Border
+                    x:Name="CurrentItemIndicator"
+                    Margin="2"
+                    Background="{StaticResource PrismAccentDeepBrush}"
+                    CornerRadius="8"
+                    Opacity="0.32"
+                    IsVisible="{Binding IsCurrent}" />
+                <Grid Margin="8,6" ColumnSpacing="9">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="24" />
+                    <ColumnDefinition Width="48" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+
+                  <Panel VerticalAlignment="Center">
+                    <TextBlock
+                        Text="{Binding PositionLabel}"
+                        HorizontalAlignment="Center"
+                        Foreground="{StaticResource PrismTextSecondaryBrush}"
+                        FontSize="12"
+                        IsVisible="{Binding !IsCurrent}" />
+                    <TextBlock
+                        Text="&#xE768;"
+                        FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                        FontSize="12"
+                        Foreground="{StaticResource PrismAccentSoftBrush}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        IsVisible="{Binding IsCurrent}" />
+                  </Panel>
+
+                  <Border
+                      Grid.Column="1"
+                      Width="48"
+                      Height="48"
+                      Background="{StaticResource PrismSurfaceStrongBrush}"
+                      CornerRadius="7">
+                    <Panel>
+                      <TextBlock
+                          Text="&#xE8D6;"
+                          FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                          FontSize="16"
+                          Foreground="{StaticResource PrismTextSecondaryBrush}"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center" />
+                      <media:StableCoverImage
+                          Width="48"
+                          Height="48"
+                          SourcePath="{Binding CoverPath}"
+                          Stretch="UniformToFill" />
+                    </Panel>
+                  </Border>
+
+                  <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2">
+                    <TextBlock
+                        Text="{Binding Title}"
+                        FontWeight="SemiBold"
+                        MaxLines="1"
+                        TextTrimming="CharacterEllipsis"
+                        Foreground="{StaticResource PrismTextPrimaryBrush}" />
+                    <TextBlock
+                        Text="{Binding Artist}"
+                        MaxLines="1"
+                        FontSize="12"
+                        TextTrimming="CharacterEllipsis"
+                        Foreground="{StaticResource PrismTextSecondaryBrush}" />
+                  </StackPanel>
+
+                </Grid>
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="8"
+            IsVisible="{Binding !HasQueue}">
+          <TextBlock
+              Text="&#xE8FD;"
+              FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+              FontSize="30"
+              Foreground="{StaticResource PrismTextSecondaryBrush}"
+              HorizontalAlignment="Center" />
+          <TextBlock Text="播放队列为空" FontSize="12" Foreground="{StaticResource PrismTextSecondaryBrush}" HorizontalAlignment="Center" />
+        </StackPanel>
+      </Grid>
+
+      <Grid Grid.Row="2" MinHeight="46" ColumnSpacing="8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <TextBlock
+              Text="{Binding ModeGlyph}"
+              FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+              FontSize="14"
+              Foreground="{StaticResource PrismTextSecondaryBrush}"
+              VerticalAlignment="Center" />
+          <TextBlock
+              Text="{Binding ModeLabel}"
+              FontSize="12"
+              Foreground="{StaticResource PrismTextSecondaryBrush}"
+              VerticalAlignment="Center" />
+        </StackPanel>
+        <Button
+            Grid.Column="1"
+            Width="44"
+            Height="44"
+            Padding="0"
+            Command="{Binding ClearQueueCommand}">
+          <TextBlock
+              Text="&#xE74D;"
+              FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+              FontSize="14"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center" />
+        </Button>
+      </Grid>
+    </Grid>
+  </Border>
+</UserControl>

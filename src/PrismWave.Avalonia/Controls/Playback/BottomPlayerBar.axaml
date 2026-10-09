@@ -1,0 +1,279 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:media="using:PrismWave.Avalonia.Controls.Media"
+             x:Class="PrismWave.Avalonia.Controls.Playback.BottomPlayerBar"
+             x:Name="PlayerRoot"
+             SizeChanged="BottomPlayerBar_SizeChanged">
+
+  <Border
+      Height="{StaticResource PrismPlayerBarHeight}"
+      Padding="20,11"
+      Background="{StaticResource PrismGlassBrush}"
+      BorderBrush="{StaticResource PrismCardBorderBrush}"
+      BorderThickness="1"
+      CornerRadius="18">
+    <Grid x:Name="PlayerLayout" ColumnSpacing="18">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+
+      <!-- 左：封面 + 标题/副标题/状态，点击进入 FullPlay -->
+      <Button
+          x:Name="TrackRegion"
+          MinWidth="0"
+          Padding="0"
+          Background="Transparent"
+          BorderThickness="0"
+          HorizontalContentAlignment="Stretch"
+          VerticalContentAlignment="Stretch"
+          Command="{Binding $parent[UserControl].FullPlayCommand}">
+        <Grid x:Name="TrackLayout" ColumnSpacing="12">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="58" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Border
+              x:Name="CoverButton"
+              Width="58"
+              Height="58"
+              Background="{StaticResource PrismAccentDeepBrush}"
+              CornerRadius="9">
+            <Panel>
+              <TextBlock
+                  Text="&#xE8D6;"
+                  FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                  FontSize="22"
+                  Foreground="{StaticResource PrismTextSecondaryBrush}"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center" />
+              <media:StableCoverImage SourcePath="{Binding CurrentCoverPath}" Stretch="UniformToFill" />
+            </Panel>
+          </Border>
+
+          <StackPanel
+              x:Name="TrackTextStack"
+              Grid.Column="1"
+              MinWidth="0"
+              VerticalAlignment="Center"
+              Spacing="3">
+            <TextBlock
+                Text="{Binding CurrentTitle}"
+                FontSize="15"
+                FontWeight="SemiBold"
+                Foreground="{StaticResource PrismTextPrimaryBrush}"
+                TextTrimming="CharacterEllipsis"
+                TextWrapping="NoWrap" />
+            <TextBlock
+                x:Name="SubtitleText"
+                Text="{Binding CurrentSubtitle}"
+                FontSize="13"
+                Foreground="{StaticResource PrismTextSecondaryBrush}"
+                TextTrimming="CharacterEllipsis"
+                TextWrapping="NoWrap" />
+            <Panel x:Name="ErrorText">
+              <TextBlock
+                  Text="{Binding StatusLabel}"
+                  FontSize="12"
+                  Foreground="{StaticResource PrismTextSecondaryBrush}"
+                  TextTrimming="CharacterEllipsis"
+                  TextWrapping="NoWrap"
+                  IsVisible="{Binding IsLoading}" />
+              <TextBlock
+                  Text="{Binding Error}"
+                  FontSize="12"
+                  Foreground="{StaticResource PrismDangerBrush}"
+                  TextTrimming="CharacterEllipsis"
+                  TextWrapping="NoWrap"
+                  IsVisible="{Binding HasError}" />
+            </Panel>
+          </StackPanel>
+        </Grid>
+      </Button>
+
+      <!-- 中：传输控制 + 进度条 -->
+      <Grid
+          x:Name="CenterRegion"
+          Grid.Column="1"
+          MinWidth="0"
+          VerticalAlignment="Center">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="10" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel
+            x:Name="TransportControls"
+            Orientation="Horizontal"
+            HorizontalAlignment="Center"
+            Spacing="8">
+          <Button
+              x:Name="FavoriteButton"
+              Width="36"
+              Height="36"
+              Padding="0"
+              Background="Transparent"
+              BorderThickness="0"
+              CornerRadius="18"
+              Command="{Binding ToggleCurrentFavoriteCommand}"
+              IsEnabled="{Binding CanFavoriteCurrentTrack}">
+            <TextBlock
+                Text="{Binding CurrentFavoriteGlyph}"
+                FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                FontSize="16"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center" />
+          </Button>
+          <Button
+              x:Name="ModeButton"
+              Width="36"
+              Height="36"
+              Padding="0"
+              Background="Transparent"
+              BorderThickness="0"
+              CornerRadius="18"
+              Command="{Binding CycleModeCommand}">
+            <TextBlock
+                Text="{Binding ModeGlyph}"
+                FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                FontSize="15"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center" />
+          </Button>
+          <Button
+              x:Name="PreviousButton"
+              Width="40"
+              Height="40"
+              Padding="0"
+              Background="Transparent"
+              BorderThickness="0"
+              CornerRadius="18"
+              Command="{Binding PreviousCommand}">
+            <TextBlock
+                Text="&#xE892;"
+                FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                FontSize="16"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center" />
+          </Button>
+          <Button
+              x:Name="PlayPauseButton"
+              Width="52"
+              Height="52"
+              Padding="0"
+              Command="{Binding TogglePlayPauseCommand}"
+              Background="{StaticResource PrismAccentBrush}"
+              BorderThickness="0"
+              CornerRadius="26">
+            <Panel>
+              <TextBlock
+                  Text="{Binding ToggleGlyph}"
+                  FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                  FontSize="20"
+                  Foreground="White"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding !IsLoading}" />
+              <ProgressBar
+                  Width="22"
+                  Height="22"
+                  IsIndeterminate="True"
+                  IsVisible="{Binding IsLoading}" />
+            </Panel>
+          </Button>
+          <Button
+              x:Name="NextButton"
+              Width="40"
+              Height="40"
+              Padding="0"
+              Background="Transparent"
+              BorderThickness="0"
+              CornerRadius="18"
+              Command="{Binding NextCommand}">
+            <TextBlock
+                Text="&#xE893;"
+                FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                FontSize="16"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center" />
+          </Button>
+          <Button
+              x:Name="QueueButton"
+              Width="36"
+              Height="36"
+              Padding="0"
+              Background="Transparent"
+              BorderThickness="0"
+              CornerRadius="18"
+              Command="{Binding $parent[UserControl].QueueCommand}">
+            <TextBlock
+                Text="&#xE8FD;"
+                FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                FontSize="16"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center" />
+          </Button>
+        </StackPanel>
+
+        <Grid Grid.Row="2" ColumnSpacing="10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <TextBlock
+              MinWidth="42"
+              Text="{Binding PositionLabel}"
+              FontSize="12"
+              Foreground="{StaticResource PrismTextSecondaryBrush}"
+              HorizontalAlignment="Right"
+              VerticalAlignment="Center"
+              TextAlignment="Right" />
+          <Slider
+              x:Name="SeekSlider"
+              Grid.Column="1"
+              MinWidth="56"
+              Minimum="0"
+              Maximum="{Binding DurationSeconds}"
+              Value="{Binding PositionSeconds, Mode=OneWay}"
+              PointerCaptureLost="SeekSlider_PointerCaptureLost"
+              KeyUp="SeekSlider_KeyUp" />
+          <TextBlock
+              Grid.Column="2"
+              MinWidth="42"
+              Text="{Binding DurationLabel}"
+              FontSize="12"
+              Foreground="{StaticResource PrismTextSecondaryBrush}"
+              VerticalAlignment="Center" />
+        </Grid>
+      </Grid>
+
+      <!-- 右：音量 -->
+      <StackPanel
+          x:Name="VolumeRegion"
+          Grid.Column="2"
+          Orientation="Horizontal"
+          Spacing="8"
+          HorizontalAlignment="Right"
+          VerticalAlignment="Center">
+        <TextBlock
+            Text="&#xE995;"
+            FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+            FontSize="16"
+            Foreground="{StaticResource PrismTextSecondaryBrush}"
+            VerticalAlignment="Center" />
+        <Slider
+            x:Name="VolumeSlider"
+            Width="130"
+            Minimum="0"
+            Maximum="1"
+            SmallChange="0.01"
+            Value="{Binding Volume, Mode=OneWay}"
+            ValueChanged="VolumeSlider_ValueChanged" />
+      </StackPanel>
+
+    </Grid>
+  </Border>
+</UserControl>

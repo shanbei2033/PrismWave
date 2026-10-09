@@ -1,7 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:uic="using:FluentAvalonia.UI.Controls"
-             x:Class="PrismWave.Avalonia.Views.Shell.ShellPage">
+             xmlns:playback="using:PrismWave.Avalonia.Controls.Playback"
+             x:Class="PrismWave.Avalonia.Views.Shell.ShellPage"
+             x:Name="ShellRoot">
   <Grid Background="{StaticResource PrismBackgroundBrush}">
     <Grid.RowDefinitions>
       <RowDefinition Height="*" />
@@ -62,17 +64,31 @@
       </Panel>
     </uic:NavigationView>
 
-    <!-- 底部播放栏（Phase 2 实装 BottomPlayerBar，先占位保持布局结构） -->
-    <Border
-        x:Name="BottomPlayerSlot"
+    <!-- 底部播放栏 -->
+    <playback:BottomPlayerBar
+        x:Name="ShellBottomPlayerBar"
         Grid.Row="1"
         Margin="8,16,8,8"
-        Background="{StaticResource PrismSurfaceBrush}"
-        BorderBrush="{StaticResource PrismCardBorderBrush}"
-        BorderThickness="1"
-        CornerRadius="8"
-        Padding="16,12">
-      <TextBlock Text="正在播放" Foreground="{StaticResource PrismTextSecondaryBrush}" />
-    </Border>
+        DataContext="{Binding Playback}"
+        FullPlayCommand="{Binding #ShellRoot.DataContext.OpenFullPlayCommand}"
+        QueueCommand="{Binding #ShellRoot.DataContext.ToggleQueuePaneCommand}" />
+
+    <!-- 播放队列覆盖层 -->
+    <Grid
+        x:Name="QueueOverlay"
+        Grid.Row="0"
+        Margin="0,42,0,0"
+        IsVisible="{Binding IsQueuePaneOpen}"
+        IsHitTestVisible="{Binding IsQueuePaneOpen}">
+      <Border
+          x:Name="QueueBackdrop"
+          Background="#52000000"
+          PointerPressed="QueueBackdrop_PointerPressed" />
+      <playback:QueuePane
+          x:Name="PlaybackQueuePane"
+          Width="344"
+          HorizontalAlignment="Right"
+          DataContext="{Binding Playback}" />
+    </Grid>
   </Grid>
 </UserControl>

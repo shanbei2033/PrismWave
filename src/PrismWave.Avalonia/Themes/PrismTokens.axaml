@@ -7,18 +7,35 @@
     <SolidColorBrush x:Key="PrismSurfaceBrush" Color="#FF303134" />
     <SolidColorBrush x:Key="PrismSurfaceElevatedBrush" Color="#FF38393D" />
     <SolidColorBrush x:Key="PrismSurfaceStrongBrush" Color="#FF45464A" />
+    <SolidColorBrush x:Key="PrismAccentBrush" Color="#FF687BC2" />
+    <SolidColorBrush x:Key="PrismAccentSoftBrush" Color="#FF8D9BD0" />
+    <SolidColorBrush x:Key="PrismAccentDeepBrush" Color="#FF405690" />
     <SolidColorBrush x:Key="PrismTextPrimaryBrush" Color="#FFF6F6F7" />
     <SolidColorBrush x:Key="PrismTextSecondaryBrush" Color="#FFB9BEC8" />
     <SolidColorBrush x:Key="PrismTextMutedBrush" Color="#FF7F8794" />
+    <SolidColorBrush x:Key="PrismDangerBrush" Color="#FFFF6B7A" />
+    <SolidColorBrush x:Key="PrismWarningBrush" Color="#FFFFC86B" />
     <SolidColorBrush x:Key="PrismCardBorderBrush" Color="#2BFFFFFF" />
     <SolidColorBrush x:Key="PrismCardHoverBrush" Color="#18FFFFFF" />
-    <SolidColorBrush x:Key="PrismGlassBrush" Color="#F238393D" />
-    <SolidColorBrush x:Key="PrismGlassSoftBrush" Color="#E8414246" />
+    <SolidColorBrush x:Key="PrismGlassBrush" Color="#C438393D" />
+    <SolidColorBrush x:Key="PrismGlassSoftBrush" Color="#8A414246" />
     <SolidColorBrush x:Key="PrismSelectionBrush" Color="#24FFFFFF" />
     <SolidColorBrush x:Key="PrismControlBrush" Color="#12FFFFFF" />
 
     <!-- 布局令牌 -->
     <Thickness x:Key="PrismPagePadding">24,18,24,18</Thickness>
+    <x:Double x:Key="PrismPlayerBarHeight">132</x:Double>
+
+    <!-- 文本样式 -->
+    <Style x:Key="PrismCaptionTextStyle" Selector="TextBlock.caption">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{StaticResource PrismTextSecondaryBrush}" />
+    </Style>
+    <Style x:Key="PrismSectionTitleTextStyle" Selector="TextBlock.sectionTitle">
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource PrismTextPrimaryBrush}" />
+    </Style>
 
     <!-- 动效令牌（从简：仅功能性过渡） -->
     <x:Double x:Key="MotionFast">120</x:Double>

@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -44,6 +45,12 @@ public partial class ShellPage : UserControl
         _isShellLoaded = true;
         Shell.NavigationRequested += Shell_NavigationRequested;
         Shell.PropertyChanged += Shell_PropertyChanged;
+        PlaybackQueuePane.CloseRequested += QueuePane_CloseRequested;
+
+        if (TopLevel.GetTopLevel(this) is { } topLevel)
+        {
+            topLevel.KeyDown += TopLevel_KeyDown;
+        }
 
         if (Nav.SettingsItem is NavigationViewItem settingsItem)
         {
@@ -66,6 +73,31 @@ public partial class ShellPage : UserControl
         _isShellLoaded = false;
         Shell.NavigationRequested -= Shell_NavigationRequested;
         Shell.PropertyChanged -= Shell_PropertyChanged;
+        PlaybackQueuePane.CloseRequested -= QueuePane_CloseRequested;
+
+        if (TopLevel.GetTopLevel(this) is { } topLevel)
+        {
+            topLevel.KeyDown -= TopLevel_KeyDown;
+        }
+    }
+
+    private void TopLevel_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && Shell.IsQueuePaneOpen)
+        {
+            Shell.CloseQueuePaneCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
+    private void QueuePane_CloseRequested(object? sender, EventArgs e)
+    {
+        Shell.CloseQueuePaneCommand.Execute(null);
+    }
+
+    private void QueueBackdrop_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        Shell.CloseQueuePaneCommand.Execute(null);
     }
 
     private void Nav_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)

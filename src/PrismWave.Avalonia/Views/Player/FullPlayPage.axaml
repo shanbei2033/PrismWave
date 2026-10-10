@@ -1,0 +1,194 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fa="using:FluentAvalonia.UI.Controls"
+             xmlns:lyrics="using:PrismWave.Avalonia.Controls.Lyrics"
+             xmlns:media="using:PrismWave.Avalonia.Controls.Media"
+             x:Class="PrismWave.Avalonia.Views.Player.FullPlayPage">
+  <Grid Background="{StaticResource PrismBackgroundBrush}">
+    <!-- 背景封面层 -->
+    <Panel IsHitTestVisible="False">
+      <media:StableCoverImage
+          SourcePath="{Binding CurrentCoverPath}"
+          Stretch="UniformToFill"
+          Opacity="0.34"
+          RenderTransformOrigin="0.5,0.5">
+        <media:StableCoverImage.RenderTransform>
+          <ScaleTransform ScaleX="1.12" ScaleY="1.12" />
+        </media:StableCoverImage.RenderTransform>
+      </media:StableCoverImage>
+      <Rectangle Fill="#B80A0D13" />
+    </Panel>
+
+    <Grid ColumnDefinitions="42*,58*" ColumnSpacing="64" Margin="56,58,56,34">
+      <!-- 左列：播放器 -->
+      <Grid RowDefinitions="*,Auto,Auto,Auto,Auto,*" RowSpacing="14" MaxWidth="520" HorizontalAlignment="Center">
+        <Viewbox Grid.Row="1" MaxWidth="420" MaxHeight="420" Margin="0,0,0,4" Stretch="Uniform">
+          <Border Width="420" Height="420" Background="{StaticResource PrismSurfaceStrongBrush}" CornerRadius="14">
+            <Panel Width="420" Height="420">
+              <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="88"
+                         Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <media:StableCoverImage SourcePath="{Binding CurrentCoverPath}" Stretch="UniformToFill" />
+            </Panel>
+          </Border>
+        </Viewbox>
+
+        <StackPanel Grid.Row="2" MaxWidth="500" Spacing="3">
+          <TextBlock Text="{Binding CurrentTitle}" FontSize="28" FontWeight="SemiBold"
+                     Foreground="{StaticResource PrismTextPrimaryBrush}" TextAlignment="Center"
+                     TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+          <TextBlock Text="{Binding CurrentArtist}" FontSize="15"
+                     Foreground="{StaticResource PrismTextSecondaryBrush}" TextAlignment="Center"
+                     TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+        </StackPanel>
+
+        <Grid Grid.Row="3" HorizontalAlignment="Center" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="7">
+          <Button Width="42" Height="42" Padding="0" Background="Transparent" BorderThickness="0" CornerRadius="21"
+                  Command="{Binding ToggleCurrentFavoriteCommand}" IsEnabled="{Binding CanFavoriteCurrentTrack}">
+            <TextBlock Text="{Binding CurrentFavoriteGlyph}" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Button>
+          <Button Grid.Column="1" Width="42" Height="42" Padding="0" Background="Transparent" BorderThickness="0" CornerRadius="21"
+                  Command="{Binding CycleModeCommand}">
+            <TextBlock Text="{Binding ModeGlyph}" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Button>
+          <Button Grid.Column="2" Width="42" Height="42" Padding="0" Background="Transparent" BorderThickness="0" CornerRadius="21"
+                  Command="{Binding PreviousCommand}">
+            <TextBlock Text="&#xE892;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Button>
+          <Button Grid.Column="3" Width="56" Height="56" Padding="0" Command="{Binding TogglePlayPauseCommand}"
+                  Background="{StaticResource PrismAccentBrush}" BorderThickness="0" CornerRadius="28">
+            <Panel>
+              <TextBlock Text="{Binding ToggleGlyph}" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <fa:ProgressRing Width="22" Height="22" IsActive="{Binding IsLoading}" IsVisible="{Binding IsLoading}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Panel>
+          </Button>
+          <Button Grid.Column="4" Width="42" Height="42" Padding="0" Background="Transparent" BorderThickness="0" CornerRadius="21"
+                  Command="{Binding NextCommand}">
+            <TextBlock Text="&#xE893;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Button>
+          <Button Grid.Column="5" Width="42" Height="42" Padding="0" Background="Transparent" BorderThickness="0" CornerRadius="21" x:Name="QueueButton">
+            <TextBlock Text="&#xE8FD;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <Button.Flyout>
+              <Flyout Placement="TopEdgeAlignedRight">
+                <Grid Width="340" Height="390" RowDefinitions="Auto,*" RowSpacing="12">
+                  <TextBlock Text="播放队列" Classes="sectionTitle" />
+                  <ListBox Grid.Row="1" x:Name="QueueList" ItemsSource="{Binding QueueItems}" SelectionMode="Single"
+                           ScrollViewer.VerticalScrollBarVisibility="Auto" SelectionChanged="QueueList_SelectionChanged">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate>
+                        <StackPanel Margin="4,8" Spacing="2">
+                          <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                          <TextBlock Text="{Binding Artist}" Classes="caption" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                </Grid>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+          <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <TextBlock Text="&#xE995;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center" />
+            <Slider Width="76" Minimum="0" Maximum="1"
+                    Value="{Binding Volume, Mode=OneWay}" ValueChanged="VolumeSlider_ValueChanged" />
+          </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="4" ColumnDefinitions="48,*,48" ColumnSpacing="10">
+          <TextBlock Text="{Binding PositionLabel}" Classes="caption" HorizontalAlignment="Right" VerticalAlignment="Center" />
+          <Slider x:Name="SeekSlider" Grid.Column="1" Minimum="0"
+                  Maximum="{Binding DurationSeconds, Mode=OneWay}"
+                  Value="{Binding PositionSeconds, Mode=OneWay}"
+                  PointerCaptureLost="SeekSlider_PointerCaptureLost"
+                  KeyUp="SeekSlider_KeyUp" />
+          <TextBlock Grid.Column="2" Text="{Binding DurationLabel}" Classes="caption" VerticalAlignment="Center" />
+        </Grid>
+      </Grid>
+
+      <!-- 右列：歌词舞台 -->
+      <Grid Grid.Column="1">
+        <lyrics:LyricsStage x:Name="LyricsStageHost"
+                            LyricInvoked="LyricsStage_LyricInvoked"
+                            ManualBrowseChanged="LyricsStage_ManualBrowseChanged" />
+        <StackPanel MaxWidth="320" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14"
+                    IsVisible="{Binding ShowLyricsEmptyState}">
+          <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="34"
+                     Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" />
+          <TextBlock Text="{Binding LyricsEmptyMessage}" Foreground="{StaticResource PrismTextSecondaryBrush}"
+                     TextAlignment="Center" TextWrapping="Wrap" />
+          <Button Content="搜索在线歌词" HorizontalAlignment="Center" IsEnabled="{Binding HasTrack}"
+                  Click="SearchLyricsButton_Click" />
+        </StackPanel>
+        <fa:ProgressRing Width="22" Height="22" Margin="0,18,18,0" HorizontalAlignment="Right" VerticalAlignment="Top"
+                         IsActive="{Binding IsLyricsLoading}" IsVisible="{Binding IsLyricsLoading}" />
+      </Grid>
+    </Grid>
+
+    <!-- 歌词工具（右下角） -->
+    <Panel Width="44" Margin="0,0,24,24" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+      <StackPanel VerticalAlignment="Bottom" Spacing="8">
+        <StackPanel x:Name="LyricsToolActions" Spacing="8" IsHitTestVisible="False" Opacity="0">
+          <Button Width="44" Height="44" Padding="0" Background="#52000000" BorderThickness="0" CornerRadius="22"
+                  Command="{Binding ToggleLyricsSourceCommand}" ToolTip.Tip="{Binding LyricsSourceLabel}">
+            <TextBlock Text="&#xE8D4;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Button>
+          <Button Width="44" Height="44" Padding="0" Background="#52000000" BorderThickness="0" CornerRadius="22"
+                  x:Name="LyricsSearchToolButton" Click="SearchLyricsButton_Click" ToolTip.Tip="搜索在线歌词">
+            <TextBlock Text="&#xE721;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <Button.Flyout>
+              <Flyout Placement="LeftEdgeAlignedBottom">
+                <Grid Width="320" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="10" MinHeight="380">
+                  <TextBlock Text="搜索在线歌词" Classes="sectionTitle" />
+                  <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBox x:Name="LyricsSearchInput" Watermark="歌曲 / 歌手" KeyDown="LyricsSearchInput_KeyDown" />
+                    <Button Grid.Column="1" Content="搜索" Click="LyricsSearchRunButton_Click" />
+                  </Grid>
+                  <TextBlock x:Name="LyricsSearchStatusText" Grid.Row="2" Classes="caption" TextWrapping="Wrap" IsVisible="False" />
+                  <ListBox Grid.Row="3" x:Name="LyricsSearchResults" SelectionMode="Single"
+                           ScrollViewer.VerticalScrollBarVisibility="Auto" SelectionChanged="LyricsSearchResults_SelectionChanged">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate>
+                        <StackPanel Margin="2,6" Spacing="2">
+                          <TextBlock Text="{Binding TrackName}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                          <TextBlock Text="{Binding ArtistName}" Classes="caption" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                          <TextBlock Text="{Binding Provider}" Classes="caption" Opacity="0.7" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                </Grid>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+          <Button Width="44" Height="44" Padding="0" Background="#52000000" BorderThickness="0" CornerRadius="22" ToolTip.Tip="调整歌词偏移"
+                  x:Name="LyricsOffsetToolButton">
+            <TextBlock Text="&#xE916;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <Button.Flyout>
+              <Flyout Placement="LeftEdgeAlignedBottom" Opened="LyricsOffsetFlyout_Opened">
+                <Grid Width="250" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
+                  <TextBlock Text="歌词偏移" Classes="sectionTitle" />
+                  <TextBox x:Name="LyricsOffsetInput" Grid.Row="1" Watermark="+0.0" KeyDown="LyricsOffsetInput_KeyDown" />
+                  <TextBlock x:Name="LyricsOffsetValidationText" Grid.Row="2" Text="请输入整数或一位小数，例如 +0.5 或 -1.0"
+                             Foreground="#FFFF7676" FontSize="12" TextWrapping="Wrap" IsVisible="False" />
+                  <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBlock Text="正值会让歌词延后显示" Classes="caption" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="应用" Click="ApplyLyricsOffsetButton_Click" />
+                  </Grid>
+                </Grid>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+        </StackPanel>
+        <Button Width="44" Height="44" Padding="0" Background="#78000000" BorderThickness="0" CornerRadius="22"
+                Click="LyricsToolsToggleButton_Click" ToolTip.Tip="歌词工具">
+          <TextBlock x:Name="LyricsToolsToggleIcon" Text="&#xE713;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Button>
+      </StackPanel>
+    </Panel>
+
+    <!-- 返回按钮 -->
+    <Button Width="40" Height="40" Margin="24,50,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+            Click="BackButton_Click" Background="#26000000" BorderThickness="0" CornerRadius="8">
+      <TextBlock Text="&#xE72B;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+    </Button>
+  </Grid>
+</UserControl>

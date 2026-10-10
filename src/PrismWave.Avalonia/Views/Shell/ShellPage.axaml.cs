@@ -91,6 +91,13 @@ public partial class ShellPage : UserControl
 
     private void TopLevel_KeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Escape && FullPlayOverlay.IsVisible)
+        {
+            Shell.GoBackCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Escape && Shell.IsQueuePaneOpen)
         {
             Shell.CloseQueuePaneCommand.Execute(null);
@@ -122,7 +129,37 @@ public partial class ShellPage : UserControl
     private void Shell_NavigationRequested(object? sender, ShellNavigationRequest request)
     {
         SyncSelection(request.Route);
+        if (request.Route == "FullPlay")
+        {
+            ShowFullPlay();
+            return;
+        }
+
+        HideFullPlay();
         ShowRoute(request.Route);
+    }
+
+    private void ShowFullPlay()
+    {
+        FullPlayHost.Content = new Views.Player.FullPlayPage();
+        FullPlayOverlay.IsVisible = true;
+        FullPlayOverlay.IsHitTestVisible = true;
+        if (FullPlayHost.Content is Control content)
+        {
+            PlayEnterTransition(content);
+        }
+    }
+
+    private void HideFullPlay()
+    {
+        if (!FullPlayOverlay.IsVisible)
+        {
+            return;
+        }
+
+        FullPlayOverlay.IsVisible = false;
+        FullPlayOverlay.IsHitTestVisible = false;
+        FullPlayHost.Content = null;
     }
 
     private void Shell_PropertyChanged(object? sender, PropertyChangedEventArgs args)

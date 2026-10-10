@@ -1,0 +1,173 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:media="using:PrismWave.Avalonia.Controls.Media"
+             x:Class="PrismWave.Avalonia.Controls.Home.TrendingBanner"
+             x:Name="BannerRoot">
+  <Border
+      x:Name="HeroSurface"
+      MinHeight="220"
+      Background="{StaticResource PrismSurfaceStrongBrush}"
+      BorderThickness="0"
+      CornerRadius="12">
+    <Grid>
+      <media:StableCoverImage
+          Height="220"
+          VerticalAlignment="Top"
+          SourcePath="{Binding #BannerRoot.BackdropUrl}"
+          Stretch="UniformToFill"
+          Opacity="0.28" />
+      <Border Background="#C4303135" CornerRadius="12" />
+
+      <Grid Margin="28,20,24,20" ColumnSpacing="36" x:Name="HeroLayout">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="320" />
+        </Grid.ColumnDefinitions>
+
+        <StackPanel
+            MaxWidth="600"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center"
+            Spacing="7">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock
+                Text="TRENDING"
+                FontSize="12"
+                FontWeight="SemiBold"
+                Foreground="#FFB9BEC8" />
+            <TextBlock
+                Text="TOP 100"
+                FontSize="12"
+                FontWeight="SemiBold"
+                Foreground="{StaticResource PrismAccentSoftBrush}" />
+          </StackPanel>
+          <TextBlock
+              x:Name="BannerTitle"
+              Text="{Binding #BannerRoot.Title}"
+              FontSize="44"
+              FontWeight="Bold"
+              Foreground="#FFF6F6F7"
+              TextTrimming="CharacterEllipsis"
+              TextWrapping="NoWrap" />
+          <TextBlock
+              MaxWidth="560"
+              Text="汇集今天最受关注的作品，按全球趋势持续更新。"
+              FontSize="15"
+              Foreground="#FFB9BEC8"
+              TextWrapping="Wrap" />
+          <TextBlock
+              MaxWidth="560"
+              Text="{Binding #BannerRoot.Subtitle}"
+              FontSize="12"
+              Foreground="#FF8E96A3"
+              TextTrimming="CharacterEllipsis"
+              TextWrapping="NoWrap" />
+          <StackPanel Margin="0,8,0,0" Orientation="Horizontal" Spacing="8">
+            <Button
+                Height="38"
+                Padding="16,0"
+                Command="{Binding #BannerRoot.PlayCommand}"
+                Background="{StaticResource PrismAccentBrush}"
+                Foreground="White"
+                BorderThickness="0"
+                CornerRadius="8">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <TextBlock Text="&#xE768;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center" />
+                <TextBlock Text="播放全部" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+            <Button
+                Width="38"
+                Height="38"
+                Padding="0"
+                Click="OpenButton_Click"
+                Foreground="White">
+              <TextBlock Text="&#xE8A7;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Button>
+          </StackPanel>
+        </StackPanel>
+
+        <Grid
+            x:Name="CoverCollage"
+            Grid.Column="1"
+            Width="320"
+            Height="184"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Center"
+            IsHitTestVisible="False">
+          <Border
+              Width="112"
+              Height="112"
+              Margin="4,14,0,0"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Top"
+              Background="{StaticResource PrismSurfaceStrongBrush}"
+              CornerRadius="10"
+              Opacity="0.72"
+              RenderTransformOrigin="50%,50%">
+            <Border.RenderTransform>
+              <RotateTransform Angle="-5" />
+            </Border.RenderTransform>
+            <Grid>
+              <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="28" Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <media:StableCoverImage SourcePath="{Binding #BannerRoot.CoverOneUrl}" Stretch="UniformToFill" />
+            </Grid>
+          </Border>
+          <Border
+              Width="118"
+              Height="118"
+              Margin="0,2,70,0"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Top"
+              Background="{StaticResource PrismSurfaceStrongBrush}"
+              CornerRadius="10"
+              Opacity="0.82"
+              RenderTransformOrigin="50%,50%">
+            <Border.RenderTransform>
+              <RotateTransform Angle="4" />
+            </Border.RenderTransform>
+            <Grid>
+              <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="28" Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <media:StableCoverImage SourcePath="{Binding #BannerRoot.CoverTwoUrl}" Stretch="UniformToFill" />
+            </Grid>
+          </Border>
+          <Border
+              Width="128"
+              Height="128"
+              Margin="0,0,6,8"
+              HorizontalAlignment="Right"
+              VerticalAlignment="Bottom"
+              Background="{StaticResource PrismSurfaceStrongBrush}"
+              CornerRadius="10"
+              Opacity="0.9"
+              RenderTransformOrigin="50%,50%">
+            <Border.RenderTransform>
+              <RotateTransform Angle="5" />
+            </Border.RenderTransform>
+            <Grid>
+              <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="30" Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <media:StableCoverImage SourcePath="{Binding #BannerRoot.CoverThreeUrl}" Stretch="UniformToFill" />
+            </Grid>
+          </Border>
+          <Border
+              Width="148"
+              Height="148"
+              Margin="72,0,0,4"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Bottom"
+              Background="{StaticResource PrismSurfaceStrongBrush}"
+              CornerRadius="10"
+              RenderTransformOrigin="50%,50%">
+            <Border.RenderTransform>
+              <RotateTransform Angle="-2" />
+            </Border.RenderTransform>
+            <Grid>
+              <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="34" Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <media:StableCoverImage SourcePath="{Binding #BannerRoot.CoverFourUrl}" Stretch="UniformToFill" />
+            </Grid>
+          </Border>
+        </Grid>
+      </Grid>
+    </Grid>
+  </Border>
+</UserControl>

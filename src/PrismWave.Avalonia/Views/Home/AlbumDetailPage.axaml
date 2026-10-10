@@ -1,0 +1,76 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:media="using:PrismWave.Avalonia.Controls.Media"
+             x:Class="PrismWave.Avalonia.Views.Home.AlbumDetailPage">
+  <Grid Margin="24,18,24,18" RowDefinitions="Auto,Auto,*" RowSpacing="16">
+    <Grid ColumnSpacing="16" ColumnDefinitions="Auto,96,*,Auto">
+      <Button Click="Back_Click" VerticalAlignment="Center">
+        <TextBlock Text="&#xE72B;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+      </Button>
+      <Border Grid.Column="1" Width="96" Height="96" CornerRadius="8" Background="{StaticResource PrismSurfaceStrongBrush}">
+        <media:StableCoverImage SourcePath="{Binding SelectedAlbum.CoverUrl}" Stretch="UniformToFill" />
+      </Border>
+      <StackPanel Grid.Column="2" VerticalAlignment="Center">
+        <TextBlock Text="{Binding SelectedAlbum.Title}" Classes="pageTitle" />
+        <TextBlock Text="{Binding SelectedAlbum.Artist}" Classes="caption" />
+      </StackPanel>
+      <Button
+          Grid.Column="3"
+          Command="{Binding PlaySelectedAlbumCommand}"
+          Background="{StaticResource PrismAccentBrush}"
+          VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <TextBlock Text="&#xE768;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" />
+          <TextBlock Text="Play all" />
+        </StackPanel>
+      </Button>
+    </Grid>
+    <ProgressBar
+        Grid.Row="1"
+        Height="4"
+        IsIndeterminate="True"
+        IsVisible="{Binding IsAlbumLoading}" />
+    <Grid Grid.Row="2">
+      <Border Classes="panelBorder">
+        <ListBox
+            x:Name="TracksList"
+            ItemsSource="{Binding SelectedAlbumTracks}"
+            SelectionMode="Single"
+            Background="Transparent"
+            SelectionChanged="TracksList_SelectionChanged">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <Grid Margin="8" ColumnSpacing="12" ColumnDefinitions="52,*,90,70">
+                <Border Width="52" Height="52" CornerRadius="8" Background="{StaticResource PrismSurfaceStrongBrush}">
+                  <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" />
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding Artist}" Classes="caption" />
+                </StackPanel>
+                <TextBlock Grid.Column="2" Text="{Binding Provider}" Classes="caption" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="3" Text="{Binding Duration}" Classes="caption" VerticalAlignment="Center" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Border>
+      <Border
+          IsVisible="{Binding HasAlbumError}"
+          HorizontalAlignment="Center"
+          VerticalAlignment="Top"
+          Background="{StaticResource PrismWarningBrush}"
+          CornerRadius="8"
+          Padding="12,6"
+          Margin="0,8,0,0">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="&#xE783;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" Foreground="#FF1F1F1F" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="Album unavailable" FontWeight="SemiBold" Foreground="#FF1F1F1F" />
+            <TextBlock Text="{Binding AlbumError}" Foreground="#CC1F1F1F" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

@@ -42,6 +42,13 @@
         <Setter Property="Foreground" Value="{StaticResource PrismTextPrimaryBrush}" />
     </Style>
 
+    <!-- 面板容器（对齐 WinUI PrismControls.xaml 的 PrismPanelBorderStyle） -->
+    <Style x:Key="PrismPanelBorderStyle" Selector="Border.panelBorder">
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="18" />
+        <Setter Property="Background" Value="{StaticResource PrismGlassBrush}" />
+    </Style>
+
     <!-- 动效令牌（从简：仅功能性过渡） -->
     <x:Double x:Key="MotionFast">120</x:Double>
     <x:Double x:Key="MotionNormal">240</x:Double>

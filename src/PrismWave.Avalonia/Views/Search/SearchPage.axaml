@@ -1,0 +1,205 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:media="using:PrismWave.Avalonia.Controls.Media"
+             x:Class="PrismWave.Avalonia.Views.Search.SearchPage">
+  <Grid Margin="24,18,24,18" RowDefinitions="Auto,Auto,*" RowSpacing="16">
+    <TextBlock Text="搜索" Classes="pageTitle" />
+
+    <Grid Grid.Row="1">
+      <TextBox
+          x:Name="SearchBox"
+          Watermark="搜索在线和本地音乐"
+          Text="{Binding Query, Mode=TwoWay}"
+          KeyDown="SearchBox_KeyDown" />
+      <ProgressBar
+          Width="24"
+          Height="4"
+          Margin="0,0,14,0"
+          HorizontalAlignment="Right"
+          VerticalAlignment="Center"
+          IsIndeterminate="True"
+          IsVisible="{Binding IsSearching}" />
+    </Grid>
+
+    <Grid Grid.Row="2">
+      <!-- 搜索历史 -->
+      <Grid IsVisible="{Binding ShowHistory}" RowDefinitions="Auto,*">
+        <TextBlock Text="搜索历史" Classes="sectionTitle" Margin="2,4,0,10" />
+        <ListBox
+            x:Name="HistoryList"
+            Grid.Row="1"
+            ItemsSource="{Binding History}"
+            SelectionMode="Single"
+            Background="Transparent"
+            IsVisible="{Binding HasHistory}"
+            SelectionChanged="HistoryList_SelectionChanged">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <Grid Margin="12,10">
+                <Grid.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="删除此记录" Tag="{Binding}" Click="RemoveHistory_Click" />
+                  </ContextMenu>
+                </Grid.ContextMenu>
+                <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <StackPanel
+            Grid.Row="1"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="8"
+            IsVisible="{Binding !HasHistory}">
+          <TextBlock
+              Text="&#xE721;"
+              FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+              FontSize="30"
+              Foreground="{StaticResource PrismTextSecondaryBrush}"
+              HorizontalAlignment="Center" />
+          <TextBlock Text="暂无搜索历史" Classes="caption" HorizontalAlignment="Center" />
+        </StackPanel>
+      </Grid>
+
+      <!-- 搜索结果 -->
+      <Grid IsVisible="{Binding HasSubmittedSearch}">
+        <ScrollViewer>
+          <ItemsControl x:Name="ResultsList" ItemsSource="{Binding DisplayItems}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Grid>
+                  <TextBlock
+                      Text="{Binding Header}"
+                      Classes="sectionTitle"
+                      Margin="2,18,0,8"
+                      IsVisible="{Binding IsHeader}" />
+
+                  <Grid
+                      Tag="{Binding Result}"
+                      Margin="8,6"
+                      MinHeight="58"
+                      ColumnSpacing="12"
+                      IsVisible="{Binding IsTrack}"
+                      Tapped="ResultRow_Tapped"
+                      DoubleTapped="ResultRow_DoubleTapped">
+                    <Grid.ContextMenu>
+                      <ContextMenu>
+                        <MenuItem Header="立即播放" Tag="{Binding Result}" Click="PlayResult_Click" />
+                        <MenuItem Header="添加到播放队列" Tag="{Binding Result}" Click="AddToQueue_Click" />
+                        <MenuItem Header="下一首播放" Tag="{Binding Result}" Click="PlayNext_Click" />
+                        <MenuItem Header="收藏" Tag="{Binding Result}" Click="Favorite_Click" />
+                        <MenuItem Header="添加到库" Tag="{Binding Result}" Click="AddToLibrary_Click" />
+                        <MenuItem Header="查看专辑" Tag="{Binding Result}" Click="ViewAlbum_Click" />
+                        <MenuItem Header="查看艺术家" Tag="{Binding Result}" Click="ViewArtist_Click" />
+                      </ContextMenu>
+                    </Grid.ContextMenu>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="46" />
+                      <ColumnDefinition Width="1.7*" />
+                      <ColumnDefinition Width="1.15*" />
+                      <ColumnDefinition Width="1.15*" />
+                      <ColumnDefinition Width="84" />
+                      <ColumnDefinition Width="58" />
+                      <ColumnDefinition Width="38" />
+                    </Grid.ColumnDefinitions>
+                    <Border
+                        Grid.ColumnSpan="7"
+                        CornerRadius="7"
+                        Background="{StaticResource PrismAccentBrush}"
+                        Opacity="0.14"
+                        IsHitTestVisible="False"
+                        IsVisible="{Binding IsCurrent}" />
+                    <Border Width="46" Height="46" CornerRadius="7" Background="{StaticResource PrismSurfaceStrongBrush}">
+                      <media:StableCoverImage SourcePath="{Binding Result.CoverPath}" Stretch="UniformToFill" />
+                    </Border>
+                    <TextBlock
+                        Grid.Column="1"
+                        Text="{Binding Result.Title}"
+                        FontWeight="SemiBold"
+                        TextTrimming="CharacterEllipsis"
+                        VerticalAlignment="Center" />
+                    <TextBlock
+                        Grid.Column="2"
+                        Text="{Binding Result.Artist}"
+                        Classes="caption"
+                        TextTrimming="CharacterEllipsis"
+                        VerticalAlignment="Center" />
+                    <TextBlock
+                        Grid.Column="3"
+                        Text="{Binding Result.Album}"
+                        Classes="caption"
+                        TextTrimming="CharacterEllipsis"
+                        VerticalAlignment="Center" />
+                    <Border
+                        Grid.Column="4"
+                        Padding="8,3"
+                        CornerRadius="10"
+                        Background="{StaticResource PrismSurfaceStrongBrush}"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Result.Provider}" FontSize="11" Foreground="{StaticResource PrismTextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                    </Border>
+                    <TextBlock
+                        Grid.Column="5"
+                        Text="{Binding Result.Duration}"
+                        Classes="caption"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center" />
+                    <Button
+                        Grid.Column="6"
+                        Width="32"
+                        Height="32"
+                        Padding="0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="ResultMoreButton_Click">
+                      <TextBlock Text="&#xE712;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Button>
+                  </Grid>
+
+                  <StackPanel
+                      Orientation="Horizontal"
+                      Spacing="8"
+                      Margin="10,6,0,10"
+                      IsVisible="{Binding IsStatus}">
+                    <ProgressBar
+                        Width="24"
+                        Height="4"
+                        VerticalAlignment="Center"
+                        IsIndeterminate="True"
+                        IsVisible="{Binding IsLoadingStatus}" />
+                    <TextBlock
+                        Text="&#xE783;"
+                        FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                        FontSize="14"
+                        Foreground="{StaticResource PrismDangerBrush}"
+                        VerticalAlignment="Center"
+                        IsVisible="{Binding IsErrorStatus}" />
+                    <TextBlock Text="{Binding StatusMessage}" Classes="caption" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+
+        <StackPanel
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="8"
+            IsVisible="{Binding ShowNoResults}">
+          <TextBlock
+              Text="&#xE721;"
+              FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+              FontSize="30"
+              Foreground="{StaticResource PrismTextSecondaryBrush}"
+              HorizontalAlignment="Center" />
+          <TextBlock Text="未找到相关歌曲、专辑或艺术家" Classes="caption" HorizontalAlignment="Center" />
+        </StackPanel>
+      </Grid>
+    </Grid>
+  </Grid>
+</UserControl>

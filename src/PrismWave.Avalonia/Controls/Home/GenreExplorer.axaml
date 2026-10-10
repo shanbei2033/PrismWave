@@ -1,0 +1,106 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PrismWave.Avalonia.Controls.Home.GenreExplorer"
+             x:Name="ExplorerRoot">
+  <StackPanel Spacing="20">
+    <StackPanel Spacing="8">
+      <TextBlock
+          Text="频道"
+          Classes="sectionTitle"
+          FontSize="18" />
+      <ItemsControl x:Name="ChannelRepeater" ItemsSource="{Binding #ExplorerRoot.ChannelItems}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Button
+                Width="170"
+                Height="46"
+                Margin="0,0,8,8"
+                Padding="12,0"
+                HorizontalContentAlignment="Stretch"
+                Background="Transparent"
+                BorderThickness="0"
+                CornerRadius="8"
+                Click="ExplorerEntry_Click">
+              <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="22" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    Text="{Binding IconGlyph}"
+                    FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                    FontSize="16"
+                    Foreground="{StaticResource PrismAccentSoftBrush}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+                <TextBlock
+                    Grid.Column="1"
+                    Text="{Binding Title}"
+                    FontSize="13"
+                    FontWeight="SemiBold"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap"
+                    VerticalAlignment="Center" />
+              </Grid>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+
+    <StackPanel Spacing="8">
+      <TextBlock
+          Text="流派探索"
+          Classes="sectionTitle"
+          FontSize="21" />
+      <ItemsControl x:Name="GenreRepeater" ItemsSource="{Binding #ExplorerRoot.GenreItems}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Button
+                Width="170"
+                Height="46"
+                Margin="0,0,8,8"
+                Padding="12,0"
+                HorizontalContentAlignment="Stretch"
+                Background="Transparent"
+                BorderThickness="0"
+                CornerRadius="8"
+                Click="ExplorerEntry_Click">
+              <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="22" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    Text="{Binding IconGlyph}"
+                    FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                    FontSize="16"
+                    Foreground="{StaticResource PrismAccentSoftBrush}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+                <TextBlock
+                    Grid.Column="1"
+                    Text="{Binding Title}"
+                    FontSize="13"
+                    FontWeight="SemiBold"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap"
+                    VerticalAlignment="Center" />
+              </Grid>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

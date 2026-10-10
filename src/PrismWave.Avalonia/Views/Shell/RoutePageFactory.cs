@@ -1,11 +1,13 @@
 using Avalonia.Controls;
+using PrismWave.Avalonia.Views.Home;
 using PrismWave.Avalonia.Views.Library;
 using PrismWave.Avalonia.Views.Placeholders;
+using PrismWave.Avalonia.Views.Search;
 
 namespace PrismWave.Avalonia.Views.Shell;
 
 /// <summary>
-/// Shell 路由 → 页面实例工厂。Phase 4-6 逐步替换剩余占位页。
+/// Shell 路由 → 页面实例工厂。Phase 5-6 逐步替换剩余占位页。
 /// </summary>
 public static class RoutePageFactory
 {
@@ -19,8 +21,10 @@ public static class RoutePageFactory
             "Favorites" => new FavoritesPage(),
             "LocalAlbumDetail" => new LocalAlbumDetailPage(),
             "ArtistDetail" => new ArtistDetailPage(),
-            "Home" => new RoutePlaceholderPage("首页"),
-            "Search" => new RoutePlaceholderPage("搜索"),
+            "Home" => new HomePage(),
+            "Search" => new SearchPage(),
+            "TopPlaylist" => new TopPlaylistPage(),
+            "AlbumDetail" => new AlbumDetailPage(),
             "Hits" => new RoutePlaceholderPage("HITS"),
             "Settings" => new RoutePlaceholderPage("设置"),
             _ => new RoutePlaceholderPage(route)

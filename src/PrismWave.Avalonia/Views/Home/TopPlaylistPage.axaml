@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:media="using:PrismWave.Avalonia.Controls.Media"
+             x:Class="PrismWave.Avalonia.Views.Home.TopPlaylistPage">
+  <Grid Margin="24,18,24,18" RowDefinitions="Auto,*" RowSpacing="16">
+    <Grid ColumnSpacing="12" ColumnDefinitions="Auto,*,Auto">
+      <Button Click="Back_Click" VerticalAlignment="Center">
+        <TextBlock Text="&#xE72B;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+      </Button>
+      <StackPanel Grid.Column="1">
+        <TextBlock Text="{Binding SelectedPlaylist.Title}" Classes="pageTitle" />
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="{Binding SelectedPlaylist.Subtitle}" Classes="caption" />
+          <TextBlock Text="{Binding GeneratedAt}" Classes="caption" />
+        </StackPanel>
+      </StackPanel>
+      <Button
+          Grid.Column="2"
+          Command="{Binding PlaySelectedPlaylistCommand}"
+          Background="{StaticResource PrismAccentBrush}"
+          VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <TextBlock Text="&#xE768;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" />
+          <TextBlock Text="Play all" />
+        </StackPanel>
+      </Button>
+    </Grid>
+    <Border Grid.Row="1" Classes="panelBorder">
+      <ListBox
+          x:Name="TracksList"
+          ItemsSource="{Binding SelectedPlaylist.Tracks}"
+          SelectionMode="Single"
+          Background="Transparent"
+          SelectionChanged="TracksList_SelectionChanged">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <Grid Margin="8" ColumnSpacing="12" ColumnDefinitions="52,*,180,90,70">
+              <Border Width="52" Height="52" CornerRadius="8" Background="{StaticResource PrismSurfaceStrongBrush}">
+                <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" />
+              </Border>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Artist}" Classes="caption" />
+              </StackPanel>
+              <TextBlock Grid.Column="2" Text="{Binding Album}" Classes="caption" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="3" Text="{Binding Provider}" Classes="caption" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="4" Text="{Binding Duration}" Classes="caption" VerticalAlignment="Center" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Border>
+  </Grid>
+</UserControl>

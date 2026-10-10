@@ -1,0 +1,84 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:media="using:PrismWave.Avalonia.Controls.Media"
+             x:Class="PrismWave.Avalonia.Controls.Home.EditorialFeature"
+             x:Name="EditorialRoot">
+  <Grid x:Name="LayoutRoot" ColumnSpacing="32" RowDefinitions="Auto,Auto">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="300" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+
+    <Border
+        x:Name="FeatureMedia"
+        Grid.Row="0"
+        Grid.Column="0"
+        Height="220"
+        Background="{StaticResource PrismSurfaceStrongBrush}"
+        CornerRadius="8">
+      <Grid>
+        <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="32" Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        <media:StableCoverImage SourcePath="{Binding #EditorialRoot.FeaturedCoverUrl}" Stretch="UniformToFill" />
+      </Grid>
+    </Border>
+
+    <StackPanel
+        x:Name="FeatureCopy"
+        Grid.Row="0"
+        Grid.Column="1"
+        MaxWidth="560"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center"
+        Spacing="7">
+      <TextBlock
+          Text="精选"
+          FontSize="12"
+          FontWeight="SemiBold"
+          Foreground="{StaticResource PrismAccentSoftBrush}" />
+      <TextBlock
+          Text="{Binding #EditorialRoot.FeatureTitle}"
+          FontSize="28"
+          FontWeight="Bold"
+          TextTrimming="CharacterEllipsis"
+          TextWrapping="NoWrap" />
+      <TextBlock
+          Text="{Binding #EditorialRoot.TrackCountLabel}"
+          FontSize="12"
+          Foreground="{StaticResource PrismTextMutedBrush}"
+          VerticalAlignment="Center" />
+      <Rectangle
+          Width="44"
+          Height="2"
+          Margin="0,2,0,1"
+          HorizontalAlignment="Left"
+          Fill="{StaticResource PrismAccentBrush}" />
+      <TextBlock
+          Text="{Binding #EditorialRoot.FeaturedTrackTitle}"
+          FontSize="15"
+          FontWeight="SemiBold"
+          TextTrimming="CharacterEllipsis"
+          TextWrapping="NoWrap" />
+      <TextBlock
+          Text="{Binding #EditorialRoot.FeaturedTrackArtist}"
+          FontSize="12"
+          Foreground="{StaticResource PrismTextSecondaryBrush}"
+          TextTrimming="CharacterEllipsis"
+          TextWrapping="NoWrap" />
+      <Button
+          Height="40"
+          Margin="0,5,0,0"
+          Padding="16,0"
+          HorizontalAlignment="Left"
+          Command="{Binding #EditorialRoot.PlayCommand}"
+          CommandParameter="{Binding #EditorialRoot.FeaturedTrack}"
+          Background="{StaticResource PrismAccentBrush}"
+          BorderThickness="0"
+          CornerRadius="8">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <TextBlock Text="&#xE768;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center" />
+          <TextBlock Text="立即播放" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+    </StackPanel>
+  </Grid>
+</UserControl>

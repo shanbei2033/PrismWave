@@ -1,0 +1,199 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:media="using:PrismWave.Avalonia.Controls.Media"
+             x:Class="PrismWave.Avalonia.Controls.Home.TrendingSongList"
+             x:Name="TrendingRoot">
+  <Grid x:Name="LayoutRoot" RowDefinitions="Auto,Auto">
+    <TextBlock
+        Text="全球热门"
+        Margin="0,0,0,8"
+        Classes="sectionTitle"
+        FontSize="21" />
+
+    <Grid
+        x:Name="ListGrid"
+        Grid.Row="1"
+        RowDefinitions="Auto,Auto"
+        ColumnSpacing="24">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <ListBox
+          x:Name="LeftList"
+          Grid.Row="0"
+          Grid.Column="0"
+          ItemsSource="{Binding #TrendingRoot.LeftTracks}"
+          SelectionMode="Single"
+          Background="Transparent"
+          BorderThickness="0"
+          ScrollViewer.VerticalScrollBarVisibility="Disabled"
+          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+          SelectionChanged="TrackList_SelectionChanged">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <Grid MinHeight="64" Margin="8,7,4,7" ColumnDefinitions="30,48,*,44,32" ColumnSpacing="10">
+              <Rectangle
+                  Grid.ColumnSpan="5"
+                  Height="1"
+                  Margin="30,0,4,0"
+                  VerticalAlignment="Bottom"
+                  Fill="{StaticResource PrismCardBorderBrush}"
+                  Opacity="0.5" />
+              <TextBlock
+                  Text="{Binding RankLabel}"
+                  FontSize="12"
+                  FontWeight="SemiBold"
+                  Foreground="{StaticResource PrismTextMutedBrush}"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center" />
+              <Border
+                  Grid.Column="1"
+                  Width="48"
+                  Height="48"
+                  Background="{StaticResource PrismSurfaceStrongBrush}"
+                  CornerRadius="6">
+                <Grid>
+                  <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="18" Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" />
+                </Grid>
+              </Border>
+              <StackPanel
+                  Grid.Column="2"
+                  MinWidth="0"
+                  VerticalAlignment="Center"
+                  Spacing="3">
+                <TextBlock
+                    Text="{Binding Title}"
+                    FontSize="13"
+                    FontWeight="SemiBold"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap" />
+                <TextBlock
+                    Text="{Binding Artist}"
+                    FontSize="12"
+                    Foreground="{StaticResource PrismTextSecondaryBrush}"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap" />
+              </StackPanel>
+              <TextBlock
+                  Grid.Column="3"
+                  Text="{Binding Duration}"
+                  FontSize="11"
+                  Foreground="{StaticResource PrismTextMutedBrush}"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Center" />
+              <Button
+                  Grid.Column="4"
+                  Width="32"
+                  Height="32"
+                  Padding="0"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  Click="MoreButton_Click">
+                <TextBlock Text="&#xE712;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Button.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="播放" Tag="{Binding}" Click="PlayMenuItem_Click" />
+                    <MenuItem Header="添加到库" Tag="{Binding}" Click="AddToLibraryMenuItem_Click" />
+                    <MenuItem Header="收藏" Tag="{Binding}" Click="FavoriteMenuItem_Click" />
+                  </ContextMenu>
+                </Button.ContextMenu>
+              </Button>
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <ListBox
+          x:Name="RightList"
+          Grid.Row="0"
+          Grid.Column="1"
+          ItemsSource="{Binding #TrendingRoot.RightTracks}"
+          SelectionMode="Single"
+          Background="Transparent"
+          BorderThickness="0"
+          ScrollViewer.VerticalScrollBarVisibility="Disabled"
+          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+          SelectionChanged="TrackList_SelectionChanged">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <Grid MinHeight="64" Margin="8,7,4,7" ColumnDefinitions="30,48,*,44,32" ColumnSpacing="10">
+              <Rectangle
+                  Grid.ColumnSpan="5"
+                  Height="1"
+                  Margin="30,0,4,0"
+                  VerticalAlignment="Bottom"
+                  Fill="{StaticResource PrismCardBorderBrush}"
+                  Opacity="0.5" />
+              <TextBlock
+                  Text="{Binding RankLabel}"
+                  FontSize="12"
+                  FontWeight="SemiBold"
+                  Foreground="{StaticResource PrismTextMutedBrush}"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center" />
+              <Border
+                  Grid.Column="1"
+                  Width="48"
+                  Height="48"
+                  Background="{StaticResource PrismSurfaceStrongBrush}"
+                  CornerRadius="6">
+                <Grid>
+                  <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="18" Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" />
+                </Grid>
+              </Border>
+              <StackPanel
+                  Grid.Column="2"
+                  MinWidth="0"
+                  VerticalAlignment="Center"
+                  Spacing="3">
+                <TextBlock
+                    Text="{Binding Title}"
+                    FontSize="13"
+                    FontWeight="SemiBold"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap" />
+                <TextBlock
+                    Text="{Binding Artist}"
+                    FontSize="12"
+                    Foreground="{StaticResource PrismTextSecondaryBrush}"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap" />
+              </StackPanel>
+              <TextBlock
+                  Grid.Column="3"
+                  Text="{Binding Duration}"
+                  FontSize="11"
+                  Foreground="{StaticResource PrismTextMutedBrush}"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Center" />
+              <Button
+                  Grid.Column="4"
+                  Width="32"
+                  Height="32"
+                  Padding="0"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  Click="MoreButton_Click">
+                <Button.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="播放" Tag="{Binding}" Click="PlayMenuItem_Click" />
+                    <MenuItem Header="添加到库" Tag="{Binding}" Click="AddToLibraryMenuItem_Click" />
+                    <MenuItem Header="收藏" Tag="{Binding}" Click="FavoriteMenuItem_Click" />
+                  </ContextMenu>
+                </Button.ContextMenu>
+                <TextBlock Text="&#xE712;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Button>
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Grid>
+  </Grid>
+</UserControl>

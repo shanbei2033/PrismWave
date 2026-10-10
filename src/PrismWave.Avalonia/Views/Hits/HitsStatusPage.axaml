@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fa="using:FluentAvalonia.UI.Controls"
+             xmlns:media="using:PrismWave.Avalonia.Controls.Media"
+             x:Class="PrismWave.Avalonia.Views.Hits.HitsStatusPage">
+  <Grid Background="{StaticResource PrismBackgroundBrush}">
+    <!-- 背景封面层（对齐 WinUI 沉浸式背景，模糊以暗色遮罩近似） -->
+    <Panel IsHitTestVisible="False">
+      <media:StableCoverImage
+          SourcePath="{Binding CurrentCoverPath}"
+          Stretch="UniformToFill"
+          Opacity="0.28"
+          RenderTransformOrigin="0.5,0.5">
+        <media:StableCoverImage.RenderTransform>
+          <ScaleTransform ScaleX="1.12" ScaleY="1.12" />
+        </media:StableCoverImage.RenderTransform>
+      </media:StableCoverImage>
+      <Rectangle Fill="#C70A0D13" />
+    </Panel>
+
+    <Grid RowDefinitions="68,*">
+      <!-- 顶栏：返回 + HITS 标题 -->
+      <StackPanel Orientation="Horizontal" Margin="20,0,0,0" VerticalAlignment="Center" Spacing="16">
+        <Button
+            x:Name="BackButton"
+            Width="46" Height="46"
+            Padding="0"
+            CornerRadius="23"
+            Background="#26000000"
+            Click="BackButton_Click">
+          <TextBlock Text="&#xE72B;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="20" />
+        </Button>
+        <TextBlock Text="HITS" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center" />
+      </StackPanel>
+
+      <!-- 居中内容：封面（点击播放/暂停）+ 状态 + 曲目信息 -->
+      <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="22" MaxWidth="1000">
+        <Button
+            x:Name="CoverButton"
+            Command="{Binding ToggleLivePlaybackCommand}"
+            HorizontalAlignment="Center"
+            Padding="0"
+            Background="Transparent"
+            BorderThickness="0">
+          <Border Width="300" Height="300" CornerRadius="26" Background="#331A1D24" ClipToBounds="True">
+            <Panel Width="300" Height="300">
+              <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="96"
+                         Opacity="0.42" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <media:StableCoverImage SourcePath="{Binding CurrentCoverPath}" Stretch="UniformToFill" />
+            </Panel>
+          </Border>
+        </Button>
+
+        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+          <Ellipse Width="8" Height="8" Fill="#FFFF4D4D" VerticalAlignment="Center" IsVisible="{Binding ShowLiveDot}" />
+          <TextBlock Text="{Binding BroadcastStateLabel}" FontSize="13" FontWeight="SemiBold"
+                     Foreground="#FFD9DDE5" VerticalAlignment="Center" />
+          <fa:ProgressRing Width="16" Height="16" IsActive="{Binding IsConnecting}" IsVisible="{Binding IsConnecting}" />
+        </StackPanel>
+
+        <StackPanel Spacing="8" HorizontalAlignment="Center" MaxWidth="920">
+          <TextBlock Text="{Binding DisplayTitle}" FontSize="40" FontWeight="SemiBold"
+                     TextAlignment="Center" TextWrapping="Wrap" MaxLines="2" />
+          <TextBlock Text="{Binding DisplayArtist}" FontSize="22" Foreground="#FFCED2DA"
+                     TextAlignment="Center" TextTrimming="CharacterEllipsis" MaxLines="1" />
+          <TextBlock Text="{Binding DisplayAlbum}" FontSize="16" Foreground="#FF9FA5B0"
+                     TextAlignment="Center" TextTrimming="CharacterEllipsis" MaxLines="1" />
+        </StackPanel>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</UserControl>

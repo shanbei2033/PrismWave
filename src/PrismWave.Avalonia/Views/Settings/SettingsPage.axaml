@@ -1,0 +1,265 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fa="using:FluentAvalonia.UI.Controls"
+             x:Class="PrismWave.Avalonia.Views.Settings.SettingsPage"
+             x:Name="SettingsRoot">
+  <Grid Margin="{StaticResource PrismPagePadding}" RowDefinitions="Auto,*" RowSpacing="12">
+    <TextBlock Text="{Binding Text.SettingsTitle}" Classes="pageTitle" />
+    <TabControl Grid.Row="1">
+      <!-- 基本 -->
+      <TabItem Header="{Binding Text.BasicTab}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="14" Margin="0,16,12,16">
+            <Border Classes="panelBorder">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                  <TextBlock Text="{Binding Text.MusicFolders}" Classes="sectionTitle" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <fa:ProgressRing Width="20" Height="20" IsActive="{Binding LibraryFolders.IsScanning}" />
+                    <Button Command="{Binding LibraryFolders.AddFolderCommand}">
+                      <StackPanel Orientation="Horizontal" Spacing="7">
+                        <TextBlock Text="&#xE8B7;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Text.AddFolder}" VerticalAlignment="Center" />
+                      </StackPanel>
+                    </Button>
+                    <Button Command="{Binding LibraryFolders.RescanCommand}">
+                      <StackPanel Orientation="Horizontal" Spacing="7">
+                        <TextBlock Text="&#xE895;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Text.Rescan}" VerticalAlignment="Center" />
+                      </StackPanel>
+                    </Button>
+                  </StackPanel>
+                </Grid>
+                <TextBlock Text="{Binding LibraryFolders.StatusText}" Classes="caption" />
+                <fa:InfoBar IsOpen="{Binding LibraryFolders.HasError}" Severity="Error"
+                            Title="{Binding Text.LocalLibrary}" Message="{Binding LibraryFolders.Error}" />
+                <ListBox ItemsSource="{Binding LibraryFolders.FolderEntries}" MaxHeight="220">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="2,6">
+                        <TextBlock Text="{Binding Path}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding StatusText}" Classes="caption" VerticalAlignment="Center" />
+                        <Button
+                            Grid.Column="2"
+                            Command="{Binding #SettingsRoot.DataContext.LibraryFolders.RemoveFolderCommand}"
+                            CommandParameter="{Binding Path}">
+                          <TextBlock Text="&#xE711;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" />
+                        </Button>
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </StackPanel>
+            </Border>
+            <Border Classes="panelBorder">
+              <StackPanel Spacing="8">
+                <TextBlock Text="{Binding Text.LanguageAndTheme}" Classes="sectionTitle" />
+                <ComboBox ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding Language, Mode=TwoWay}" Width="240" />
+                <ComboBox
+                    ItemsSource="{Binding AppearanceStyleOptions}"
+                    SelectedValueBinding="{Binding Value}"
+                    SelectedValue="{Binding AppearanceStyle, Mode=TwoWay}"
+                    Width="280"
+                    HorizontalAlignment="Left">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding DisplayName}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="{Binding AppearanceStyleDescription}" Classes="caption" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- 在线 -->
+      <TabItem Header="{Binding Text.OnlineTab}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="14" Margin="0,16,12,16">
+            <StackPanel Spacing="3">
+              <TextBlock Text="{Binding Text.StreamingAccounts}" Classes="sectionTitle" />
+              <TextBlock Text="{Binding Text.StreamingAccountsDescription}" Classes="caption" TextWrapping="Wrap" />
+            </StackPanel>
+            <Border Classes="panelBorder">
+              <Grid ColumnDefinitions="56,*,Auto" ColumnSpacing="14">
+                <Border Width="48" Height="48" CornerRadius="24" Background="{StaticResource PrismSurfaceStrongBrush}">
+                  <TextBlock Text="&#xE77B;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="22"
+                             Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                  <TextBlock Text="NetEase Cloud Music" Classes="sectionTitle" />
+                  <TextBlock Text="{Binding OnlineAccounts.Netease.DisplayName}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding OnlineAccounts.Netease.StatusText}" Classes="caption" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                  <Button Content="{Binding Text.ScanLogin}" Tag="netease" Click="ScanLogin_Click" />
+                  <Button Content="{Binding Text.SignOut}" Tag="netease"
+                          IsEnabled="{Binding OnlineAccounts.Netease.CanSignOut}"
+                          Command="{Binding OnlineAccounts.SignOutCommand}" CommandParameter="netease" />
+                </StackPanel>
+              </Grid>
+            </Border>
+            <Border Classes="panelBorder">
+              <Grid ColumnDefinitions="56,*,Auto" ColumnSpacing="14">
+                <Border Width="48" Height="48" CornerRadius="24" Background="{StaticResource PrismSurfaceStrongBrush}">
+                  <TextBlock Text="&#xE77B;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="22"
+                             Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                  <TextBlock Text="QQ Music" Classes="sectionTitle" />
+                  <TextBlock Text="{Binding OnlineAccounts.Qq.DisplayName}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding OnlineAccounts.Qq.StatusText}" Classes="caption" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                  <Button Content="{Binding Text.ScanLogin}" Tag="qq" Click="ScanLogin_Click" />
+                  <Button Content="{Binding Text.SignOut}" Tag="qq"
+                          IsEnabled="{Binding OnlineAccounts.Qq.CanSignOut}"
+                          Command="{Binding OnlineAccounts.SignOutCommand}" CommandParameter="qq" />
+                </StackPanel>
+              </Grid>
+            </Border>
+            <Border Classes="panelBorder">
+              <StackPanel Spacing="8">
+                <TextBlock Text="{Binding Text.BetaOnlineMode}" Classes="sectionTitle" />
+                <StackPanel Spacing="4">
+                  <ToggleSwitch
+                      x:Name="ExperimentalFeaturesToggle"
+                      Content="{Binding Text.ExperimentalFeatures}"
+                      IsChecked="{Binding ExperimentalFeaturesEnabled, Mode=OneWay}"
+                      OnContent="{Binding Text.On}" OffContent="{Binding Text.Off}"
+                      IsCheckedChanged="ExperimentalFeatures_IsCheckedChanged" />
+                </StackPanel>
+                <ToggleSwitch
+                    Content="{Binding Text.OnlineMode}"
+                    IsChecked="{Binding OnlineModeEnabled, Mode=TwoWay}"
+                    IsEnabled="{Binding ExperimentalFeaturesEnabled}"
+                    OnContent="{Binding Text.On}" OffContent="{Binding Text.Off}" />
+                <StackPanel Spacing="4">
+                  <TextBlock Text="{Binding Text.PreferredStreamingQuality}" />
+                  <ComboBox
+                      ItemsSource="{Binding OnlineQualityOptions}"
+                      SelectedValueBinding="{Binding Value}"
+                      SelectedValue="{Binding OnlineQualityPreference, Mode=TwoWay}"
+                      IsEnabled="{Binding OnlineAccounts.IsLoginEnabled}"
+                      Width="260"
+                      HorizontalAlignment="Left">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding DisplayName}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <fa:InfoBar IsOpen="True" Severity="Informational"
+                            Title="{Binding Text.ThirdPartyProviders}" Message="{Binding Text.ThirdPartyProvidersMessage}" />
+              </StackPanel>
+            </Border>
+            <Border Classes="panelBorder">
+              <StackPanel Spacing="8">
+                <TextBlock Text="{Binding Text.OnlineCache}" Classes="sectionTitle" />
+                <StackPanel Spacing="4">
+                  <TextBlock Text="{Binding Text.OnlineCacheMaximum}" />
+                  <Slider Minimum="0.5" Maximum="1024" Value="{Binding OnlineCacheMaximumGigabytes, Mode=TwoWay}" />
+                </StackPanel>
+                <TextBlock Text="{Binding OnlineCacheStatus}" Classes="caption" />
+                <TextBlock Text="{Binding OnlineCacheDirectory}" TextWrapping="Wrap" Classes="caption" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="{Binding Text.ChangeDirectory}" Command="{Binding ChangeOnlineCacheDirectoryCommand}" />
+                  <Button Content="{Binding Text.ClearCache}" Command="{Binding ClearOnlineCacheCommand}" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- 播放 -->
+      <TabItem Header="{Binding Text.PlaybackTab}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="14" Margin="0,16,12,16">
+            <Border Classes="panelBorder">
+              <StackPanel Spacing="8">
+                <TextBlock Text="{Binding Text.AudioOutput}" Classes="sectionTitle" />
+                <StackPanel Spacing="4">
+                  <TextBlock Text="{Binding Text.OutputMode}" />
+                  <ComboBox
+                      ItemsSource="{Binding AudioOutputModeOptions}"
+                      SelectedValueBinding="{Binding Id}"
+                      SelectedValue="{Binding AudioOutputMode, Mode=TwoWay}"
+                      Width="280"
+                      HorizontalAlignment="Left">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding DisplayName}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <TextBlock Text="{Binding AudioOutputModeDescription}" TextWrapping="Wrap" Classes="caption" />
+                <StackPanel Spacing="3">
+                  <TextBlock Text="{Binding Text.ActiveOutput}" Classes="caption" />
+                  <TextBlock Text="{Binding ActiveAudioOutputMode}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding AudioOutputFallbackReason}" TextWrapping="Wrap"
+                             Foreground="#FFFFB4B4" FontSize="12" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                  <TextBlock Text="{Binding Text.OutputDeviceId}" />
+                  <TextBox Text="{Binding AudioOutputDevice, Mode=TwoWay}" />
+                </StackPanel>
+                <ToggleSwitch
+                    Content="{Binding Text.FadeInOut}"
+                    IsChecked="{Binding FadeEnabled, Mode=TwoWay}"
+                    OnContent="{Binding Text.On}" OffContent="{Binding Text.Off}" />
+                <StackPanel Spacing="4">
+                  <TextBlock Text="{Binding Text.FadeDuration}" />
+                  <Slider Minimum="0" Maximum="2000" Value="{Binding FadeDurationMs, Mode=TwoWay}" />
+                </StackPanel>
+                <TextBlock Text="{Binding FadeDuration}" Classes="caption" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- 开发者 -->
+      <TabItem Header="{Binding Text.DeveloperTab}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="0,16,12,16" Spacing="14">
+            <Border Classes="panelBorder">
+              <Grid RowDefinitions="Auto,Auto,300" RowSpacing="10">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                  <StackPanel>
+                    <TextBlock Text="{Binding Text.DeveloperLogs}" Classes="sectionTitle" />
+                    <TextBlock Text="{Binding DeveloperLogCount}" Classes="caption" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button Command="{Binding OpenDeveloperLogCommand}">
+                      <StackPanel Orientation="Horizontal" Spacing="7">
+                        <TextBlock Text="&#xE8A7;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Text.Open}" VerticalAlignment="Center" />
+                      </StackPanel>
+                    </Button>
+                    <Button Command="{Binding ClearDeveloperLogsCommand}">
+                      <TextBlock Text="&#xE74D;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" />
+                    </Button>
+                  </StackPanel>
+                </Grid>
+                <TextBlock Grid.Row="1" Text="{Binding DeveloperLogPath}" TextWrapping="Wrap" Classes="caption" />
+                <TextBox
+                    Grid.Row="2"
+                    Text="{Binding DeveloperLogText, Mode=OneWay}"
+                    IsReadOnly="True"
+                    AcceptsReturn="True"
+                    TextWrapping="NoWrap"
+                    FontFamily="Cascadia Mono, Consolas"
+                    FontSize="11" />
+              </Grid>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+  </Grid>
+</UserControl>

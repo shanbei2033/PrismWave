@@ -88,7 +88,12 @@ public sealed class StableCoverImage : Panel
             {
                 using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(12) };
                 using var stream = await http.GetStreamAsync(uri).ConfigureAwait(false);
-                bitmap = new Bitmap(stream);
+
+                // 网络流不可 seek，Skia 解码需先完整缓冲到内存。
+                using var buffered = new MemoryStream();
+                await stream.CopyToAsync(buffered).ConfigureAwait(false);
+                buffered.Position = 0;
+                bitmap = new Bitmap(buffered);
             }
             else if (File.Exists(source))
             {
@@ -100,9 +105,11 @@ public sealed class StableCoverImage : Panel
                 return;
             }
         }
-        catch
+        catch (Exception exception)
         {
-            // 封面加载失败不作为播放错误呈现。
+            // 封面加载失败不作为播放错误呈现，但记录诊断日志。
+            PrismWave_WinUI.Infrastructure.StartupLog.Write(
+                $"cover.load.failed: source={source}: {exception.GetType().Name}: {exception.Message}");
             return;
         }
 

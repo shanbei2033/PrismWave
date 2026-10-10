@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using PrismWave_WinUI.ViewModels.Hits;
@@ -9,12 +8,12 @@ namespace PrismWave.Avalonia.Views.Hits;
 
 /// <summary>
 /// HITS 电台沉浸页（对齐 WinUI HitsStatusPage：背景封面 + 居中封面开关 + LIVE 状态 + 曲目信息）。
+/// Esc 返回由 ShellPage 统一处理（沉浸覆盖层可见时）。
 /// </summary>
 public partial class HitsStatusPage : UserControl
 {
     private readonly HitsStatusViewModel _viewModel;
     private DispatcherTimer? _tickTimer;
-    private TopLevel? _topLevel;
 
     public HitsStatusPage()
     {
@@ -30,12 +29,6 @@ public partial class HitsStatusPage : UserControl
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
         _tickTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => _viewModel.Tick());
         _tickTimer.Start();
-
-        if (TopLevel.GetTopLevel(this) is { } topLevel)
-        {
-            _topLevel = topLevel;
-            topLevel.KeyDown += TopLevel_KeyDown;
-        }
 
         try
         {
@@ -60,20 +53,6 @@ public partial class HitsStatusPage : UserControl
         _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
         _tickTimer?.Stop();
         _tickTimer = null;
-        if (_topLevel is not null)
-        {
-            _topLevel.KeyDown -= TopLevel_KeyDown;
-            _topLevel = null;
-        }
-    }
-
-    private void TopLevel_KeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.Key is Key.Escape && _viewModel.IsSessionActive)
-        {
-            App.Services.Shell.GoBackCommand.Execute(null);
-            e.Handled = true;
-        }
     }
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)

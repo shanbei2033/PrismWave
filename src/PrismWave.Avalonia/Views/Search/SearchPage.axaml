@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fa="using:FluentAvalonia.UI.Controls"
              xmlns:media="using:PrismWave.Avalonia.Controls.Media"
              x:Class="PrismWave.Avalonia.Views.Search.SearchPage">
   <Grid Margin="24,18,24,18" RowDefinitions="Auto,Auto,*" RowSpacing="16">
@@ -36,11 +37,11 @@
           <ListBox.ItemTemplate>
             <DataTemplate>
               <Grid Margin="12,10">
-                <Grid.ContextMenu>
-                  <ContextMenu>
-                    <MenuItem Header="删除此记录" Tag="{Binding}" Click="RemoveHistory_Click" />
-                  </ContextMenu>
-                </Grid.ContextMenu>
+                <Grid.ContextFlyout>
+                  <fa:FAMenuFlyout>
+                    <fa:MenuFlyoutItem Text="删除此记录" Tag="{Binding}" Click="RemoveHistory_Click" />
+                  </fa:FAMenuFlyout>
+                </Grid.ContextFlyout>
                 <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" />
               </Grid>
             </DataTemplate>
@@ -83,17 +84,17 @@
                       IsVisible="{Binding IsTrack}"
                       Tapped="ResultRow_Tapped"
                       DoubleTapped="ResultRow_DoubleTapped">
-                    <Grid.ContextMenu>
-                      <ContextMenu>
-                        <MenuItem Header="立即播放" Tag="{Binding Result}" Click="PlayResult_Click" />
-                        <MenuItem Header="添加到播放队列" Tag="{Binding Result}" Click="AddToQueue_Click" />
-                        <MenuItem Header="下一首播放" Tag="{Binding Result}" Click="PlayNext_Click" />
-                        <MenuItem Header="收藏" Tag="{Binding Result}" Click="Favorite_Click" />
-                        <MenuItem Header="添加到库" Tag="{Binding Result}" Click="AddToLibrary_Click" />
-                        <MenuItem Header="查看专辑" Tag="{Binding Result}" Click="ViewAlbum_Click" />
-                        <MenuItem Header="查看艺术家" Tag="{Binding Result}" Click="ViewArtist_Click" />
-                      </ContextMenu>
-                    </Grid.ContextMenu>
+                    <Grid.ContextFlyout>
+                      <fa:FAMenuFlyout>
+                        <fa:MenuFlyoutItem Text="立即播放" Tag="{Binding Result}" Click="PlayResult_Click" />
+                        <fa:MenuFlyoutItem Text="添加到播放队列" Tag="{Binding Result}" Click="AddToQueue_Click" />
+                        <fa:MenuFlyoutItem Text="下一首播放" Tag="{Binding Result}" Click="PlayNext_Click" />
+                        <fa:MenuFlyoutItem Text="收藏" Tag="{Binding Result}" Click="Favorite_Click" />
+                        <fa:MenuFlyoutItem Text="添加到库" Tag="{Binding Result}" Click="AddToLibrary_Click" />
+                        <fa:MenuFlyoutItem Text="查看专辑" Tag="{Binding Result}" Click="ViewAlbum_Click" />
+                        <fa:MenuFlyoutItem Text="查看艺术家" Tag="{Binding Result}" Click="ViewArtist_Click" />
+                      </fa:FAMenuFlyout>
+                    </Grid.ContextFlyout>
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="46" />
                       <ColumnDefinition Width="1.7*" />
@@ -155,6 +156,7 @@
                         VerticalAlignment="Center"
                         Background="Transparent"
                         BorderThickness="0"
+                        AutomationProperties.AutomationId="SearchResultMoreButton"
                         Click="ResultMoreButton_Click">
                       <TextBlock Text="&#xE712;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Button>

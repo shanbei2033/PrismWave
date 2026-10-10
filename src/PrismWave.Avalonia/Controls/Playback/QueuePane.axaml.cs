@@ -19,6 +19,15 @@ public partial class QueuePane : UserControl
         CloseRequested?.Invoke(this, EventArgs.Empty);
     }
 
+    private void Remove_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { Tag: PlaybackQueueItemViewModel item } &&
+            DataContext is PlaybackViewModel viewModel)
+        {
+            viewModel.RemoveFromQueueCommand.Execute(item.Track);
+        }
+    }
+
     private void QueueList_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (e.AddedItems.Count == 0)

@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fa="using:FluentAvalonia.UI.Controls"
              xmlns:media="using:PrismWave.Avalonia.Controls.Media"
              x:Class="PrismWave.Avalonia.Views.Library.AlbumsPage">
   <Grid Margin="{StaticResource PrismPagePadding}" RowSpacing="14">
@@ -30,20 +31,14 @@
         <ListBox.ItemTemplate>
           <DataTemplate>
             <Grid Width="168" Margin="0,0,14,18" RowSpacing="7">
-              <Grid.ContextMenu>
-                <ContextMenu>
-                  <MenuItem Header="播放全部"
-                            Command="{Binding $parent[ListBox].DataContext.PlayAlbumCommand}"
-                            CommandParameter="{Binding}" />
-                  <MenuItem Header="添加到播放队列"
-                            Command="{Binding $parent[ListBox].DataContext.AddAlbumToQueueCommand}"
-                            CommandParameter="{Binding}" />
-                  <MenuItem Header="收藏专辑歌曲"
-                            Command="{Binding $parent[ListBox].DataContext.ToggleAlbumFavoriteCommand}"
-                            CommandParameter="{Binding}" />
-                  <MenuItem Header="查看艺术家" Tag="{Binding}" Click="ViewAlbumArtist_Click" />
-                </ContextMenu>
-              </Grid.ContextMenu>
+              <Grid.ContextFlyout>
+                <fa:FAMenuFlyout>
+                  <fa:MenuFlyoutItem Text="播放全部" Tag="{Binding}" Click="PlayAlbum_Click" />
+                  <fa:MenuFlyoutItem Text="添加到播放队列" Tag="{Binding}" Click="AddAlbumToQueue_Click" />
+                  <fa:MenuFlyoutItem Text="收藏专辑歌曲" Tag="{Binding}" Click="FavoriteAlbum_Click" />
+                  <fa:MenuFlyoutItem Text="查看艺术家" Tag="{Binding}" Click="ViewAlbumArtist_Click" />
+                </fa:FAMenuFlyout>
+              </Grid.ContextFlyout>
               <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />

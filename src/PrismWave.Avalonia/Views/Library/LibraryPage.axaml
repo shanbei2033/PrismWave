@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fa="using:FluentAvalonia.UI.Controls"
              xmlns:media="using:PrismWave.Avalonia.Controls.Media"
              x:Class="PrismWave.Avalonia.Views.Library.LibraryPage">
   <Grid Margin="{StaticResource PrismPagePadding}" RowSpacing="14">
@@ -98,12 +99,12 @@
         <ListBox.ItemTemplate>
           <DataTemplate>
             <Grid Margin="8,6" ColumnSpacing="12" MinHeight="52">
-              <Grid.ContextMenu>
-                <ContextMenu>
-                  <MenuItem Header="打开文件位置" Tag="{Binding}" Click="OpenLocation_Click" />
-                  <MenuItem Header="从曲库移除..." Tag="{Binding}" Click="RemoveTrack_Click" />
-                </ContextMenu>
-              </Grid.ContextMenu>
+              <Grid.ContextFlyout>
+                <fa:FAMenuFlyout>
+                  <fa:MenuFlyoutItem Text="打开文件位置" Tag="{Binding}" Click="OpenLocation_Click" />
+                  <fa:MenuFlyoutItem Text="从曲库移除..." Tag="{Binding}" Click="RemoveTrack_Click" />
+                </fa:FAMenuFlyout>
+              </Grid.ContextFlyout>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="44" />
                 <ColumnDefinition Width="2*" />

@@ -55,7 +55,7 @@
           <Ellipse Width="8" Height="8" Fill="#FFFF4D4D" VerticalAlignment="Center" IsVisible="{Binding ShowLiveDot}" />
           <TextBlock Text="{Binding BroadcastStateLabel}" FontSize="13" FontWeight="SemiBold"
                      Foreground="#FFD9DDE5" VerticalAlignment="Center" />
-          <fa:ProgressRing Width="16" Height="16" IsActive="{Binding IsConnecting}" IsVisible="{Binding IsConnecting}" />
+          <fa:ProgressRing Width="16" Height="16" IsActive="{Binding ShowConnectingIndicator}" IsVisible="{Binding ShowConnectingIndicator}" />
         </StackPanel>
 
         <StackPanel Spacing="8" HorizontalAlignment="Center" MaxWidth="920">
@@ -65,6 +65,9 @@
                      TextAlignment="Center" TextTrimming="CharacterEllipsis" MaxLines="1" />
           <TextBlock Text="{Binding DisplayAlbum}" FontSize="16" Foreground="#FF9FA5B0"
                      TextAlignment="Center" TextTrimming="CharacterEllipsis" MaxLines="1" />
+          <TextBlock Text="{Binding SessionError}" FontSize="13" Foreground="#FFFF7676"
+                     TextAlignment="Center" TextWrapping="Wrap" MaxLines="2"
+                     IsVisible="{Binding HasSessionError}" Margin="0,6,0,0" />
         </StackPanel>
       </StackPanel>
     </Grid>

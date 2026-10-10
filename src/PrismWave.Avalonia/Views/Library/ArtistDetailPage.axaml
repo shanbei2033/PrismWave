@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fa="using:FluentAvalonia.UI.Controls"
              x:Class="PrismWave.Avalonia.Views.Library.ArtistDetailPage">
   <Grid Margin="{StaticResource PrismPagePadding}" RowSpacing="14">
     <Grid.RowDefinitions>
@@ -63,15 +64,15 @@
               MinHeight="44"
               Tag="{Binding Track}"
               DoubleTapped="TrackRow_DoubleTapped">
-            <Grid.ContextMenu>
-              <ContextMenu>
-                <MenuItem Header="立即播放" Tag="{Binding Track}" Click="PlayTrack_Click" />
-                <MenuItem Header="添加到播放队列" Tag="{Binding Track}" Click="AddTrackToQueue_Click" />
-                <MenuItem Header="下一首播放" Tag="{Binding Track}" Click="PlayTrackNext_Click" />
-                <MenuItem Header="收藏" Tag="{Binding Track}" Click="FavoriteTrack_Click" />
-                <MenuItem Header="查看专辑" Tag="{Binding Track}" Click="ViewTrackAlbum_Click" />
-              </ContextMenu>
-            </Grid.ContextMenu>
+            <Grid.ContextFlyout>
+              <fa:FAMenuFlyout>
+                <fa:MenuFlyoutItem Text="立即播放" Tag="{Binding Track}" Click="PlayTrack_Click" />
+                <fa:MenuFlyoutItem Text="添加到播放队列" Tag="{Binding Track}" Click="AddTrackToQueue_Click" />
+                <fa:MenuFlyoutItem Text="下一首播放" Tag="{Binding Track}" Click="PlayTrackNext_Click" />
+                <fa:MenuFlyoutItem Text="收藏" Tag="{Binding Track}" Click="FavoriteTrack_Click" />
+                <fa:MenuFlyoutItem Text="查看专辑" Tag="{Binding Track}" Click="ViewTrackAlbum_Click" />
+              </fa:FAMenuFlyout>
+            </Grid.ContextFlyout>
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="42" />
               <ColumnDefinition Width="1.7*" />

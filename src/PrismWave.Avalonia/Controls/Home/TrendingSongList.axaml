@@ -1,5 +1,6 @@
 ﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fa="using:FluentAvalonia.UI.Controls"
              xmlns:media="using:PrismWave.Avalonia.Controls.Media"
              x:Class="PrismWave.Avalonia.Controls.Home.TrendingSongList"
              x:Name="TrendingRoot">
@@ -94,13 +95,13 @@
                   BorderThickness="0"
                   Click="MoreButton_Click">
                 <TextBlock Text="&#xE712;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                <Button.ContextMenu>
-                  <ContextMenu>
-                    <MenuItem Header="播放" Tag="{Binding}" Click="PlayMenuItem_Click" />
-                    <MenuItem Header="添加到库" Tag="{Binding}" Click="AddToLibraryMenuItem_Click" />
-                    <MenuItem Header="收藏" Tag="{Binding}" Click="FavoriteMenuItem_Click" />
-                  </ContextMenu>
-                </Button.ContextMenu>
+                <Button.ContextFlyout>
+                  <fa:FAMenuFlyout>
+                    <fa:MenuFlyoutItem Text="播放" Tag="{Binding}" Click="PlayMenuItem_Click" />
+                    <fa:MenuFlyoutItem Text="添加到库" Tag="{Binding}" Click="AddToLibraryMenuItem_Click" />
+                    <fa:MenuFlyoutItem Text="收藏" Tag="{Binding}" Click="FavoriteMenuItem_Click" />
+                  </fa:FAMenuFlyout>
+                </Button.ContextFlyout>
               </Button>
             </Grid>
           </DataTemplate>
@@ -181,13 +182,13 @@
                   Background="Transparent"
                   BorderThickness="0"
                   Click="MoreButton_Click">
-                <Button.ContextMenu>
-                  <ContextMenu>
-                    <MenuItem Header="播放" Tag="{Binding}" Click="PlayMenuItem_Click" />
-                    <MenuItem Header="添加到库" Tag="{Binding}" Click="AddToLibraryMenuItem_Click" />
-                    <MenuItem Header="收藏" Tag="{Binding}" Click="FavoriteMenuItem_Click" />
-                  </ContextMenu>
-                </Button.ContextMenu>
+                <Button.ContextFlyout>
+                  <fa:FAMenuFlyout>
+                    <fa:MenuFlyoutItem Text="播放" Tag="{Binding}" Click="PlayMenuItem_Click" />
+                    <fa:MenuFlyoutItem Text="添加到库" Tag="{Binding}" Click="AddToLibraryMenuItem_Click" />
+                    <fa:MenuFlyoutItem Text="收藏" Tag="{Binding}" Click="FavoriteMenuItem_Click" />
+                  </fa:FAMenuFlyout>
+                </Button.ContextFlyout>
                 <TextBlock Text="&#xE712;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
               </Button>
             </Grid>

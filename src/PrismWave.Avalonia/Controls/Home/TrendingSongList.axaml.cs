@@ -139,13 +139,13 @@ public sealed partial class TrendingSongList : UserControl
     {
         if (sender is Button button)
         {
-            button.ContextMenu?.Open(button);
+            (button.ContextFlyout as FluentAvalonia.UI.Controls.FAMenuFlyout)?.ShowAt(button);
         }
     }
 
     private void PlayMenuItem_Click(object? sender, RoutedEventArgs e)
     {
-        if ((sender as MenuItem)?.Tag is RankedTrackItem { Track: { } track } &&
+        if ((sender as FluentAvalonia.UI.Controls.MenuFlyoutItem)?.Tag is RankedTrackItem { Track: { } track } &&
             PlayCommand?.CanExecute(track) != false)
         {
             PlayCommand?.Execute(track);
@@ -154,7 +154,7 @@ public sealed partial class TrendingSongList : UserControl
 
     private void AddToLibraryMenuItem_Click(object? sender, RoutedEventArgs e)
     {
-        if ((sender as MenuItem)?.Tag is RankedTrackItem { Track: { } track })
+        if ((sender as FluentAvalonia.UI.Controls.MenuFlyoutItem)?.Tag is RankedTrackItem { Track: { } track })
         {
             _ = App.Services.LibraryService.AddOnlineTrackAsync(ToTrackModel(track));
         }
@@ -162,7 +162,7 @@ public sealed partial class TrendingSongList : UserControl
 
     private void FavoriteMenuItem_Click(object? sender, RoutedEventArgs e)
     {
-        if ((sender as MenuItem)?.Tag is RankedTrackItem { Track: { } track })
+        if ((sender as FluentAvalonia.UI.Controls.MenuFlyoutItem)?.Tag is RankedTrackItem { Track: { } track })
         {
             _ = App.Services.LibraryService.ToggleFavoriteAsync(ToTrackModel(track));
         }

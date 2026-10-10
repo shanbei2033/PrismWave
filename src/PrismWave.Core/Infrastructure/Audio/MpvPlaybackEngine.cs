@@ -51,6 +51,7 @@ public sealed class MpvPlaybackEngine : IPlaybackEngine
         SetOption("msg-level", "all=v");
         SetOption("cache-secs", "12");
         SetOption("cache-on-disk", "no");
+        SetOption("network-timeout", "20");
         SetOption("audio-client-name", "PrismWave");
         ApplyOutputOptions(route, outputDevice);
 

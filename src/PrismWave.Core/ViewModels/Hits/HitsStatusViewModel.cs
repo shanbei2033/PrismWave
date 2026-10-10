@@ -182,8 +182,12 @@ public sealed partial class HitsStatusViewModel : ObservableObject
     public string PlaybackOffsetLabel => $"Live +{TimeSpan.FromSeconds(Math.Max(0, PlaybackOffsetSeconds)):mm\\:ss}";
     public string CacheLabel => UsingCache ? "Cached schedule" : "Live schedule";
     public bool IsLive => IsSessionActive && IsAvailable && !IsPaused && CurrentTrack is not null;
-    public bool ShowLiveDot => IsLive;
+    public bool ShowLiveDot => IsLive && !_playbackSession.IsLoading;
     public bool IsConnecting => IsRefreshing || _isResynchronizing;
+    public bool IsSessionBuffering => IsSessionActive && _playbackSession.IsLoading;
+    public string? SessionError => IsSessionActive ? _playbackSession.Error : null;
+    public bool HasSessionError => !string.IsNullOrWhiteSpace(SessionError);
+    public bool ShowConnectingIndicator => IsConnecting || IsSessionBuffering;
     public bool CanToggleLivePlayback => IsSessionActive && IsAvailable && CurrentTrack is not null && !IsConnecting;
     public string BroadcastStateLabel => IsPaused
         ? "PAUSED"
@@ -332,6 +336,10 @@ public sealed partial class HitsStatusViewModel : ObservableObject
     {
         ApplyPendingSeek();
         OnPropertyChanged(nameof(IsSessionActive));
+        OnPropertyChanged(nameof(IsSessionBuffering));
+        OnPropertyChanged(nameof(SessionError));
+        OnPropertyChanged(nameof(HasSessionError));
+        OnPropertyChanged(nameof(ShowConnectingIndicator));
         NotifyPresentationStateChanged();
     }
 

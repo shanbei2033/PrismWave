@@ -129,9 +129,9 @@ public partial class ShellPage : UserControl
     private void Shell_NavigationRequested(object? sender, ShellNavigationRequest request)
     {
         SyncSelection(request.Route);
-        if (request.Route == "FullPlay")
+        if (request.Route is "FullPlay" or "Hits")
         {
-            ShowFullPlay();
+            ShowImmersive(request.Route);
             return;
         }
 
@@ -139,9 +139,12 @@ public partial class ShellPage : UserControl
         ShowRoute(request.Route);
     }
 
-    private void ShowFullPlay()
+    private void ShowImmersive(string route)
     {
-        FullPlayHost.Content = new Views.Player.FullPlayPage();
+        // 对齐 WinUI：FullPlay/HITS 均为沉浸式全屏路由，覆盖侧栏与底部播放栏。
+        FullPlayHost.Content = route == "Hits"
+            ? new Views.Hits.HitsStatusPage()
+            : new Views.Player.FullPlayPage();
         FullPlayOverlay.IsVisible = true;
         FullPlayOverlay.IsHitTestVisible = true;
         if (FullPlayHost.Content is Control content)
@@ -197,6 +200,12 @@ public partial class ShellPage : UserControl
 
     private void ShowRoute(string route)
     {
+        if (route is "FullPlay" or "Hits")
+        {
+            ShowImmersive(route);
+            return;
+        }
+
         var page = RoutePageFactory.Create(route);
         ContentHost.Content = page;
         PlayEnterTransition(page);

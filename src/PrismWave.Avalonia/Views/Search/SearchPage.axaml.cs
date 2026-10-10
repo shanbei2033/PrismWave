@@ -40,7 +40,7 @@ public sealed partial class SearchPage : UserControl
 
     private void RemoveHistory_Click(object? sender, RoutedEventArgs e)
     {
-        if ((sender as MenuItem)?.Tag is string value)
+        if ((sender as FluentAvalonia.UI.Controls.MenuFlyoutItem)?.Tag is string value)
         {
             App.Services.Search.RemoveHistoryCommand.Execute(value);
         }
@@ -74,9 +74,19 @@ public sealed partial class SearchPage : UserControl
 
     private void ResultMoreButton_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button button)
+        if (sender is not Button button)
         {
-            button.ContextMenu?.Open(button);
+            return;
+        }
+
+        // 菜单挂在行 Grid 的 ContextFlyout 上（与右键共用同一实例），锚定按钮弹出。
+        for (var parent = button.Parent as Control; parent is not null; parent = parent.Parent as Control)
+        {
+            if (parent.ContextFlyout is FluentAvalonia.UI.Controls.FAMenuFlyout flyout)
+            {
+                flyout.ShowAt(button);
+                return;
+            }
         }
     }
 
@@ -149,7 +159,7 @@ public sealed partial class SearchPage : UserControl
     }
 
     private static SearchResultModel? GetResult(object? sender) =>
-        (sender as MenuItem)?.Tag as SearchResultModel;
+        (sender as FluentAvalonia.UI.Controls.MenuFlyoutItem)?.Tag as SearchResultModel;
 
     private static void ExecuteResultCommand(object? sender, System.Windows.Input.ICommand command)
     {

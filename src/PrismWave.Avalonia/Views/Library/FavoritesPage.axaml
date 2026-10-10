@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fa="using:FluentAvalonia.UI.Controls"
              xmlns:media="using:PrismWave.Avalonia.Controls.Media"
              x:Class="PrismWave.Avalonia.Views.Library.FavoritesPage">
   <Grid Margin="{StaticResource PrismPagePadding}" RowSpacing="14">
@@ -41,14 +42,14 @@
         <ListBox.ItemTemplate>
           <DataTemplate>
             <Grid Margin="12,6" ColumnSpacing="12" MinHeight="56" Tag="{Binding}" DoubleTapped="TrackRow_DoubleTapped">
-              <Grid.ContextMenu>
-                <ContextMenu>
-                  <MenuItem Header="立即播放" Tag="{Binding}" Click="PlayTrack_Click" />
-                  <MenuItem Header="添加到播放队列" Tag="{Binding}" Click="AddTrackToQueue_Click" />
-                  <MenuItem Header="下一首播放" Tag="{Binding}" Click="PlayTrackNext_Click" />
-                  <MenuItem Header="取消收藏" Tag="{Binding}" Click="Favorite_Click" />
-                </ContextMenu>
-              </Grid.ContextMenu>
+              <Grid.ContextFlyout>
+                <fa:FAMenuFlyout>
+                  <fa:MenuFlyoutItem Text="立即播放" Tag="{Binding}" Click="PlayTrack_Click" />
+                  <fa:MenuFlyoutItem Text="添加到播放队列" Tag="{Binding}" Click="AddTrackToQueue_Click" />
+                  <fa:MenuFlyoutItem Text="下一首播放" Tag="{Binding}" Click="PlayTrackNext_Click" />
+                  <fa:MenuFlyoutItem Text="取消收藏" Tag="{Binding}" Click="Favorite_Click" />
+                </fa:FAMenuFlyout>
+              </Grid.ContextFlyout>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="56" />
                 <ColumnDefinition Width="1.6*" />

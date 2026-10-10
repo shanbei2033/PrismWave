@@ -26,6 +26,30 @@ public partial class AlbumsPage : UserControl
         AlbumGrid.SelectedIndex = -1;
     }
 
+    private void PlayAlbum_Click(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as Control)?.Tag is AlbumModel album)
+        {
+            App.Services.Albums.PlayAlbumCommand.Execute(album);
+        }
+    }
+
+    private void AddAlbumToQueue_Click(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as Control)?.Tag is AlbumModel album)
+        {
+            App.Services.Albums.AddAlbumToQueueCommand.Execute(album);
+        }
+    }
+
+    private void FavoriteAlbum_Click(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as Control)?.Tag is AlbumModel album)
+        {
+            App.Services.Albums.ToggleAlbumFavoriteCommand.Execute(album);
+        }
+    }
+
     private void ViewAlbumArtist_Click(object? sender, RoutedEventArgs e)
     {
         if ((sender as Control)?.Tag is AlbumModel album && !string.IsNullOrEmpty(album.Artist))

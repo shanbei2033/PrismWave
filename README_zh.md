@@ -5,97 +5,90 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"></a>
   <a href="https://github.com/shanbei2033/PrismWave/releases"><img src="https://img.shields.io/badge/release-v1.0.3-blue" alt="Release"></a>
   <a href="https://dotnet.microsoft.com"><img src="https://img.shields.io/badge/.NET-10-blue" alt=".NET"></a>
+  <a href="https://avaloniaui.net"><img src="https://img.shields.io/badge/Avalonia-11-blueviolet" alt="Avalonia"></a>
 </div>
 
 [English README](./README.md)
 
-PrismWave 是一款基于 **WinUI 3 和 .NET 10** 的原生 Windows 11 音乐播放器。
-支持真实本地曲库管理、在线推荐、FullPlay 歌词舞台、DSD HiFi 播放，以及可配置的 Windows 11 材质（纯色/云母/亚克力）。
+PrismWave 是一款基于 **Avalonia 11 + Skia 和 .NET 10** 的跨平台音乐播放器，当前面向 Windows。
+支持真实本地曲库管理、在线推荐、沉浸式全屏歌词舞台、DSD HiFi 播放；服务层抽离为 UI 无关的 `PrismWave.Core`，可跨 UI 框架复用。
 
-## WinUI 版本
+## 分支说明
 
-默认开发分支是 [`WinUI`](https://github.com/shanbei2033/PrismWave/tree/WinUI)。
-该分支是当前主要的原生实现，包含：
-
-- WinUI 3 桌面外壳与沉浸式 FullPlay
-- 支持元数据和封面回退的真实递归本地曲库扫描
-- MPV、WASAPI 共享和 WASAPI 独占播放路径
-- 在线音源故障转移与短期磁盘音频缓存
-- 自动歌词，以及可用时的 QQ QRC / 网易云 YRC 逐字时间轴
-- 播放队列、右键操作、封面替换和返回状态保留
-- 经典纯色、浅色 Windows 11 云母和亚克力外观切换
-- 在线歌曲可从搜索页和首页添加到库与收藏
-
-## 最新版本：v1.0.3
-
-本次发布带来多项体验改进和新功能：
-
-- 修复单曲循环模式下歌曲播放完成后无法重新播放的问题
-- 修复切换歌曲时进度条滑块未归位的问题
-- 移除库页面的"更多选项"按钮，改为右键上下文菜单
-- 收藏按钮统一无边框样式，更简洁
-- 修复播放在线歌曲时收藏按钮灰色不可用的问题
-- 搜索结果和首页趋势歌曲支持"添加到库"
-- 在线歌曲加入库后持久保存，rescan 后不丢失
-- 增强 migu、酷狗、太合的音源解析（添加 gdstudio 兜底）
-
-下载请前往 [v1.0.3 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.3)。
+- [`main`](https://github.com/shanbei2033/PrismWave/tree/main) — **默认开发分支**，Avalonia 版本（由 WinUI 3 重写而来，复用同一服务层）
+- [`WinUI`](https://github.com/shanbei2033/PrismWave/tree/WinUI) — 旧版原生 WinUI 3 实现，保留作行为对照，并用于下方 v1.0.3 发布
 
 ## 功能
 
-- 本地音乐库扫描与文件夹管理
+- 本地音乐库扫描与文件夹管理（TagLib# 元数据、封面回退）
 - 在线优先启动：应用启动后直接进入首页，首次打开默认启用在线模式
 - 在线首页：TOP100 今日趋势、应用内刷新推荐、新专辑、热门歌曲，以及本地/在线统一搜索
+  - 节目单与推荐由 [prismwave-hits](https://github.com/shanbei2033/prismwave-hits) 仓库生成
 - 音乐库 / 专辑 / 艺术家 / 我最爱 视图，支持拖拽排序与右键上下文菜单
-- 底部播放栏 + 全屏播放页
+- 底部播放栏 + 沉浸式全屏播放页，自绘歌词舞台（平滑滚动、卡拉OK逐字揭示、手动浏览自动回位）
+- 歌词：本地歌词、在线自动匹配、在线搜索与缓存、逐字歌词、QQ QRC 解码、网易云 YRC
 - 播放队列，支持拖拽排序与在线音源按需恢复
 - 播放模式：列表循环、单曲循环、随机播放
-- 音频输出模式：兼容模式、WASAPI 共享、WASAPI 独占
-- 歌词：本地歌词、在线自动匹配、在线搜索与缓存、逐字歌词、QQ QRC 解码
+- 音频输出模式：兼容模式、WASAPI 共享、WASAPI 独占（libmpv）
 - HITS 广播模式：基于节目单的在线播放，10 个音源 provider，封面与歌词缓存，预加载
-  - HITS 节目单由 [prismwave-hits](https://github.com/shanbei2033/prismwave-hits) 仓库生成
 - 在线歌曲可从搜索页和首页添加到库与收藏
 - 开发者模式：实时播放日志窗口与本地日志文件
 
 ## 技术栈
 
-- WinUI 3 / Windows App SDK
+- Avalonia 11 + FluentAvalonia（UI）
+- Skia（自绘：歌词舞台、封面圆角）
 - C# / .NET 10
-- Win2D 与 Windows Composition
+- CommunityToolkit.Mvvm
+- PrismWave.Core — UI 无关的共享服务层（音频、歌词、在线 provider、持久化）
 - libmpv，支持 WASAPI 共享 / 独占路由
 - TagLib# 本地元数据读取
-- Windows Desktop
 
 ## 项目结构
 
 ```text
 PrismWave/
-  src/PrismWave.WinUI/   原生 WinUI 应用
-  tests/                 WinUI 回归测试
-  native/                原生库（libmpv、BASS/DSD）
-  tools/                 构建工具
+  src/PrismWave.Core/       UI 无关的共享服务与 ViewModel
+  src/PrismWave.Avalonia/   Avalonia UI 应用（主线）
+  src/PrismWave.WinUI/      旧版 WinUI 3 应用（对照）
+  tests/                    回归测试（458 项，针对 Core）
+  native/                   原生库（libmpv、BASS/DSD）
+  tools/                    构建工具
 ```
 
-## 运行（WinUI）
+## 运行
 
 ```powershell
 git checkout main
-dotnet run --project src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64
+dotnet run --project src/PrismWave.Avalonia/PrismWave.Avalonia.csproj
 ```
 
-## 构建（WinUI）
+## 构建与测试
 
 ```powershell
 git checkout main
-dotnet build src/PrismWave.WinUI/PrismWave.WinUI.csproj -p:Platform=x64 --no-restore
-dotnet test tests/PrismWave.WinUI.Tests/PrismWave.WinUI.Tests.csproj --no-restore
+dotnet build src/PrismWave.Avalonia/PrismWave.Avalonia.csproj
+dotnet test tests/PrismWave.WinUI.Tests/PrismWave.WinUI.Tests.csproj
 ```
 
-原生输出位于 `src/PrismWave.WinUI/bin/x64/`。
+## 最新版本：v1.0.3（WinUI 版）
+
+最新的安装包发布基于 WinUI 版本：
+
+- 修复单曲循环模式下歌曲播放完成后无法重新播放的问题
+- 修复切换歌曲时进度条滑块未归位的问题
+- 库页面"更多选项"按钮改为右键上下文菜单
+- 收藏按钮统一无边框样式，更简洁
+- 修复播放在线歌曲时收藏按钮灰色不可用的问题
+- 搜索结果和首页趋势歌曲支持"添加到库"
+- 增强 migu、酷狗、太合的音源解析（添加 gdstudio 兜底）
+
+下载请前往 [v1.0.3 Release 页面](https://github.com/shanbei2033/PrismWave/releases/tag/v1.0.3)。
+Avalonia 版本将在重写全面验证后发布。
 
 ## 音频说明
 
-WinUI 播放后端直接使用 libmpv，支持 WASAPI 路由。
+播放后端直接使用 libmpv，支持 WASAPI 路由。
 
 Windows 下可用的输出模式：
 

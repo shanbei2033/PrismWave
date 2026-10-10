@@ -66,3 +66,15 @@
   3. StableCoverImage 重构生命周期：pending 淡入完成后提升为 current 并 Dispose 旧位图（任何时刻最多 2 张常驻）；共享 static HttpClient；解码按 `DecodeMaxEdge`（默认 1600）等比降采样后再释放原图。修复切歌闪烁。
 - 修复中回归与纠正：`LoadBitmapAsync` 在后台线程读 StyledProperty（`DecodeMaxEdge`）触发 "Call from invalid thread" 导致全部封面加载失败——改为 UI 线程先捕获值再传参。
 - 验证：全屏页真实网络封面（bôa/Twilight 等）圆角正常、歌词左对齐列表状、高亮行清晰、换歌无闪烁；5 次换歌内存 246→274→278→250→304MB 有波动但可回落（GC 正常回收，对比修复前单调泄漏）；458 项测试通过。
+
+## P4-2 歌词仍错乱（真因：变换矩阵顺序颠倒）+ 验证截图被裁剪 — 已修复（2026-10-10 第三轮）
+
+- 现象（用户二次反馈）：歌词仍挤向窗口顶部、中心下方的行出现在活动行上方，看不到完整歌词列表；且指出此前验证截图位置有问题（被裁剪），结论无效。
+- 根因（第二轮修复只治标）：
+  1. **真正根因**：[LyricsStage.cs](../../src/PrismWave.Avalonia/Controls/Lyrics/LyricsStage.cs) `DrawLine` 的 `PushTransform` 矩阵顺序颠倒。Avalonia `Matrix` 为**行向量约定**（`p' = p × M1 × M2`，M1 先作用），"关于锚点缩放"必须写 `T(-锚点) × S × T(+锚点)`；原代码顺序写反 → 实际缩放关于 `(-HorizontalPadding, -centerY)`，非活动行 `scale=0.7` 时 Y 被压为 `0.7y`，视口中心下方的行全部跑到活动行上方、挤向窗口原点，呈"错位/堆叠"状。
+  2. **验证管道假象**：DPI-unaware 的 PowerShell（虚拟 `SM_CXSCREEN=1368`）经 `GetWindowRect` 拿到的是虚拟化坐标（1368x872），而 `PrintWindow(PW_RENDERFULLCONTENT)` 对 PMv2 感知进程输出的是**物理表面**（2736x1744）；位图按逻辑尺寸分配只截到左上角 1/4——既造成早期"整页 2x 渲染"误判，也造成"截图看不到完整歌词列表"。
+- 修复：
+  1. `DrawLine` 矩阵改为 `CreateTranslation(-HorizontalPadding, -centerY) * CreateScale(s, s) * CreateTranslation(HorizontalPadding, centerY)`（缩放锚定左缘中点）。
+  2. 截图脚本位图按物理尺寸 `(w*2, h*2)` 分配，拿到完整 2736x1744 表面后再裁剪歌词区。
+- 排除项：歌词数据本身有序（逐秒转储确认时间戳单调递增）；[LyricsSceneController.cs](../../src/PrismWave.Core/Infrastructure/Lyrics/LyricsSceneController.cs) 场景状态正确（bounds 单调、active/scroll/centers 全对）；截图中的"重复副歌行"是歌词本身的重复结构。`RenderTargetBitmap` 自截图对含自定义 DrawingContext 绘制的页面输出全黑，不可作为验证手段。
+- 验证：物理尺寸 PrintWindow 抓全窗口 → 歌词区确认均匀行距、左对齐同一起点、活动行白色放大居中、行序符合歌曲结构；458 项测试通过。

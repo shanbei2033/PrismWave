@@ -168,11 +168,12 @@ public sealed class LyricsStage : Control
         double centerY)
     {
         var origin = new Point(HorizontalPadding, centerY - (entry.Height / 2));
-        // 左对齐列表：缩放锚点取行左缘，避免缩放时行左右漂移。
+        // 行内缩放锚定左缘中点。Avalonia Matrix 为行向量约定（p' = p*M1*M2，M1 先作用），
+        // 因此"先平移 -锚点、缩放、再平移 +锚点"才是关于锚点缩放；顺序写反会把内容拉向窗口原点。
         using var transformPush = context.PushTransform(
-            Matrix.CreateTranslation(HorizontalPadding, centerY)
+            Matrix.CreateTranslation(-HorizontalPadding, -centerY)
             * Matrix.CreateScale(visual.Scale, visual.Scale)
-            * Matrix.CreateTranslation(-HorizontalPadding, -centerY));
+            * Matrix.CreateTranslation(HorizontalPadding, centerY));
         using var opacityPush = context.PushOpacity(visual.Opacity);
         context.DrawText(entry.Base, origin);
         if (visual.KaraokeProgress > 0 && visual.Activation > 0.001)

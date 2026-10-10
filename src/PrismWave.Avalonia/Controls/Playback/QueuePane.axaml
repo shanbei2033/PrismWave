@@ -113,7 +113,8 @@
                           Width="48"
                           Height="48"
                           SourcePath="{Binding CoverPath}"
-                          Stretch="UniformToFill" />
+                          Stretch="UniformToFill"
+                          CornerRadius="7" />
                     </Panel>
                   </Border>
 

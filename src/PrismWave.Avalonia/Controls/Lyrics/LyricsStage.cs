@@ -168,19 +168,19 @@ public sealed class LyricsStage : Control
         double centerY)
     {
         var origin = new Point(HorizontalPadding, centerY - (entry.Height / 2));
+        // 左对齐列表：缩放锚点取行左缘，避免缩放时行左右漂移。
         using var transformPush = context.PushTransform(
-            Matrix.CreateTranslation(viewportWidth / 2, centerY)
+            Matrix.CreateTranslation(HorizontalPadding, centerY)
             * Matrix.CreateScale(visual.Scale, visual.Scale)
-            * Matrix.CreateTranslation(-viewportWidth / 2, -centerY));
+            * Matrix.CreateTranslation(-HorizontalPadding, -centerY));
         using var opacityPush = context.PushOpacity(visual.Opacity);
         context.DrawText(entry.Base, origin);
         if (visual.KaraokeProgress > 0 && visual.Activation > 0.001)
         {
             var progress = Math.Clamp(visual.KaraokeProgress, 0, 1);
-            var textLeft = HorizontalPadding + ((entry.LayoutWidth - entry.Width) / 2);
             var revealWidth = Math.Max(0, entry.Width * progress);
             using var clipPush = context.PushClip(
-                new Rect(textLeft, origin.Y, revealWidth, entry.Height + 2));
+                new Rect(HorizontalPadding, origin.Y, revealWidth, entry.Height + 2));
             context.DrawText(entry.Highlight, origin);
         }
     }
@@ -230,7 +230,7 @@ public sealed class LyricsStage : Control
             LyricsSceneController.CurrentFontSize,
             brush);
         formatted.MaxTextWidth = layoutWidth;
-        formatted.TextAlignment = TextAlignment.Center;
+        formatted.TextAlignment = TextAlignment.Left;
         return formatted;
     }
 

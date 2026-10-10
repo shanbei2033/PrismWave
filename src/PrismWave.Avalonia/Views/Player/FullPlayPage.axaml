@@ -27,7 +27,7 @@
             <Panel Width="420" Height="420">
               <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="88"
                          Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-              <media:StableCoverImage SourcePath="{Binding CurrentCoverPath}" Stretch="UniformToFill" />
+              <media:StableCoverImage SourcePath="{Binding CurrentCoverPath}" Stretch="UniformToFill" CornerRadius="14" />
             </Panel>
           </Border>
         </Viewbox>

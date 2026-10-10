@@ -48,7 +48,7 @@
                   Foreground="{StaticResource PrismTextSecondaryBrush}"
                   HorizontalAlignment="Center"
                   VerticalAlignment="Center" />
-              <media:StableCoverImage SourcePath="{Binding CurrentCoverPath}" Stretch="UniformToFill" />
+              <media:StableCoverImage SourcePath="{Binding CurrentCoverPath}" Stretch="UniformToFill" CornerRadius="9" />
             </Panel>
           </Border>
 

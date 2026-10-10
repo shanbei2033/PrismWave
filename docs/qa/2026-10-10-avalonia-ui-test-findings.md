@@ -52,3 +52,17 @@
 ## 已知非阻塞项（沿用重写收尾记录）
 
 - 非活动歌词行无模糊、卡拉OK 整行 clip 非逐字、封面双击搜封面（CoverSearchDialog）未做。
+
+## P4-1 全屏播放页歌词错位/封面直角/动画卡顿/内存过高 — 已修复（2026-10-10 第二轮）
+
+- 现象（用户实测反馈）：①歌词各行居中对齐导致左缘参差错落，非列表状；②全屏页大封面及各处封面无圆角；③动画卡顿不流畅；④内存占用过高。
+- 根因：
+  1. 歌词舞台 [LyricsStage.cs](../../src/PrismWave.Avalonia/Controls/Lyrics/LyricsStage.cs) 沿用 WinUI 的 `TextAlignment.Center`（居中对齐，长短行左缘参差）。
+  2. Avalonia `Border.CornerRadius` **不裁剪子内容**（与 WinUI 行为不同），封面图溢出直角。
+  3. [StableCoverImage.cs](../../src/PrismWave.Avalonia/Controls/Media/StableCoverImage.cs) 存在**位图泄漏**：旧 Bitmap 从不 Dispose（切歌每张泄漏约 36MB 全尺寸位图，单调增长不回落）；每次加载 new HttpClient；切换时 pending 被移除会瞬间露出第一张封面（闪烁）。
+- 修复：
+  1. LyricsStage 改 `TextAlignment.Left` 左对齐列表状；缩放锚点从水平中心改为左缘（缩放时行不漂移）；karaoke clip 起点同步调整。滚动动画本就存在（LyricsSceneController 0.32s EaseInOutCubic 插值）。
+  2. StableCoverImage 新增 `CornerRadius` 属性（StreamGeometry 圆角矩形 Clip）；15 处使用面（FullPlay/TrendingSongList/TrendingBanner×5/Albums/Favorites/Library/Search/TopPlaylist/AlbumDetail×2/QueuePane/BottomPlayerBar/EditorialFeature/HitsStatus）按各自 Border 圆角值设置。
+  3. StableCoverImage 重构生命周期：pending 淡入完成后提升为 current 并 Dispose 旧位图（任何时刻最多 2 张常驻）；共享 static HttpClient；解码按 `DecodeMaxEdge`（默认 1600）等比降采样后再释放原图。修复切歌闪烁。
+- 修复中回归与纠正：`LoadBitmapAsync` 在后台线程读 StyledProperty（`DecodeMaxEdge`）触发 "Call from invalid thread" 导致全部封面加载失败——改为 UI 线程先捕获值再传参。
+- 验证：全屏页真实网络封面（bôa/Twilight 等）圆角正常、歌词左对齐列表状、高亮行清晰、换歌无闪烁；5 次换歌内存 246→274→278→250→304MB 有波动但可回落（GC 正常回收，对比修复前单调泄漏）；458 项测试通过。

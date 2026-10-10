@@ -56,7 +56,7 @@
                   CornerRadius="6">
                 <Grid>
                   <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="18" Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                  <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" />
+                  <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" CornerRadius="6" />
                 </Grid>
               </Border>
               <StackPanel
@@ -144,7 +144,7 @@
                   CornerRadius="6">
                 <Grid>
                   <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="18" Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                  <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" />
+                  <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" CornerRadius="6" />
                 </Grid>
               </Border>
               <StackPanel

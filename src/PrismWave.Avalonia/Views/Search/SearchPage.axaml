@@ -112,7 +112,7 @@
                         IsHitTestVisible="False"
                         IsVisible="{Binding IsCurrent}" />
                     <Border Width="46" Height="46" CornerRadius="7" Background="{StaticResource PrismSurfaceStrongBrush}">
-                      <media:StableCoverImage SourcePath="{Binding Result.CoverPath}" Stretch="UniformToFill" />
+                      <media:StableCoverImage SourcePath="{Binding Result.CoverPath}" Stretch="UniformToFill" CornerRadius="7" />
                     </Border>
                     <TextBlock
                         Grid.Column="1"

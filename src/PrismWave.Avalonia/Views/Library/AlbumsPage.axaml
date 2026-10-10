@@ -45,7 +45,7 @@
                 <RowDefinition Height="Auto" />
               </Grid.RowDefinitions>
               <Border CornerRadius="9" Background="{StaticResource PrismSurfaceStrongBrush}" Height="158" ClipToBounds="True">
-                <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" />
+                <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" CornerRadius="9" />
               </Border>
               <TextBlock
                   Grid.Row="1"

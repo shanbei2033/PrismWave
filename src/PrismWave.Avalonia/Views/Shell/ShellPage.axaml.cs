@@ -25,7 +25,15 @@ public partial class ShellPage : UserControl
             : 240d;
 
     private bool _isShellLoaded;
+    private readonly Dictionary<string, Control> _pageCache = new(StringComparer.Ordinal);
     private ShellViewModel Shell => App.Services.Shell;
+
+    /// <summary>
+    /// 固定主路由的页面实例缓存：页面仅是视图（VM 为启动单例），缓存后切换页面免 XAML 重实例化。
+    /// 嵌套路由（详情页，带路由参数）与沉浸路由（FullPlay/Hits，需重新加载歌词）不缓存。
+    /// </summary>
+    private static bool IsCacheableRoute(string route) =>
+        route is "Home" or "Search" or "Library" or "Albums" or "Artists" or "Favorites" or "Settings";
 
     public ShellPage()
     {
@@ -206,7 +214,15 @@ public partial class ShellPage : UserControl
             return;
         }
 
-        var page = RoutePageFactory.Create(route);
+        if (!_pageCache.TryGetValue(route, out var page))
+        {
+            page = RoutePageFactory.Create(route);
+            if (IsCacheableRoute(route))
+            {
+                _pageCache[route] = page;
+            }
+        }
+
         ContentHost.Content = page;
         PlayEnterTransition(page);
     }

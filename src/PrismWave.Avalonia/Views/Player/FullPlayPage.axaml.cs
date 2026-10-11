@@ -19,12 +19,16 @@ public sealed partial class FullPlayPage : UserControl
 {
     private const double LyricsReturnSeconds = 4;
 
+    /// <summary>进入转场（MotionNormal=240ms）的收尾余量：歌词布局延迟到转场后，避免转场首帧被文本 shaping 阻塞。</summary>
+    private const int TransitionSettleMilliseconds = 280;
+
     private static readonly Regex PartialLyricsOffsetPattern = new(
         @"^[+-]?\d+(?:\.\d?)?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private readonly ObservableCollection<LyricsSearchResultModel> _lyricsSearchResults = new();
     private DispatcherTimer? _lyricsReturnTimer;
+    private int _deferredLyricsLoadRevision;
     private bool _lyricsRefreshScheduled;
     private bool _areLyricsToolsExpanded;
     private Flyout? LyricsSearchFlyout => LyricsSearchToolButton.Flyout as Flyout;
@@ -53,7 +57,22 @@ public sealed partial class FullPlayPage : UserControl
             _lyricsReturnTimer.Stop();
             LyricsStageHost.EndManualBrowse();
         };
-        RefreshLyricsStage(LyricsPositionUpdateKind.TrackChanged);
+
+        // 歌词全量文本布局成本高（每行 2 个 FormattedText），延迟到进入转场结束后执行。
+        var deferredRevision = ++_deferredLyricsLoadRevision;
+        var settleTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(TransitionSettleMilliseconds)
+        };
+        settleTimer.Tick += (_, _) =>
+        {
+            settleTimer.Stop();
+            if (deferredRevision == _deferredLyricsLoadRevision && IsLoaded)
+            {
+                RefreshLyricsStage(LyricsPositionUpdateKind.TrackChanged);
+            }
+        };
+        settleTimer.Start();
     }
 
     private void FullPlayPage_Unloaded(object? sender, RoutedEventArgs e)

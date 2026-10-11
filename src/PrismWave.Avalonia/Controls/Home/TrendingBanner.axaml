@@ -14,6 +14,7 @@
           Height="220"
           VerticalAlignment="Top"
           SourcePath="{Binding #BannerRoot.BackdropUrl}"
+          DecodeMaxEdge="1280"
           Stretch="UniformToFill"
           Opacity="0.28"
           CornerRadius="12" />
@@ -111,7 +112,7 @@
             </Border.RenderTransform>
             <Grid>
               <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="28" Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-              <media:StableCoverImage SourcePath="{Binding #BannerRoot.CoverOneUrl}" Stretch="UniformToFill" CornerRadius="10" />
+              <media:StableCoverImage SourcePath="{Binding #BannerRoot.CoverOneUrl}" Stretch="UniformToFill" CornerRadius="10" DecodeMaxEdge="512" />
             </Grid>
           </Border>
           <Border
@@ -129,7 +130,7 @@
             </Border.RenderTransform>
             <Grid>
               <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="28" Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-              <media:StableCoverImage SourcePath="{Binding #BannerRoot.CoverTwoUrl}" Stretch="UniformToFill" CornerRadius="10" />
+              <media:StableCoverImage SourcePath="{Binding #BannerRoot.CoverTwoUrl}" Stretch="UniformToFill" CornerRadius="10" DecodeMaxEdge="512" />
             </Grid>
           </Border>
           <Border
@@ -147,7 +148,7 @@
             </Border.RenderTransform>
             <Grid>
               <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="30" Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-              <media:StableCoverImage SourcePath="{Binding #BannerRoot.CoverThreeUrl}" Stretch="UniformToFill" CornerRadius="10" />
+              <media:StableCoverImage SourcePath="{Binding #BannerRoot.CoverThreeUrl}" Stretch="UniformToFill" CornerRadius="10" DecodeMaxEdge="512" />
             </Grid>
           </Border>
           <Border
@@ -164,7 +165,7 @@
             </Border.RenderTransform>
             <Grid>
               <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="34" Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-              <media:StableCoverImage SourcePath="{Binding #BannerRoot.CoverFourUrl}" Stretch="UniformToFill" CornerRadius="10" />
+              <media:StableCoverImage SourcePath="{Binding #BannerRoot.CoverFourUrl}" Stretch="UniformToFill" CornerRadius="10" DecodeMaxEdge="512" />
             </Grid>
           </Border>
         </Grid>

@@ -3,9 +3,7 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Media;
-using Avalonia.Threading;
 using PrismWave_WinUI.Infrastructure.Lyrics;
 using PrismWave_WinUI.Models;
 
@@ -23,51 +21,50 @@ public sealed class LyricsManualBrowseChangedEventArgs(bool isManualBrowsing) : 
 
 /// <summary>
 /// 歌词舞台：Avalonia 自绘（对齐 WinUI LyricsStageControl 的场景行为）。
-/// 复用 Core 的 LyricsSceneController 场景状态机；非活动行用低透明度近似高斯模糊。
+/// 复用 Core 的 LyricsSceneController 场景状态机；每行为一个 LyricsLinePresenter 子视觉，
+/// 非活动行通过预渲染模糊位图交叉淡化实现模糊（Avalonia 11.3 无内建 BlurEffect），
+/// 模糊度/透明度/缩放随状态机插值平滑衔接。
+/// 帧循环用 TopLevel.RequestAnimationFrame 对齐显示器刷新率。
 /// </summary>
-public sealed class LyricsStage : Control
+public sealed class LyricsStage : Panel
 {
     private const double HorizontalPadding = 28d;
-    private const double LineGap = 28d;
-    private const double MinimumLineHeight = 68d;
+    private const double LineGap = 14d;
+    private const double MinimumLineHeight = 72d;
     private const double DragThreshold = 5d;
-    private const double FrameIntervalMilliseconds = 16;
 
     private static readonly Typeface LineTypeface =
-        new("Segoe UI Variable Display,Segoe UI", FontStyle.Normal, FontWeight.SemiBold);
+        new("Segoe UI Variable Display,Segoe UI", FontStyle.Normal, FontWeight.Bold);
 
-    private static readonly IBrush BaseBrush = new SolidColorBrush(Color.FromRgb(136, 136, 136));
+    private static readonly IBrush BaseBrush = new SolidColorBrush(Color.FromRgb(0xA8, 0xA8, 0xB0));
     private static readonly IBrush HighlightBrush = Brushes.White;
 
     private readonly LyricsSceneController _scene = new();
     private readonly Stopwatch _clock = new();
     private readonly List<LyricsLayoutEntry> _layoutCache = [];
-    private readonly DispatcherTimer _renderTimer;
+    private readonly List<LyricsLinePresenter> _presenters = [];
     private IReadOnlyList<LyricLineModel> _lyrics = Array.Empty<LyricLineModel>();
     private double _layoutWidth = -1;
     private bool _isDragging;
     private bool _dragExceededThreshold;
+    private bool _frameScheduled;
     private Point _pointerPressedAt;
     private Point _lastPointerPosition;
 
     public LyricsStage()
     {
         Focusable = false;
-        _renderTimer = new DispatcherTimer(DispatcherPriority.Render)
-        {
-            Interval = TimeSpan.FromMilliseconds(FrameIntervalMilliseconds)
-        };
-        _renderTimer.Tick += RenderTimer_Tick;
         PointerWheelChanged += OnPointerWheelChanged;
         PointerPressed += OnPointerPressed;
         PointerMoved += OnPointerMoved;
         PointerReleased += OnPointerReleased;
         PointerCaptureLost += OnPointerCaptureLost;
         LayoutUpdated += (_, _) => RebuildLayoutCache();
-        DetachedFromVisualTree += (_, _) => StopRenderLoop();
+        DetachedFromVisualTree += (_, _) => _frameScheduled = false;
     }
 
     public event EventHandler<LyricsLineInvokedEventArgs>? LyricInvoked;
+
     public event EventHandler<LyricsManualBrowseChangedEventArgs>? ManualBrowseChanged;
 
     public bool IsManualBrowsing => _scene.IsManualBrowsing;
@@ -79,7 +76,6 @@ public sealed class LyricsStage : Control
         // 先清缓存，避免渲染帧按旧行数访问新 bounds 数组越界
         DisposeLayoutCache();
         RebuildLayoutCache();
-        InvalidateVisual();
     }
 
     public void UpdatePlaybackSample(
@@ -95,7 +91,6 @@ public sealed class LyricsStage : Control
             _clock.Elapsed.TotalSeconds,
             Bounds.Height);
         EnsureRenderLoop();
-        InvalidateVisual();
     }
 
     public void SetManualBrowsing(bool isManualBrowsing)
@@ -121,68 +116,74 @@ public sealed class LyricsStage : Control
         _scene.EndManualBrowse(_clock.Elapsed.TotalSeconds, Bounds.Height);
         ManualBrowseChanged?.Invoke(this, new LyricsManualBrowseChangedEventArgs(false));
         EnsureRenderLoop();
-        InvalidateVisual();
+        UpdateVisuals();
     }
 
     protected override Size MeasureOverride(Size availableSize)
     {
         var width = double.IsFinite(availableSize.Width) ? availableSize.Width : 0;
         var height = double.IsFinite(availableSize.Height) ? availableSize.Height : 0;
+        var childConstraint = new Size(Math.Max(0, width - (HorizontalPadding * 2)), height);
+        foreach (var child in Children)
+        {
+            child.Measure(childConstraint);
+        }
+
         return new Size(width, height);
     }
 
-    public override void Render(DrawingContext context)
+    /// <summary>行 Presenter 统一排布在左内边距处（缩放关于本地 (0,0)，左缘对齐不随 scale 漂移）。</summary>
+    protected override Size ArrangeOverride(Size finalSize)
     {
-        if (_layoutCache.Count == 0)
+        var childRect = new Rect(
+            HorizontalPadding,
+            0,
+            Math.Max(0, finalSize.Width - (HorizontalPadding * 2)),
+            finalSize.Height);
+        foreach (var child in Children)
+        {
+            child.Arrange(childRect);
+        }
+
+        return finalSize;
+    }
+
+    /// <summary>逐帧把场景状态应用到行 Presenter（定位/缩放/透明度/模糊/卡拉OK），替代整体自绘。</summary>
+    private void UpdateVisuals()
+    {
+        if (_presenters.Count == 0)
         {
             return;
         }
 
-        var viewportWidth = Math.Max(1, Bounds.Width);
         var viewportHeight = Math.Max(1, Bounds.Height);
-        for (var index = 0; index < _layoutCache.Count; index++)
+        for (var index = 0; index < _presenters.Count; index++)
         {
             if (index >= _scene.LineCount)
             {
-                break;
+                _presenters[index].IsVisible = false;
+                continue;
             }
 
+            var presenter = _presenters[index];
             var bounds = _scene.GetLineBounds(index);
             var centerY = (viewportHeight / 2) + (bounds.Center - _scene.ScrollOffset);
             var visual = _scene.GetLineVisualState(index);
             var visibleHalfHeight = (bounds.Height * visual.Scale / 2) + 32;
             if (centerY + visibleHalfHeight < 0 || centerY - visibleHalfHeight > viewportHeight)
             {
+                presenter.IsVisible = false;
                 continue;
             }
 
-            DrawLine(context, _layoutCache[index], visual, viewportWidth, centerY);
-        }
-    }
-
-    private void DrawLine(
-        DrawingContext context,
-        LyricsLayoutEntry entry,
-        LyricsLineVisualState visual,
-        double viewportWidth,
-        double centerY)
-    {
-        var origin = new Point(HorizontalPadding, centerY - (entry.Height / 2));
-        // 行内缩放锚定左缘中点。Avalonia Matrix 为行向量约定（p' = p*M1*M2，M1 先作用），
-        // 因此"先平移 -锚点、缩放、再平移 +锚点"才是关于锚点缩放；顺序写反会把内容拉向窗口原点。
-        using var transformPush = context.PushTransform(
-            Matrix.CreateTranslation(-HorizontalPadding, -centerY)
-            * Matrix.CreateScale(visual.Scale, visual.Scale)
-            * Matrix.CreateTranslation(HorizontalPadding, centerY));
-        using var opacityPush = context.PushOpacity(visual.Opacity);
-        context.DrawText(entry.Base, origin);
-        if (visual.KaraokeProgress > 0 && visual.Activation > 0.001)
-        {
-            var progress = Math.Clamp(visual.KaraokeProgress, 0, 1);
-            var revealWidth = Math.Max(0, entry.Width * progress);
-            using var clipPush = context.PushClip(
-                new Rect(HorizontalPadding, origin.Y, revealWidth, entry.Height + 2));
-            context.DrawText(entry.Highlight, origin);
+            presenter.IsVisible = true;
+            presenter.ApplyState(
+                centerY - (bounds.Height / 2),
+                visual.Scale,
+                visual.Opacity,
+                visual.BlurAmount,
+                visual.KaraokeProgress,
+                visual.Activation);
         }
     }
 
@@ -201,7 +202,7 @@ public sealed class LyricsStage : Control
 
         _layoutWidth = layoutWidth;
         DisposeLayoutCache();
-        var formatSize = LyricsSceneController.CurrentFontSize;
+        SyncPresenters();
         for (var index = 0; index < _lyrics.Count; index++)
         {
             var text = _lyrics[index].Text ?? string.Empty;
@@ -215,10 +216,31 @@ public sealed class LyricsStage : Control
                 highlightText,
                 layoutWidth,
                 height));
+            _presenters[index].SetContent(baseText, highlightText, height);
         }
 
         _scene.SetLineMetrics(_layoutCache.Select(entry => entry.Height).ToArray(), LineGap);
-        InvalidateVisual();
+        UpdateVisuals();
+    }
+
+    private void SyncPresenters()
+    {
+        foreach (var extra in _presenters.Skip(_lyrics.Count))
+        {
+            Children.Remove(extra);
+        }
+
+        if (_presenters.Count > _lyrics.Count)
+        {
+            _presenters.RemoveRange(_lyrics.Count, _presenters.Count - _lyrics.Count);
+        }
+
+        while (_presenters.Count < _lyrics.Count)
+        {
+            var presenter = new LyricsLinePresenter();
+            _presenters.Add(presenter);
+            Children.Add(presenter);
+        }
     }
 
     private static FormattedText CreateFormattedText(string text, double layoutWidth, IBrush brush)
@@ -246,7 +268,7 @@ public sealed class LyricsStage : Control
         _scene.ScrollBy(-delta * 38, Bounds.Height);
         NotifyManualBrowseInteraction();
         EnsureRenderLoop();
-        InvalidateVisual();
+        UpdateVisuals();
         e.Handled = true;
     }
 
@@ -283,7 +305,7 @@ public sealed class LyricsStage : Control
         {
             _scene.ScrollBy(_lastPointerPosition.Y - position.Y, Bounds.Height);
             NotifyManualBrowseInteraction();
-            InvalidateVisual();
+            UpdateVisuals();
         }
 
         _lastPointerPosition = position;
@@ -328,34 +350,40 @@ public sealed class LyricsStage : Control
     {
         _scene.BeginManualBrowse();
         NotifyManualBrowseInteraction();
-        InvalidateVisual();
+        UpdateVisuals();
     }
 
     private void NotifyManualBrowseInteraction() =>
         ManualBrowseChanged?.Invoke(this, new LyricsManualBrowseChangedEventArgs(true));
 
+    /// <summary>用 RequestAnimationFrame 驱动帧循环，对齐显示器刷新率（替代 16ms Timer 的 60fps 上限）。</summary>
     private void EnsureRenderLoop()
     {
-        if (_renderTimer.IsEnabled || !_scene.NeedsFrames)
+        if (_frameScheduled || !_scene.NeedsFrames)
         {
+            UpdateVisuals();
             return;
         }
 
-        _renderTimer.Start();
-    }
-
-    private void StopRenderLoop()
-    {
-        _renderTimer.Stop();
-    }
-
-    private void RenderTimer_Tick(object? sender, EventArgs e)
-    {
-        _scene.Advance(_clock.Elapsed.TotalSeconds, Bounds.Height);
-        InvalidateVisual();
-        if (!_scene.NeedsFrames)
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is null)
         {
-            StopRenderLoop();
+            UpdateVisuals();
+            return;
+        }
+
+        _frameScheduled = true;
+        topLevel.RequestAnimationFrame(OnAnimationFrame);
+    }
+
+    private void OnAnimationFrame(TimeSpan time)
+    {
+        _frameScheduled = false;
+        _scene.Advance(_clock.Elapsed.TotalSeconds, Bounds.Height);
+        UpdateVisuals();
+        if (_scene.NeedsFrames)
+        {
+            EnsureRenderLoop();
         }
     }
 

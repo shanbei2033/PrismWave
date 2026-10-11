@@ -8,7 +8,7 @@
         <TextBlock Text="&#xE72B;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
       </Button>
       <Border Grid.Column="1" Width="96" Height="96" CornerRadius="8" Background="{StaticResource PrismSurfaceStrongBrush}">
-        <media:StableCoverImage SourcePath="{Binding SelectedAlbum.CoverUrl}" Stretch="UniformToFill" CornerRadius="8" />
+        <media:StableCoverImage SourcePath="{Binding SelectedAlbum.CoverUrl}" Stretch="UniformToFill" CornerRadius="8" DecodeMaxEdge="512" />
       </Border>
       <StackPanel Grid.Column="2" VerticalAlignment="Center">
         <TextBlock Text="{Binding SelectedAlbum.Title}" Classes="pageTitle" />
@@ -42,7 +42,7 @@
             <DataTemplate>
               <Grid Margin="8" ColumnSpacing="12" ColumnDefinitions="52,*,90,70">
                 <Border Width="52" Height="52" CornerRadius="8" Background="{StaticResource PrismSurfaceStrongBrush}">
-                  <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" CornerRadius="8" />
+                  <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" CornerRadius="8" DecodeMaxEdge="256" />
                 </Border>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                   <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />

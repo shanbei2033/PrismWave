@@ -114,7 +114,8 @@
                           Height="48"
                           SourcePath="{Binding CoverPath}"
                           Stretch="UniformToFill"
-                          CornerRadius="7" />
+                          CornerRadius="7"
+                          DecodeMaxEdge="256" />
                     </Panel>
                   </Border>
 

@@ -18,7 +18,7 @@
         CornerRadius="8">
       <Grid>
         <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="32" Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-        <media:StableCoverImage SourcePath="{Binding #EditorialRoot.FeaturedCoverUrl}" Stretch="UniformToFill" CornerRadius="8" />
+        <media:StableCoverImage SourcePath="{Binding #EditorialRoot.FeaturedCoverUrl}" Stretch="UniformToFill" CornerRadius="8" DecodeMaxEdge="512" />
       </Grid>
     </Border>
 

@@ -36,8 +36,8 @@ public sealed class LyricsSceneController
 {
     public const double NaturalTransitionSeconds = 0.320;
     public const double RapidTransitionSeconds = 0.180;
-    public const double CurrentFontSize = 34;
-    public const double InactiveFontScale = 24d / CurrentFontSize;
+    public const double CurrentFontSize = 42;
+    public const double InactiveFontScale = 30d / CurrentFontSize;
 
     private IReadOnlyList<LyricLineModel> _lines = Array.Empty<LyricLineModel>();
     private LyricsLineBounds[] _lineBounds = Array.Empty<LyricsLineBounds>();

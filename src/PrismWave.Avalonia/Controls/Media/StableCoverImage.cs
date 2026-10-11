@@ -10,7 +10,8 @@ namespace PrismWave.Avalonia.Controls.Media;
 /// <summary>
 /// 稳定封面图：加载完成后再切换源并做 180ms 淡入，避免刷新时闪烁（对齐 WinUI StableCoverImage）。
 /// 支持可选圆角裁剪（Avalonia Border.CornerRadius 不裁剪子内容，需在控件内自行 Clip）。
-/// 旧位图在切换后立即释放；解码按 DecodeMaxEdge 降采样，控制内存与 GPU 纹理占用。
+/// 位图统一由 CoverBitmapCache 持有（命中免下载/解码/淡入，容器回收与页面重建不再重复加载）；
+/// 解码按 DecodeMaxEdge 降采样，控制内存与 GPU 纹理占用。
 /// </summary>
 public sealed class StableCoverImage : Panel
 {
@@ -110,6 +111,14 @@ public sealed class StableCoverImage : Panel
 
         // StyledProperty 只能在 UI 线程读取，先捕获解码上限再进后台。
         var maxEdge = DecodeMaxEdge;
+        if (CoverBitmapCache.TryGet(source, maxEdge, out var cached) && cached is not null)
+        {
+            // 缓存命中：免下载/解码/淡入，直接切源。
+            RemoveCurrentImage();
+            _currentImage.Source = cached;
+            return;
+        }
+
         _ = LoadBitmapAsync(source, revision, maxEdge);
     }
 
@@ -148,9 +157,10 @@ public sealed class StableCoverImage : Panel
 
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            // 位图所有权移交缓存（缓存仅 UI 线程访问）；先入库再检查 revision，重复封面仍可供其他控件复用。
+            CoverBitmapCache.Put(source, maxEdge, bitmap);
             if (revision != _loadRevision)
             {
-                bitmap.Dispose();
                 return;
             }
 
@@ -238,11 +248,7 @@ public sealed class StableCoverImage : Panel
 
     private void RemoveCurrentImage()
     {
-        if (_currentImage.Source is Bitmap bitmap)
-        {
-            bitmap.Dispose();
-        }
-
+        // 位图所有权归 CoverBitmapCache，不在此 Dispose（可能仍被其他控件引用）。
         _currentImage.Source = null;
     }
 

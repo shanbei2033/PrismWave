@@ -66,8 +66,11 @@
       <!-- 搜索结果 -->
       <Grid IsVisible="{Binding HasSubmittedSearch}">
         <ScrollViewer>
-          <ItemsControl x:Name="ResultsList" ItemsSource="{Binding DisplayItems}">
-            <ItemsControl.ItemTemplate>
+          <fa:ItemsRepeater x:Name="ResultsList" ItemsSource="{Binding DisplayItems}">
+            <fa:ItemsRepeater.Layout>
+              <fa:StackLayout Spacing="0" />
+            </fa:ItemsRepeater.Layout>
+            <fa:ItemsRepeater.ItemTemplate>
               <DataTemplate>
                 <Grid>
                   <TextBlock
@@ -112,7 +115,7 @@
                         IsHitTestVisible="False"
                         IsVisible="{Binding IsCurrent}" />
                     <Border Width="46" Height="46" CornerRadius="7" Background="{StaticResource PrismSurfaceStrongBrush}">
-                      <media:StableCoverImage SourcePath="{Binding Result.CoverPath}" Stretch="UniformToFill" CornerRadius="7" />
+                      <media:StableCoverImage SourcePath="{Binding Result.CoverPath}" Stretch="UniformToFill" CornerRadius="7" DecodeMaxEdge="256" />
                     </Border>
                     <TextBlock
                         Grid.Column="1"
@@ -184,8 +187,8 @@
                   </StackPanel>
                 </Grid>
               </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
+            </fa:ItemsRepeater.ItemTemplate>
+          </fa:ItemsRepeater>
         </ScrollViewer>
 
         <StackPanel

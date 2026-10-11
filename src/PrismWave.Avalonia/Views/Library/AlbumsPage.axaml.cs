@@ -15,15 +15,13 @@ public partial class AlbumsPage : UserControl
         DataContext = App.Services.Albums;
     }
 
-    private void Albums_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void Album_Tapped(object? sender, RoutedEventArgs e)
     {
-        if (e.AddedItems.Count > 0 && e.AddedItems[0] is AlbumModel album)
+        if ((sender as Control)?.Tag is AlbumModel album)
         {
             Vm.SelectAlbumCommand.Execute(album);
             App.Services.Shell.NavigateCommand.Execute("LocalAlbumDetail");
         }
-
-        AlbumGrid.SelectedIndex = -1;
     }
 
     private void PlayAlbum_Click(object? sender, RoutedEventArgs e)

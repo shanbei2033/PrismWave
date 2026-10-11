@@ -36,7 +36,7 @@
           <DataTemplate>
             <Grid Margin="8" ColumnSpacing="12" ColumnDefinitions="52,*,180,90,70">
               <Border Width="52" Height="52" CornerRadius="8" Background="{StaticResource PrismSurfaceStrongBrush}">
-                <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" CornerRadius="8" />
+                <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" CornerRadius="8" DecodeMaxEdge="256" />
               </Border>
               <StackPanel Grid.Column="1" VerticalAlignment="Center">
                 <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />

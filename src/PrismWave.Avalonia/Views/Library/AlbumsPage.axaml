@@ -17,52 +17,56 @@
         Text="{Binding SearchQuery, Mode=TwoWay}" />
 
     <Grid Grid.Row="2">
-      <ListBox
-          x:Name="AlbumGrid"
-          ItemsSource="{Binding FilteredAlbums}"
-          SelectionMode="Single"
-          SelectionChanged="Albums_SelectionChanged"
-          Background="Transparent">
-        <ListBox.ItemsPanel>
-          <ItemsPanelTemplate>
-            <WrapPanel Orientation="Horizontal" />
-          </ItemsPanelTemplate>
-        </ListBox.ItemsPanel>
-        <ListBox.ItemTemplate>
-          <DataTemplate>
-            <Grid Width="168" Margin="0,0,14,18" RowSpacing="7">
-              <Grid.ContextFlyout>
-                <fa:FAMenuFlyout>
-                  <fa:MenuFlyoutItem Text="播放全部" Tag="{Binding}" Click="PlayAlbum_Click" />
-                  <fa:MenuFlyoutItem Text="添加到播放队列" Tag="{Binding}" Click="AddAlbumToQueue_Click" />
-                  <fa:MenuFlyoutItem Text="收藏专辑歌曲" Tag="{Binding}" Click="FavoriteAlbum_Click" />
-                  <fa:MenuFlyoutItem Text="查看艺术家" Tag="{Binding}" Click="ViewAlbumArtist_Click" />
-                </fa:FAMenuFlyout>
-              </Grid.ContextFlyout>
-              <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-              </Grid.RowDefinitions>
-              <Border CornerRadius="9" Background="{StaticResource PrismSurfaceStrongBrush}" Height="158" ClipToBounds="True">
-                <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" CornerRadius="9" />
-              </Border>
-              <TextBlock
-                  Grid.Row="1"
-                  Text="{Binding Title}"
-                  FontWeight="SemiBold"
-                  TextTrimming="CharacterEllipsis"
-                  MaxLines="1"
-                  Foreground="{StaticResource PrismTextPrimaryBrush}" />
-              <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="5">
-                <TextBlock Text="{Binding TrackCount}" Classes="caption" />
-                <TextBlock Text="首 ·" Classes="caption" />
-                <TextBlock Text="{Binding Artist}" TextTrimming="CharacterEllipsis" Classes="caption" />
-              </StackPanel>
-            </Grid>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
+      <ScrollViewer>
+        <fa:ItemsRepeater ItemsSource="{Binding FilteredAlbums}">
+          <fa:ItemsRepeater.Layout>
+            <fa:UniformGridLayout
+                MinItemWidth="168"
+                MinItemHeight="216"
+                MinColumnSpacing="14"
+                MinRowSpacing="18" />
+          </fa:ItemsRepeater.Layout>
+          <fa:ItemsRepeater.ItemTemplate>
+            <DataTemplate>
+              <Grid
+                  Width="168"
+                  Height="216"
+                  RowSpacing="7"
+                  Tag="{Binding}"
+                  Tapped="Album_Tapped">
+                <Grid.ContextFlyout>
+                  <fa:FAMenuFlyout>
+                    <fa:MenuFlyoutItem Text="播放全部" Tag="{Binding}" Click="PlayAlbum_Click" />
+                    <fa:MenuFlyoutItem Text="添加到播放队列" Tag="{Binding}" Click="AddAlbumToQueue_Click" />
+                    <fa:MenuFlyoutItem Text="收藏专辑歌曲" Tag="{Binding}" Click="FavoriteAlbum_Click" />
+                    <fa:MenuFlyoutItem Text="查看艺术家" Tag="{Binding}" Click="ViewAlbumArtist_Click" />
+                  </fa:FAMenuFlyout>
+                </Grid.ContextFlyout>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Border CornerRadius="9" Background="{StaticResource PrismSurfaceStrongBrush}" Height="158" ClipToBounds="True">
+                  <media:StableCoverImage SourcePath="{Binding CoverUrl}" Stretch="UniformToFill" CornerRadius="9" DecodeMaxEdge="320" />
+                </Border>
+                <TextBlock
+                    Grid.Row="1"
+                    Text="{Binding Title}"
+                    FontWeight="SemiBold"
+                    TextTrimming="CharacterEllipsis"
+                    MaxLines="1"
+                    Foreground="{StaticResource PrismTextPrimaryBrush}" />
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="5">
+                  <TextBlock Text="{Binding TrackCount}" Classes="caption" />
+                  <TextBlock Text="首 ·" Classes="caption" />
+                  <TextBlock Text="{Binding Artist}" TextTrimming="CharacterEllipsis" Classes="caption" />
+                </StackPanel>
+              </Grid>
+            </DataTemplate>
+          </fa:ItemsRepeater.ItemTemplate>
+        </fa:ItemsRepeater>
+      </ScrollViewer>
 
       <StackPanel
           HorizontalAlignment="Center"

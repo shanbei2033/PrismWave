@@ -9,6 +9,7 @@
       <media:StableCoverImage
           SourcePath="{Binding CurrentCoverPath}"
           Stretch="UniformToFill"
+          DecodeMaxEdge="1280"
           Opacity="0.28"
           RenderTransformOrigin="0.5,0.5">
         <media:StableCoverImage.RenderTransform>
@@ -46,7 +47,7 @@
             <Panel Width="300" Height="300">
               <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="96"
                          Opacity="0.42" HorizontalAlignment="Center" VerticalAlignment="Center" />
-              <media:StableCoverImage SourcePath="{Binding CurrentCoverPath}" Stretch="UniformToFill" CornerRadius="26" />
+              <media:StableCoverImage SourcePath="{Binding CurrentCoverPath}" Stretch="UniformToFill" CornerRadius="26" DecodeMaxEdge="512" />
             </Panel>
           </Border>
         </Button>

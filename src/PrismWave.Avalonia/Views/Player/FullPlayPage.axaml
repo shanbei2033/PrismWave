@@ -12,7 +12,7 @@
           Stretch="UniformToFill"
           DecodeMaxEdge="1280"
           Opacity="0.34"
-          RenderTransformOrigin="0.5,0.5">
+          RenderTransformOrigin="50%,50%">
         <media:StableCoverImage.RenderTransform>
           <ScaleTransform ScaleX="1.12" ScaleY="1.12" />
         </media:StableCoverImage.RenderTransform>
@@ -24,7 +24,9 @@
       <!-- 左列：播放器 -->
       <Grid RowDefinitions="*,Auto,Auto,Auto,Auto,*" RowSpacing="14" MaxWidth="520" HorizontalAlignment="Center">
         <Viewbox Grid.Row="1" MaxWidth="420" MaxHeight="420" Margin="0,0,0,4" Stretch="Uniform">
-          <Border Width="420" Height="420" Background="{StaticResource PrismSurfaceStrongBrush}" CornerRadius="14">
+          <Border x:Name="FullPlayCover" Width="420" Height="420" Background="{StaticResource PrismSurfaceStrongBrush}"
+                  CornerRadius="14" DoubleTapped="FullPlayCover_DoubleTapped" Cursor="Hand"
+                  RenderTransformOrigin="50%,50%">
             <Panel Width="420" Height="420">
               <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="88"
                          Foreground="{StaticResource PrismTextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />

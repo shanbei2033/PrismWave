@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fa="using:FluentAvalonia.UI.Controls"
+             xmlns:media="using:PrismWave.Avalonia.Controls.Media"
+             x:Class="PrismWave.Avalonia.Views.Dialogs.CoverSearchDialog">
+  <!-- 对齐 WinUI 版 CoverSearchDialog：搜索框 + 状态行 + 结果网格，点击结果应用封面 -->
+  <Grid Width="500" RowDefinitions="Auto,Auto,*" RowSpacing="12">
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+      <TextBox x:Name="QueryBox" Text="{Binding Query, Mode=TwoWay}"
+               Watermark="Track, artist or album" KeyDown="QueryBox_KeyDown" />
+      <Button Grid.Column="1" Command="{Binding SearchCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <TextBlock Text="&#xE721;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center" />
+          <TextBlock Text="Search" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+    </Grid>
+
+    <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="8">
+      <fa:ProgressRing Width="18" Height="18" IsActive="{Binding IsSearching}" />
+      <TextBlock Grid.Column="1" Text="{Binding Status}" Classes="caption"
+                 VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+    </Grid>
+
+    <ScrollViewer Grid.Row="2" MinHeight="320" MaxHeight="430">
+      <ItemsControl ItemsSource="{Binding Results}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Button Width="158" Margin="4" Padding="6" Background="Transparent" BorderThickness="0"
+                    HorizontalContentAlignment="Stretch" HorizontalAlignment="Left"
+                    Command="{Binding $parent[ItemsControl].DataContext.SelectResultCommand}"
+                    CommandParameter="{Binding}">
+              <StackPanel Spacing="8">
+                <Border Height="142" Background="{StaticResource PrismSurfaceStrongBrush}" CornerRadius="8">
+                  <media:StableCoverImage SourcePath="{Binding ThumbnailUrl}" Stretch="UniformToFill" CornerRadius="8" DecodeMaxEdge="300" />
+                </Border>
+                <TextBlock Text="{Binding DisplayTitle}" FontWeight="SemiBold"
+                           Foreground="{StaticResource PrismTextPrimaryBrush}"
+                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                  <TextBlock Text="{Binding Artist}" Classes="caption" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="1" Text="{Binding SourceLabel}" Classes="caption" />
+                </Grid>
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

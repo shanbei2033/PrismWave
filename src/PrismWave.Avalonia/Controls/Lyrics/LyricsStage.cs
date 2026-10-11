@@ -29,8 +29,8 @@ public sealed class LyricsManualBrowseChangedEventArgs(bool isManualBrowsing) : 
 public sealed class LyricsStage : Panel
 {
     private const double HorizontalPadding = 28d;
-    private const double LineGap = 14d;
-    private const double MinimumLineHeight = 72d;
+    private const double LineGap = 2d;
+    private const double MinimumLineHeight = 52d;
     private const double DragThreshold = 5d;
 
     private static readonly Typeface LineTypeface =
@@ -54,6 +54,9 @@ public sealed class LyricsStage : Panel
     public LyricsStage()
     {
         Focusable = false;
+        // Background 为 null 的 Panel 不参与命中测试，滚轮/拖动/点击事件会穿透到宿主 Grid；
+        // 对齐 WinUI 版根节点 <Grid Background="Transparent">，必须显式设透明刷。
+        Background = Brushes.Transparent;
         PointerWheelChanged += OnPointerWheelChanged;
         PointerPressed += OnPointerPressed;
         PointerMoved += OnPointerMoved;
@@ -209,7 +212,7 @@ public sealed class LyricsStage : Panel
             var baseText = CreateFormattedText(text, layoutWidth, BaseBrush);
             var highlightText = CreateFormattedText(text, layoutWidth, HighlightBrush);
             var contentHeight = Math.Max(baseText.Height, highlightText.Height);
-            var height = Math.Max(MinimumLineHeight, contentHeight + 16);
+            var height = Math.Max(MinimumLineHeight, contentHeight + 4);
             _layoutCache.Add(new LyricsLayoutEntry(
                 text,
                 baseText,

@@ -11,9 +11,9 @@ namespace PrismWave.Avalonia.Controls.Lyrics;
 /// <summary>
 /// 单行歌词渲染器：持有该行的 base/highlight FormattedText，绘制当前行内容与卡拉OK揭示。
 /// 由 LyricsStage 持有为子视觉并逐帧定位。
-/// 非活动行模糊：文本先离屏渲染为位图，再对 premultiplied BGRA 做可分离盒式模糊
-/// （3 次迭代近似高斯），得到平滑弥散的模糊位图；之后每帧只是一次 blit，
-/// 与清晰文本按 blurMix 互补透明度交叉淡化。每行仅构建一次，内容变化时重建。
+/// 非活动行模糊对齐 WinUI 版结构：文本离屏渲染为位图后做真高斯核分离卷积
+/// （σ=1.9 DIP 对齐 WinUI BlurAmount 最大档），渲染时模糊底上叠 18% 清晰文本；
+/// 与清晰层按 blurMix 交叉淡化。每行仅构建一次，内容变化时重建。
 /// IsHitTestVisible 恒为 false，指针交互统一由 LyricsStage 处理。
 /// </summary>
 public sealed class LyricsLinePresenter : Control
@@ -23,18 +23,16 @@ public sealed class LyricsLinePresenter : Control
     /// 若低于场景最小值，相邻行会残留部分清晰文本叠在雾上，观感即"运动模糊"（锐核+拖影）。</summary>
     private const double MaxBlurAmount = 1.0;
 
-    /// <summary>降采样倍数：先缩小→小图模糊→双线性放大。放大插值天然抹掉盒式核的方形痕迹，
-    /// 产生各向同性的均匀晕开（雾状弥散），避免大图盒式模糊的水平拖影感；计算量也降为 1/N²。</summary>
-    private const int DownsampleFactor = 4;
+    /// <summary>模糊高斯 σ（DIP，1px=1DIP 位图内即物理像素）：视觉模糊强度直接对应此值。
+    /// 对齐 WinUI 版 GaussianBlurEffect 的 BlurAmount 最大档 1.9（用户验证后的最终选择）。</summary>
+    private const double BlurSigma = 1.9;
 
-    /// <summary>小图上的盒式模糊半径：降采样 4x + 2 次迭代 r=3 ≈ 原尺寸高斯 σ≈11。</summary>
-    private const int SmallBlurRadius = 3;
+    /// <summary>模糊位图外扩边距（≥3σ≈6），避免高斯尾部被位图边缘截断发暗。</summary>
+    private const int BlurPadding = 8;
 
-    /// <summary>小图盒式模糊迭代次数。</summary>
-    private const int SmallBlurPasses = 2;
-
-    /// <summary>模糊位图外扩边距（≥3σ≈33），避免弥散尾部被位图边缘截断。</summary>
-    private const int BlurPadding = 36;
+    /// <summary>模糊底图上叠加的清晰文本不透明度，对齐 WinUI CrispOverlayOpacity：
+    /// 稳态非活动行 = 模糊底 + 微清晰顶，保留字形轮廓感。</summary>
+    private const double CrispOverlayOpacity = 0.18;
 
     private FormattedText? _baseText;
     private FormattedText? _highlightText;
@@ -121,6 +119,7 @@ public sealed class LyricsLinePresenter : Control
 
             if (_blurredBitmap is { } blurred)
             {
+                // 位图为 96 DPI、1px=1DIP，按像素尺寸 1:1 blit，与清晰文本精确对位
                 using var opacityPush = context.PushOpacity(_blurMix);
                 context.DrawImage(blurred, new Rect(
                     -BlurPadding,
@@ -128,6 +127,9 @@ public sealed class LyricsLinePresenter : Control
                     blurred.PixelSize.Width,
                     blurred.PixelSize.Height));
             }
+
+            // 对齐 WinUI CrispOverlayOpacity：模糊底上叠微清晰顶，保留字形轮廓感。
+            DrawSharp(context, CrispOverlayOpacity);
         }
     }
 
@@ -139,15 +141,18 @@ public sealed class LyricsLinePresenter : Control
         {
             var progress = Math.Clamp(_karaokeProgress, 0, 1);
             var revealWidth = Math.Max(0, _baseText.Width * progress);
+            // 高亮白字随 activation 单独衰减：转场期 outgoing 行 progress 定格时
+            // 白字快速淡出（灰底保留），避免与新活动行同时全白（两行同亮）。
+            using var highlightPush = context.PushOpacity(opacity * Math.Clamp(_activation, 0, 1));
             using var clipPush = context.PushClip(new Rect(0, 0, revealWidth, LineHeight + 2));
             context.DrawText(_highlightText!, new Point(0, 0));
         }
     }
 
     /// <summary>
-    /// 均匀晕开的雾状模糊（降采样管线）：文本离屏渲染 → 拷出 premultiplied BGRA →
-    /// box 平均降采样 4x → 小图 2 次可分离盒式模糊 → 双线性放大回原尺寸 → 写回 WriteableBitmap。
-    /// 多级核卷积（box 平均 × 盒式 × 双线性）等效高斯且各向同性，无方向性拖影。
+    /// 对齐 WinUI 版的模糊结构：文本离屏渲染 → 拷出 premultiplied BGRA →
+    /// 真高斯核分离卷积（水平+垂直，σ=1.9 DIP）→ 写回 WriteableBitmap。
+    /// 稳态渲染时模糊底图上再叠 18% 清晰文本（CrispOverlayOpacity），保留字形轮廓感。
     /// </summary>
     private void BuildBlurredBitmap()
     {
@@ -157,6 +162,7 @@ public sealed class LyricsLinePresenter : Control
             return;
         }
 
+        // 位图 96 DPI、1px=1DIP：与 FormattedText 的 DIP 布局同空间，blit 1:1 对位
         var width = Math.Max(1, (int)Math.Ceiling(_baseText.Width)) + BlurPadding * 2;
         var height = Math.Max(1, (int)Math.Ceiling(LineHeight)) + BlurPadding * 2;
         using var source = new RenderTargetBitmap(new PixelSize(width, height));
@@ -176,44 +182,24 @@ public sealed class LyricsLinePresenter : Control
             handle.Free();
         }
 
-        // 1) box 平均降采样到小图（premultiplied 空间的线性运算，各通道独立合法）
-        var smallWidth = Math.Max(1, width / DownsampleFactor);
-        var smallHeight = Math.Max(1, height / DownsampleFactor);
+        // 1) premultiplied 空间各通道展开为 float 平面（线性运算，各通道独立合法）
+        var pixelCount = width * height;
         var planes = new float[4][];
-        var scratch = new float[smallWidth * smallHeight];
+        var scratch = new float[pixelCount];
         for (var channel = 0; channel < 4; channel++)
         {
-            var plane = new float[smallWidth * smallHeight];
-            for (var sy = 0; sy < smallHeight; sy++)
+            var plane = new float[pixelCount];
+            for (var i = 0; i < pixelCount; i++)
             {
-                for (var sx = 0; sx < smallWidth; sx++)
-                {
-                    var x0 = sx * DownsampleFactor;
-                    var y0 = sy * DownsampleFactor;
-                    var x1 = Math.Min(width, x0 + DownsampleFactor);
-                    var y1 = Math.Min(height, y0 + DownsampleFactor);
-                    float sum = 0;
-                    var count = 0;
-                    for (var y = y0; y < y1; y++)
-                    {
-                        var row = y * width;
-                        for (var x = x0; x < x1; x++)
-                        {
-                            sum += pixels[((row + x) * 4) + channel];
-                            count++;
-                        }
-                    }
-
-                    plane[(sy * smallWidth) + sx] = sum / Math.Max(1, count);
-                }
+                plane[i] = pixels[(i * 4) + channel];
             }
 
-            // 2) 小图盒式模糊
-            BoxBlur(plane, scratch, smallWidth, smallHeight, SmallBlurRadius, SmallBlurPasses);
+            // 2) 真高斯模糊（分离两遍，σ 单位与位图像素 1:1）
+            GaussianBlur(plane, scratch, width, height, BlurSigma);
             planes[channel] = plane;
         }
 
-        // 3) 双线性放大写回原尺寸
+        // 3) 写回原尺寸 WriteableBitmap
         var bitmap = new WriteableBitmap(
             new PixelSize(width, height),
             new Vector(96, 96),
@@ -225,26 +211,13 @@ public sealed class LyricsLinePresenter : Control
             var rowBuffer = new byte[width * 4];
             for (var y = 0; y < height; y++)
             {
-                var fy = ((y + 0.5f) / DownsampleFactor) - 0.5f;
-                var sy0 = Math.Clamp((int)Math.Floor(fy), 0, smallHeight - 1);
-                var sy1 = Math.Min(sy0 + 1, smallHeight - 1);
-                var wy = Math.Clamp(fy - sy0, 0f, 1f);
+                var row = y * width;
                 for (var x = 0; x < width; x++)
                 {
-                    var fx = ((x + 0.5f) / DownsampleFactor) - 0.5f;
-                    var sx0 = Math.Clamp((int)Math.Floor(fx), 0, smallWidth - 1);
-                    var sx1 = Math.Min(sx0 + 1, smallWidth - 1);
-                    var wx = Math.Clamp(fx - sx0, 0f, 1f);
                     var offset = x * 4;
                     for (var channel = 0; channel < 4; channel++)
                     {
-                        var plane = planes[channel];
-                        var rowA = sy0 * smallWidth;
-                        var rowB = sy1 * smallWidth;
-                        var top = (plane[rowA + sx0] * (1 - wx)) + (plane[rowA + sx1] * wx);
-                        var bottom = (plane[rowB + sx0] * (1 - wx)) + (plane[rowB + sx1] * wx);
-                        rowBuffer[offset + channel] = (byte)Math.Clamp(
-                            (top * (1 - wy)) + (bottom * wy) + 0.5f, 0, 255);
+                        rowBuffer[offset + channel] = (byte)Math.Clamp(planes[channel][row + x] + 0.5f, 0, 255);
                     }
                 }
 
@@ -255,17 +228,31 @@ public sealed class LyricsLinePresenter : Control
         _blurredBitmap = bitmap;
     }
 
-    /// <summary>可分离盒式模糊（水平+垂直为一次迭代），滑动窗口 O(1)/像素，边界 clamp。</summary>
-    private static void BoxBlur(float[] plane, float[] scratch, int width, int height, int radius, int passes)
+    /// <summary>真高斯模糊（可分离）：预计算一维高斯权重核（半径 3σ 截断），
+    /// 水平、垂直各卷积一遍，O(r)/像素；边界 clamp。</summary>
+    private static void GaussianBlur(float[] plane, float[] scratch, int width, int height, double sigma)
     {
-        for (var pass = 0; pass < passes; pass++)
+        var radius = Math.Max(1, (int)Math.Ceiling(sigma * 3));
+        var window = (radius * 2) + 1;
+        var kernel = new float[window];
+        var sum = 0.0;
+        for (var k = -radius; k <= radius; k++)
         {
-            BlurPass(plane, scratch, width, height, radius, horizontal: true);
-            BlurPass(scratch, plane, width, height, radius, horizontal: false);
+            var w = Math.Exp(-(k * k) / (2 * sigma * sigma));
+            kernel[k + radius] = (float)w;
+            sum += w;
         }
+
+        for (var k = 0; k < window; k++)
+        {
+            kernel[k] /= (float)sum;
+        }
+
+        ConvolvePass(plane, scratch, width, height, kernel, radius, horizontal: true);
+        ConvolvePass(scratch, plane, width, height, kernel, radius, horizontal: false);
     }
 
-    private static void BlurPass(float[] source, float[] target, int width, int height, int radius, bool horizontal)
+    private static void ConvolvePass(float[] source, float[] target, int width, int height, float[] kernel, int radius, bool horizontal)
     {
         var main = horizontal ? width : height;
         var cross = horizontal ? height : width;
@@ -273,17 +260,16 @@ public sealed class LyricsLinePresenter : Control
         for (var line = 0; line < cross; line++)
         {
             var baseIndex = line * main;
-            float sum = 0;
-            for (var k = -radius; k <= radius; k++)
-            {
-                sum += source[baseIndex + Math.Clamp(k, 0, main - 1)];
-            }
-
             for (var i = 0; i < main; i++)
             {
-                target[baseIndex + i] = sum / window;
-                sum += source[baseIndex + Math.Clamp(i + radius + 1, 0, main - 1)]
-                     - source[baseIndex + Math.Clamp(i - radius, 0, main - 1)];
+                float acc = 0;
+                for (var k = 0; k < window; k++)
+                {
+                    var sample = Math.Clamp(i + k - radius, 0, main - 1);
+                    acc += kernel[k] * source[baseIndex + sample];
+                }
+
+                target[baseIndex + i] = acc;
             }
         }
     }

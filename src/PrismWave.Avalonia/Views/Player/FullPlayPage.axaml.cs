@@ -4,11 +4,16 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using PrismWave.Avalonia.Controls.Lyrics;
+using PrismWave.Avalonia.Views.Dialogs;
 using PrismWave_WinUI.Infrastructure.Lyrics;
 using PrismWave_WinUI.Models;
 using PrismWave_WinUI.ViewModels.Player;
@@ -22,15 +27,22 @@ public sealed partial class FullPlayPage : UserControl
     /// <summary>进入转场（MotionNormal=240ms）的收尾余量：歌词布局延迟到转场后，避免转场首帧被文本 shaping 阻塞。</summary>
     private const int TransitionSettleMilliseconds = 280;
 
+    /// <summary>封面播放/暂停缩放参数（对齐 WinUI HITS 页 AnimateCoverState）。</summary>
+    private const double CoverPausedScale = 0.93;
+    private static readonly TimeSpan CoverScaleDuration = TimeSpan.FromMilliseconds(270);
+
     private static readonly Regex PartialLyricsOffsetPattern = new(
         @"^[+-]?\d+(?:\.\d?)?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private readonly ObservableCollection<LyricsSearchResultModel> _lyricsSearchResults = new();
+    private readonly ScaleTransform _coverScale = new() { ScaleX = 1, ScaleY = 1 };
+    private Border? _coverBorder;
     private DispatcherTimer? _lyricsReturnTimer;
     private int _deferredLyricsLoadRevision;
     private bool _lyricsRefreshScheduled;
     private bool _areLyricsToolsExpanded;
+    private bool _isCoverSearchDialogOpen;
     private Flyout? LyricsSearchFlyout => LyricsSearchToolButton.Flyout as Flyout;
     private Flyout? LyricsOffsetFlyout => LyricsOffsetToolButton.Flyout as Flyout;
     private PlaybackViewModel ViewModel => App.Services.Playback;
@@ -43,10 +55,40 @@ public sealed partial class FullPlayPage : UserControl
         Unloaded += FullPlayPage_Unloaded;
     }
 
+    /// <summary>封面缩放过渡：暂停 0.93 ↔ 播放 1.0，270ms SplineEasing（对齐 WinUI HITS 页 CubicBezier(0.2,0.7)-(0.2,1)）。
+    /// 封面 Border 引用三重兜底解析（XamlIl named field / NameScope / 视觉树按 Name），
+    /// 构造期 XAML 对象树可能未完成名字注入，统一延迟到 Loaded 执行。</summary>
+    private void AttachCoverScaleTransition()
+    {
+        _coverBorder ??= FullPlayCover
+            ?? this.FindControl<Border>("FullPlayCover")
+            ?? this.GetVisualDescendants().OfType<Border>().FirstOrDefault(b => b.Name == "FullPlayCover");
+        if (_coverBorder is null)
+        {
+            return;
+        }
+
+        // Avalonia 中 Transitions 属性默认值为 null，代码创建的 Transform 必须先初始化
+        _coverScale.Transitions ??= new Transitions();
+        foreach (var property in new[] { ScaleTransform.ScaleXProperty, ScaleTransform.ScaleYProperty })
+        {
+            _coverScale.Transitions.Add(new DoubleTransition
+            {
+                Property = property,
+                Duration = CoverScaleDuration,
+                Easing = new SplineEasing(0.2, 0.7, 0.2, 1)
+            });
+        }
+
+        _coverBorder.RenderTransform = _coverScale;
+    }
+
     private void FullPlayPage_Loaded(object? sender, RoutedEventArgs e)
     {
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
         ViewModel.Lyrics.CollectionChanged += Lyrics_CollectionChanged;
+        AttachCoverScaleTransition();
+        UpdateCoverScale(ViewModel.IsPlaying);
 
         _lyricsReturnTimer = new DispatcherTimer
         {
@@ -106,6 +148,7 @@ public sealed partial class FullPlayPage : UserControl
                 EffectiveLyricsPosition,
                 ViewModel.IsPlaying,
                 LyricsPositionUpdateKind.PauseResume);
+            UpdateCoverScale(ViewModel.IsPlaying);
         }
         else if (e.PropertyName == nameof(PlaybackViewModel.PositionSeconds))
         {
@@ -149,10 +192,63 @@ public sealed partial class FullPlayPage : UserControl
         LyricsStageHost.UpdatePlaybackSample(EffectiveLyricsPosition, ViewModel.IsPlaying, updateKind);
     }
 
+    private void UpdateCoverScale(bool isPlaying)
+    {
+        if (_coverBorder is null)
+        {
+            return;
+        }
+
+        var target = isPlaying ? 1.0 : CoverPausedScale;
+        _coverScale.ScaleX = target;
+        _coverScale.ScaleY = target;
+    }
+
+    private void FullPlayCover_DoubleTapped(object? sender, TappedEventArgs e)
+    {
+        _ = ShowCoverSearchDialogAsync();
+    }
+
+    /// <summary>双击封面弹出封面搜索替换对话框（对齐 WinUI 版 CoverSearchDialog 行为）。</summary>
+    private async Task ShowCoverSearchDialogAsync()
+    {
+        if (_isCoverSearchDialogOpen || ViewModel.CurrentTrack is not { } track)
+        {
+            return;
+        }
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is null)
+        {
+            return;
+        }
+
+        _isCoverSearchDialogOpen = true;
+        try
+        {
+            var searchViewModel = new CoverSearchViewModel(App.Services.CoverService, track);
+            var dialog = new global::FluentAvalonia.UI.Controls.ContentDialog
+            {
+                Title = "替换封面",
+                CloseButtonText = "关闭",
+                Content = new CoverSearchDialog { DataContext = searchViewModel }
+            };
+            searchViewModel.CoverApplied += (_, _) => dialog.Hide();
+            await dialog.ShowAsync(topLevel);
+        }
+        finally
+        {
+            _isCoverSearchDialogOpen = false;
+        }
+    }
+
     private void LyricsStage_LyricInvoked(object? sender, LyricsLineInvokedEventArgs e)
     {
         _lyricsReturnTimer?.Stop();
         ViewModel.SeekToLyric(e.LineIndex);
+        // 跳转即结束手动浏览：否则 _isManualBrowsing 恒为 true，
+        // 场景停在浏览位置（blur=0、不再自动回中），舞台冻结。
+        LyricsStageHost.EndManualBrowse();
         LyricsStageHost.UpdatePlaybackSample(
             EffectiveLyricsPosition,
             ViewModel.IsPlaying,

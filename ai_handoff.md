@@ -1,10 +1,10 @@
 # PrismWave AI 接手文档
 
-更新时间：2026-10-11
+更新时间：2026-10-11（Avalonia 版功能补齐与歌词区修复后）
 
 **语言要求：接手 AI 必须全程使用中文与用户沟通。**
 
-本文档帮助其他 AI 快速接手 `d:\Backup\Project\PrismWave_Next` 开发（旧机器路径为 `c:\Project\PrismWave`）。项目主线为 **Avalonia 11 + Skia 跨平台音乐播放器**（由 WinUI 3 版本重写而来），服务层复用 `PrismWave.Core`。
+本文档帮助其他 AI 快速接手 `d:\Project\PrismWave` 开发（旧路径 `d:\Backup\Project\PrismWave_Next`、`c:\Project\PrismWave`）。项目主线为 **Avalonia 11 + Skia 跨平台音乐播放器**（由 WinUI 3 版本重写而来），服务层复用 `PrismWave.Core`。
 
 ---
 
@@ -28,22 +28,29 @@ Avalonia 重写 Phase 0-7 已全部完成（最终代码提交 `7d62c82` 及其�
 
 2026-10-10 第五轮（P5 系列，见 QA 文档）完成性能与歌词体验专项：主路由页面实例缓存、专辑/搜索列表虚拟化（fa:ItemsRepeater）、封面解码位图 LRU（CoverBitmapCache 128MB）、全站封面按显示尺寸降采样、FullPlay 歌词延迟加载、歌词 42px Bold + 降采样管线真模糊（均匀晕开）+ RequestAnimationFrame vsync 帧循环。
 
+2026-10-11 第六轮（歌词模糊重做 + FullPlay 功能补齐）：歌词模糊改为**原尺寸真高斯核分离卷积**（σ=1.9 对齐 WinUI BlurAmount 档位）+ 模糊底叠 18% 清晰文本（对齐 WinUI CrispOverlayOpacity），经历 σ=16（用户嫌"运动模糊"）→ σ=4（嫌太浓）→ σ=1.9 的多轮参数收敛，**但用户最终评价仍不如 WinUI 版观感，歌词模糊特性待继续修**（见"已知待优化项"）。修复歌词舞台无法滚动/点击（Background=null 不参与命中测试）；修复点击歌词跳转后浏览态卡死；修复卡拉OK双行同亮（Core duration≤0 行 progress 恒 0 + Avalonia 高亮白字透明度乘 activation 衰减）；歌词行距收紧（LineGap=2、MinimumLineHeight=52、行内余量 +4，比 WinUI 基线 28/68/+16 更紧凑，用户偏好）。补齐 FullPlay 封面功能：双击封面弹出在线封面搜索替换（新建 Avalonia 版 CoverSearchDialog，FluentAvalonia ContentDialog + Core CoverSearchViewModel，Apple/Deezer/MusicBrainz 三源）；封面播放/暂停缩放动效（0.93↔1.0，270ms SplineEasing(0.2,0.7,0.2,1)，对齐 WinUI HITS 页）。458 项测试全部通过。
+
 ### 环境准备（本机特殊配置，必读）
 
 ```powershell
-# 本机（Admin，D: 盘）：全局 dotnet 10.0.301 已就绪，直接 dotnet build/test 即可，无需 DOTNET_ROOT。
-
-# 旧机器 shanbei 配置（对照保留）：
+# 本机（d:\Project\PrismWave，用户 shanbei，非 Admin）：.NET 10 SDK 10.0.401 为用户级安装，
+# 每次 shell 会话必须先设（shell 会话间不保留）：
 # $env:DOTNET_ROOT = "$env:LOCALAPPDATA\Microsoft\dotnet"
-# git 为便携版 C:\Users\shanbei\PortableGit\cmd\git.exe
-# github.com 直连被阻断，push 需临时代理（Clash）：
+# $env:PATH = "$env:LOCALAPPDATA\Microsoft\dotnet;$env:PATH"
+#
+# git：系统 PATH 无 git，使用便携版 d:\Tools\PortableGit\cmd\git.exe（2026-10-11 为推送解压安装）。
+# 提交身份：-c user.name=shanbei2033 -c user.email=shanbei2033@users.noreply.github.com
+#
+# 旧机器 shanbei 配置（对照保留）：
+# 全局 dotnet 10.0.301；git 为便携版 C:\Users\shanbei\PortableGit\cmd\git.exe
+# github.com 直连被阻断时 push 需临时代理（Clash）：
 # git -c http.proxy=http://127.0.0.1:7897 push origin main
 ```
 
 ### 构建、测试和启动
 
 ```powershell
-# 本机直接使用（旧机器 shanbei 需先设 DOTNET_ROOT，见上节）
+# 先按上节设置 DOTNET_ROOT/PATH（本机）
 
 # 测试（基线 458 项）
 dotnet test tests\PrismWave.WinUI.Tests\PrismWave.WinUI.Tests.csproj --nologo -v q
@@ -56,6 +63,7 @@ Start-Process "src\PrismWave.Avalonia\bin\Debug\net10.0\PrismWave.Avalonia.exe"
 **强制规则：每次代码改动后都必须打开 demo 验证效果。若 demo 正在运行，先 `Get-Process PrismWave.Avalonia | Stop-Process -Force` 再重新构建启动**（旧 exe 被锁定会导致构建失败或看到旧界面）。
 
 **运行时日志**：`%LOCALAPPDATA%\PrismWave\WinUI\startup.log`
+**崩溃排查**：Windows 事件查看器 Application 日志过滤 "PrismWave"（.NET unhandled exception 带完整堆栈）。
 
 ---
 
@@ -101,6 +109,11 @@ src/PrismWave.WinUI/           旧版 WinUI 3（对照基线，不新增功能�
 
 | 坑 | 结论 |
 |----|------|
+| Avalonia RenderTransformOrigin 语法 | `"0.5,0.5"` 按**绝对像素**解析（≈左上角），相对中心必须写 `"50%,50%"`（与 WPF 0-1 惯例不同；曾致封面缩放朝左上角） |
+| Animatable.Transitions 默认 null | 代码创建的 Transform 上 `Transitions` 属性默认 null，`.Transitions.Add()` 前必须 `??= new Transitions()`（曾致进 FullPlay 页 NRE 闪退） |
+| XamlIl 对 Viewbox 内 x:Name | Viewbox 内元素的 x:Name 编译期生成字段但运行时不赋值（NRE），用 Loaded 期 `FindControl`/视觉树按 Name 兜底 |
+| CubicBezierEasing 已过时 | Avalonia 11.3 中过时且无双 Point 构造，用 `new SplineEasing(0.2, 0.7, 0.2, 1)` 替代 |
+| 200% DPI 环境 | 本机 AppliedDPI=192；位图/模糊类改动注意 DIP 语义（WinUI BlurAmount 是 DIP，D2D 按 DPI 缩放输出） |
 | Avalonia Matrix 行向量约定 | `p' = p × M1 × M2`，M1 先作用。"关于锚点 c 缩放"必须写 `T(-c) × S × T(+c)`，顺序写反会把内容拉向窗口原点（曾导致歌词全部挤向顶部） |
 | PrintWindow 截图 DPI 陷阱 | DPI-unaware PowerShell 的 `GetWindowRect` 返回虚拟化坐标（如 1368x872），但 `PrintWindow(PW_RENDERFULLCONTENT)` 输出 PMv2 进程的物理表面（2736x1744）；**位图必须按 w×2, h×2 分配**，否则只截到左上 1/4 |
 | RenderTargetBitmap 自截图 | 对含自定义 DrawingContext 绘制的页面输出全黑，不可作为 UI 验证手段；用正确尺寸的 PrintWindow |
@@ -133,11 +146,13 @@ HITS 在此基础上增加 bilibili、bilivideo、YouTube（仅兜底，强制 W
 
 | 问题 | 说明 |
 |------|------|
+| **歌词模糊特性仍需修** | 当前为原尺寸真高斯核分离卷积（σ=1.9 DIP）+ 模糊底叠 18% 清晰文本 + 96DPI 位图 1:1 blit，无方向性拖影、对位正确，但用户评价**观感不如 WinUI 版（Win2D GaussianBlurEffect GPU 实时模糊）**。可行方向：Avalonia Skia 层 GPU 高斯（ISkiaSharpApiLeaseFeature + SKImageFilter.CreateBlur）、按 blurAmount 分档多张预渲染位图（邻近 1.0/远行 1.9）、或调大 σ 与清晰顶配比；注意 96DPI 位图路径（RenderTargetBitmap 传 dpi 的 DPI 感知方案曾致文字放大错位，勿用） |
 | 卡拉OK整行 clip | 进度揭示是整行裁剪，非逐字 |
-| 封面双击搜封面 | CoverSearchDialog 未做 |
+| 封面双击搜封面 | ~~CoverSearchDialog 未做~~（2026-10-11 已完成：Avalonia 版 ContentDialog + Apple/Deezer/MusicBrainz 三源搜索替换） |
 | `IWindowService`/`IDialogService`/`IUpdateService` | 仍为占位契约（WinUI 时代遗留，按需在 Core 补齐） |
+| Avalonia 版 HITS 页封面暂停缩放 | WinUI HITS 页有 IsPaused 0.93 缩放动效，Avalonia 版 HitsStatusPage 尚未对齐（FullPlay 页已实现同款） |
 
-注：~~非活动歌词行无模糊~~（2026-10-10 P5 系列已完成，降采样管线均匀晕开）、~~HITS 封面加载慢~~（已按显示尺寸降采样）。
+注：~~非活动歌词行无模糊~~（2026-10-10 P5 系列完成降采样管线；2026-10-11 第六轮改为真高斯核，观感待进一步打磨）、~~HITS 封面加载慢~~（已按显示尺寸降采样）。
 
 ## 6. 验证与测试工作流
 

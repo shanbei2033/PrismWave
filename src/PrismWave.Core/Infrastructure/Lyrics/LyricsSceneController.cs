@@ -445,7 +445,9 @@ public sealed class LyricsSceneController
         var duration = end - start;
         if (duration <= 0)
         {
-            return positionSeconds >= start ? 1 : 0;
+            // 双行同时间戳等无有效窗口的行不做卡拉OK揭示（progress 恒 0），
+            // 否则该行瞬间满格白字，与后一行同时高亮（两行同亮）。
+            return 0;
         }
 
         var raw = Math.Clamp((positionSeconds - start) / duration, 0, 1);
